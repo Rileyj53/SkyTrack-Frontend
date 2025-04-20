@@ -24,11 +24,14 @@ export default function LoginPage() {
 
     try {
       console.log('Attempting login with:', { email })
-      console.log('API URL:', process.env.NEXT_PUBLIC_API_KEY)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_KEY}/auth/login`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') // Remove trailing slash if present
+      console.log('API URL:', apiUrl)
+      console.log('Full request URL:', `${apiUrl}/auth/login`)
+      const response = await fetch(`${apiUrl}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
         },
         body: JSON.stringify({ email, password }),
       })
