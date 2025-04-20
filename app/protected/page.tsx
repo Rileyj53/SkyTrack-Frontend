@@ -74,7 +74,7 @@ export default function ProtectedPage() {
         let token = tokenCookie ? tokenCookie.split('=')[1].trim() : null
 
         // Get CSRF token from cookie or localStorage
-        const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrfToken='))
+        const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrf-token='))
         let csrfToken = csrfCookie ? csrfCookie.split('=')[1].trim() : localStorage.getItem('csrfToken')
 
         // Fallback to localStorage if cookie is not found

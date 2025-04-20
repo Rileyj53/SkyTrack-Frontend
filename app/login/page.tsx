@@ -32,6 +32,7 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
           "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
+          "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
         },
         body: JSON.stringify({ email, password }),
       })
@@ -50,7 +51,7 @@ export default function LoginPage() {
         localStorage.setItem("csrfToken", data.csrfToken)
         // Set CSRF token cookie
         const csrfCookieOptions = [
-          `csrfToken=${data.csrfToken}`,
+          `csrf-token=${data.csrfToken}`,
           'path=/',
           'max-age=86400',
           'secure',
