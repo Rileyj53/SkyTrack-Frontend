@@ -24,7 +24,8 @@ export default function LoginPage() {
 
     try {
       console.log('Attempting login with:', { email })
-      const response = await fetch("/api/auth/login", {
+      console.log('API URL:', process.env.NEXT_PUBLIC_API_URL)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
