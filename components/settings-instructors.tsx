@@ -124,7 +124,7 @@ export function SettingsInstructors() {
       setLoading(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token) {
         toast.error("School ID or authentication token not found")
@@ -136,7 +136,7 @@ export function SettingsInstructors() {
         return
       }
 
-      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/instructors`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`
       
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -222,14 +222,14 @@ export function SettingsInstructors() {
       try {
         const schoolId = localStorage.getItem("schoolId")
         const token = localStorage.getItem("token")
-        const apiKey = process.env.API_KEY
+        const apiKey = process.env.NEXT_PUBLIC_API_KEY
         
         if (!schoolId || !token || !apiKey) {
           throw new Error("Missing required credentials")
         }
 
         const response = await fetch(
-          `${process.env.API_URL}/schools/${schoolId}/instructors`,
+          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`,
           {
             method: "POST",
             headers: {
@@ -308,7 +308,7 @@ export function SettingsInstructors() {
       try {
         const schoolId = localStorage.getItem("schoolId")
         const token = localStorage.getItem("token")
-        const apiKey = process.env.API_KEY
+        const apiKey = process.env.NEXT_PUBLIC_API_KEY
         
         if (!schoolId || !token || !apiKey) {
           throw new Error("Missing required credentials")
@@ -336,7 +336,7 @@ export function SettingsInstructors() {
         }
 
         const response = await fetch(
-          `${process.env.API_URL}/schools/${schoolId}/instructors/${editingInstructor.id}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors/${editingInstructor.id}`,
           {
             method: "PUT",
             headers: {
@@ -380,14 +380,14 @@ export function SettingsInstructors() {
       try {
         const schoolId = localStorage.getItem("schoolId")
         const token = localStorage.getItem("token")
-        const apiKey = process.env.API_KEY
+        const apiKey = process.env.NEXT_PUBLIC_API_KEY
         
         if (!schoolId || !token || !apiKey) {
           throw new Error("Missing required credentials")
         }
 
         const response = await fetch(
-          `${process.env.API_URL}/schools/${schoolId}/instructors/${deleteInstructorId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors/${deleteInstructorId}`,
           {
             method: "DELETE",
             headers: {

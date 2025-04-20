@@ -274,7 +274,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) {
         console.log('Missing required auth data')
@@ -282,7 +282,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       }
 
       console.log('Fetching school data for ID:', schoolId)
-      const response = await fetch(`${process.env.API_URL}/schools/${schoolId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -407,7 +407,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) {
         console.error("Missing required authentication:", { schoolId: !!schoolId, token: !!token, apiKey: !!apiKey })
@@ -418,7 +418,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       const today = now.toISOString().split('T')[0]
       console.log('Fetching flights for date:', today)
       
-      const url = `${process.env.API_URL}/schools/${schoolId}/flight-logs/today`
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/today`
       console.log('Fetching flights from URL:', url)
       
       const response = await fetch(url, {
@@ -481,14 +481,14 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required authentication")
       }
 
       // First get the plane data
-      const planeResponse = await fetch(`${process.env.API_URL}/schools/${schoolId}/planes/${flight.plane_id}`, {
+      const planeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${flight.plane_id}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -527,14 +527,14 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
 
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required authentication")
       }
 
       // Update plane times
-      const updateResponse = await fetch(`${process.env.API_URL}/schools/${schoolId}/planes/${selectedFlight.plane_id}`, {
+      const updateResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${selectedFlight.plane_id}`, {
         method: 'PUT',
         headers: {
           'Accept': 'application/json',
@@ -555,7 +555,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       }
 
       // Update flight log status to "In Flight"
-      const statusResponse = await fetch(`${process.env.API_URL}/schools/${schoolId}/flight-logs/${selectedFlight._id}`, {
+      const statusResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/${selectedFlight._id}`, {
         method: 'PUT',
         headers: {
           'Accept': 'application/json',
@@ -575,7 +575,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       }
 
       // Start tracking the flight
-      const trackingResponse = await fetch(`${process.env.API_URL}/track`, {
+      const trackingResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/track`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -630,11 +630,11 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) return
 
-      const response = await fetch(`${process.env.API_URL}/track?school_id=${schoolId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/track?school_id=${schoolId}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -714,13 +714,13 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
 
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required authentication")
       }
 
-      const response = await fetch(`${process.env.API_URL}/schools/${schoolId}/planes/${planeId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${planeId}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -877,9 +877,9 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       }
 
       try {
-        const response = await fetch(`${process.env.API_URL}/auth/me`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
           headers: {
-            "x-api-key": process.env.API_KEY || "",
+            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
             "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
             "Authorization": `Bearer ${token}`
           },

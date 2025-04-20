@@ -165,7 +165,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       setLoading(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token) {
         setError("School ID or authentication token not found")
@@ -179,7 +179,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      let apiUrl = `${process.env.API_URL}/schools/${schoolId}/flight-logs`
+      let apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs`
       
       // Build query parameters
       const params = new URLSearchParams()
@@ -249,7 +249,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       setLoadingStudents(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token) {
         toast.error("School ID or authentication token not found")
@@ -261,7 +261,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/students`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`
       
       console.log('Fetching students from:', apiUrl)
       
@@ -309,7 +309,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       setLoadingInstructors(true);
       const schoolId = localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
-      const apiKey = process.env.API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       
       if (!schoolId || !token) {
         toast.error("School ID or authentication token not found");
@@ -321,7 +321,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return;
       }
 
-      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/instructors`;
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`;
       
       console.log('Fetching instructors from:', apiUrl);
       
@@ -490,7 +490,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token) {
         toast.error("School ID or authentication token not found")
@@ -502,7 +502,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/flight-logs/${editedFlight._id}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/${editedFlight._id}`
       
       console.log('Updating flight log:', apiUrl)
       
@@ -599,7 +599,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     try {
       const schoolId = localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
-      const apiKey = process.env.API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       
       if (!schoolId || !token) {
         toast.error("School ID or authentication token not found");
@@ -613,7 +613,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
       const updatedFlight = { ...selectedFlight, status: newStatus };
       
-      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/flight-logs/${selectedFlight._id}`;
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/${selectedFlight._id}`;
       
       console.log('Updating flight status:', apiUrl);
       

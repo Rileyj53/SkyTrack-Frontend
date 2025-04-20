@@ -102,14 +102,14 @@ export function NewFlightDialog({
       setIsLoadingData(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
 
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/planes`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`,
         {
           headers: {
             "Accept": "application/json",
@@ -146,7 +146,7 @@ export function NewFlightDialog({
       setLoading(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
 
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
@@ -156,7 +156,7 @@ export function NewFlightDialog({
       const formattedDate = format(date, "yyyy-MM-dd")
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/schedules`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/schedules`,
         {
           method: "POST",
           headers: {

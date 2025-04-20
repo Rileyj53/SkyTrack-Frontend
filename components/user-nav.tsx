@@ -45,9 +45,9 @@ export function UserNav() {
 
     const fetchUserData = async () => {
       try {
-        const response = await fetch(`${process.env.API_URL}/auth/me`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
           headers: {
-            "x-api-key": process.env.API_KEY || "",
+            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
             "Authorization": `Bearer ${token}`,
             "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
           },
@@ -74,10 +74,10 @@ export function UserNav() {
       const csrfToken = localStorage.getItem("csrfToken")
 
       // Call the logout endpoint
-      const response = await fetch(`${process.env.API_URL}/auth/logout`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
         method: "POST",
         headers: {
-          "x-api-key": process.env.API_KEY || "",
+          "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
           "Authorization": `Bearer ${token}`,
           "X-CSRF-Token": csrfToken || ""
         },

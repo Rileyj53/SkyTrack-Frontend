@@ -20,9 +20,9 @@ export function StudentsPage() {
       }
 
       try {
-        const response = await fetch(`${process.env.API_URL}/auth/me`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
           headers: {
-            "x-api-key": process.env.API_KEY || "",
+            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
             "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
             "Authorization": `Bearer ${token}`
           },

@@ -103,12 +103,12 @@ export function SchedulePage() {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) return null
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
         {
           headers: {
             "Accept": "application/json",
@@ -135,12 +135,12 @@ export function SchedulePage() {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) return
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/instructors`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`,
         {
           headers: {
             "Accept": "application/json",
@@ -170,12 +170,12 @@ export function SchedulePage() {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) return
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/students`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
         {
           headers: {
             "Accept": "application/json",
@@ -215,7 +215,7 @@ export function SchedulePage() {
       
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token) {
         throw new Error("School ID or authentication token not found")
@@ -230,7 +230,7 @@ export function SchedulePage() {
       
       console.log('Fetching schedules for:', { startDate, endDate }) // Debug log
       
-      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/schedules?startDate=${startDate}&endDate=${endDate}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/schedules?startDate=${startDate}&endDate=${endDate}`
       
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -290,9 +290,9 @@ export function SchedulePage() {
       }
 
       try {
-        const response = await fetch(`${process.env.API_URL}/auth/me`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
           headers: {
-            "x-api-key": process.env.API_KEY || "",
+            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
             "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
             "Authorization": `Bearer ${token}`
           },

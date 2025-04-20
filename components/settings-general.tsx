@@ -82,14 +82,14 @@ export function SettingsGeneral() {
       setLoading(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}`,
         {
           headers: {
             "Accept": "application/json",
@@ -127,14 +127,14 @@ export function SettingsGeneral() {
       setIsSaving(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}`,
         {
           method: "PUT",
           headers: {

@@ -332,12 +332,12 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
         // setIsSchoolAdmin(userRole === "school_admin" || userRole === "admin")
 
         const response = await fetch(
-          `${process.env.API_URL}/schools/${schoolId}/students/${studentId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.API_KEY || "",
+              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },
@@ -619,13 +619,13 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       };
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.API_KEY || "",
+            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -733,13 +733,13 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       const updatedNotes = [...(student.studentNotes || [])]
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.API_KEY || "",
+            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -847,13 +847,13 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       const updatedNotes = student.studentNotes.filter(note => note._id !== noteId)
 
       const response = await fetch(
-        `${process.env.API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.API_KEY || "",
+            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
