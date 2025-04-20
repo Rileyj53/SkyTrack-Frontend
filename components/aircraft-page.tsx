@@ -180,11 +180,133 @@ interface ServiceBulletin {
 }
 
 export function AircraftPage() {
+  console.log("AircraftPage component initializing")
   const router = useRouter()
   const searchParams = useSearchParams()
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  // Check authentication first
+  useEffect(() => {
+    const checkAuth = async () => {
+      console.log("Checking authentication...")
+      try {
+        const token = localStorage.getItem("token")
+        if (!token) {
+          console.log("No token found, redirecting to login")
+          router.push("/login")
+          return
+        }
+
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/auth/me`
+        console.log('Auth check API URL:', apiUrl)
+        
+        const response = await fetch(apiUrl, {
+          headers: {
+            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
+            "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
+            "Authorization": `Bearer ${token}`
+          },
+          credentials: "include"
+        })
+
+        if (!response.ok) {
+          throw new Error("Not authenticated")
+        }
+
+        const data = await response.json()
+        console.log('User data received:', JSON.stringify(data, null, 2))
+        
+        if (data.user && data.user.school_id) {
+          localStorage.setItem("schoolId", data.user.school_id)
+          console.log('Stored school ID in localStorage:', data.user.school_id)
+          setIsAuthenticated(true)
+        } else {
+          throw new Error("Invalid user data")
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error)
+        router.push("/login")
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  // Fetch aircraft data only after authentication is confirmed
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("Authentication confirmed, fetching aircraft data")
+      fetchAircraft()
+    }
+  }, [isAuthenticated])
+
+  const fetchAircraft = async () => {
+    console.log("Starting to fetch aircraft data")
+    try {
+      setLoading(true)
+      const schoolId = localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      
+      console.log("Credentials check:", { 
+        hasSchoolId: !!schoolId, 
+        hasToken: !!token,
+        apiUrl: process.env.NEXT_PUBLIC_API_URL,
+        apiKey: !!process.env.NEXT_PUBLIC_API_KEY
+      })
+      
+      if (!schoolId || !token) {
+        throw new Error("School ID or authentication token not found")
+      }
+
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`
+      console.log("Fetching from URL:", apiUrl)
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
+
+      console.log("API Response status:", response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          error: errorData
+        })
+        throw new Error(`Failed to fetch aircraft: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("Received aircraft data:", data)
+      
+      if (data.planes && Array.isArray(data.planes)) {
+        console.log("Setting aircraft data:", data.planes.length, "aircraft found")
+        setAircraft(data.planes)
+      } else {
+        throw new Error("Invalid data format received from API")
+      }
+    } catch (err) {
+      console.error("Error fetching aircraft:", err)
+      setError(err instanceof Error ? err.message : "An unknown error occurred")
+      toast.error("Failed to load aircraft data")
+    } finally {
+      console.log("Fetch complete, setting loading to false")
+      setLoading(false)
+    }
+  }
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editedRates, setEditedRates] = useState<Record<string, number>>({})
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "fleet")
@@ -310,92 +432,6 @@ export function AircraftPage() {
       }
     }
   });
-
-  const fetchAircraft = async () => {
-    try {
-      setLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
-      const token = localStorage.getItem("token")
-      
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-          'Authorization': `Bearer ${token}`,
-          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-        },
-        credentials: 'include'
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch aircraft: ${response.status}`)
-      }
-
-      const data = await response.json()
-      if (data.planes && Array.isArray(data.planes)) {
-        setAircraft(data.planes)
-      } else {
-        throw new Error("Invalid data format received from API")
-      }
-    } catch (err) {
-      console.error("Error fetching aircraft:", err)
-      setError(err instanceof Error ? err.message : "An unknown error occurred")
-      toast.error("Failed to load aircraft data")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem("token")
-      if (!token) {
-        router.push("/login")
-        return
-      }
-
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-          headers: {
-            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
-            "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
-            "Authorization": `Bearer ${token}`
-          },
-          credentials: "include"
-        })
-
-        if (!response.ok) {
-          throw new Error("Not authenticated")
-        }
-
-        const data = await response.json()
-        console.log('User data received:', JSON.stringify(data, null, 2))
-        
-        // Store the school ID in localStorage for other components to use
-        if (data.user && data.user.school_id) {
-          localStorage.setItem("schoolId", data.user.school_id)
-          console.log('Stored school ID in localStorage:', data.user.school_id)
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error)
-        router.push("/login")
-      }
-    }
-
-    checkAuth()
-  }, [router])
-
-  // Add useEffect to handle URL updates when tab changes
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set("tab", activeTab)
-    router.push(`?${params.toString()}`)
-  }, [activeTab, router, searchParams])
 
   // Start editing rates for an aircraft
   const handleStartEdit = (id: string, rates: HourlyRates) => {

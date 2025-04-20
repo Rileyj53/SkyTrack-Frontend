@@ -122,7 +122,9 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
       const data = await response.json()
       console.log('Flight logs data:', data)
       
-      if (data.flightLogs && Array.isArray(data.flightLogs)) {
+      if (Array.isArray(data)) {
+        setFlights(data)
+      } else if (data.flightLogs && Array.isArray(data.flightLogs)) {
         setFlights(data.flightLogs)
       } else {
         setError("Invalid data format received from API")
@@ -380,8 +382,11 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
-                  No flights found
+                <TableCell colSpan={7} className="h-24 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Plane className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} />
+                    <p className="text-lg font-medium text-muted-foreground">No flights scheduled today</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

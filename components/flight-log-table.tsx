@@ -955,8 +955,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-4 text-muted-foreground dark:text-muted-foreground/80">
-                        No flights found
+                      <TableCell colSpan={9} className="h-32 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Plane className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.5} />
+                          <p className="text-lg font-medium text-muted-foreground">No flights found</p>
+                          <p className="text-sm text-muted-foreground/80">Try adjusting your filters or search criteria</p>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}

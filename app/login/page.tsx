@@ -32,9 +32,9 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
           "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
-          "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
         },
         body: JSON.stringify({ email, password }),
+        credentials: 'include'  // Important: include credentials to receive cookies
       })
 
       const data = await response.json()
@@ -43,10 +43,7 @@ export default function LoginPage() {
         throw new Error(data.message || "Login failed")
       }
 
-      // Store token in localStorage as backup
-      localStorage.setItem("token", data.token)
-      
-      // Store CSRF token if provided
+      // Store CSRF token in both cookie and localStorage
       if (data.csrfToken) {
         localStorage.setItem("csrfToken", data.csrfToken)
         // Set CSRF token cookie
@@ -60,6 +57,9 @@ export default function LoginPage() {
         ].join('; ')
         document.cookie = csrfCookieOptions
       }
+
+      // Store token in localStorage as backup
+      localStorage.setItem("token", data.token)
       
       // Set auth token cookie with proper attributes for cross-domain access
       const cookieOptions = [

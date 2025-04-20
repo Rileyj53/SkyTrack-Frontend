@@ -184,37 +184,39 @@ function DashboardContent() {
 
   return (
     <DashboardShell>
-      <DashboardHeader>
-        <MainNav />
-        <UserNav />
-      </DashboardHeader>
-      <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <DashboardHeader>
+          <MainNav />
+          <UserNav />
+        </DashboardHeader>
+      </div>
+      <div className="flex-1 space-y-4 p-8 pt-6 mt-[64px]">
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         </div>
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="flights">Flights</TabsTrigger>
-            <TabsTrigger value="students">Students</TabsTrigger>
-            <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="live-tracking">Live Tracking</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Total Flights</p>
-                    <p className="text-2xl font-bold">0</p>
+                    <p className="text-sm font-medium leading-none">Daily Flight Hours</p>
+                    <p className="text-2xl font-bold">24.5</p>
+                    <p className="text-sm text-muted-foreground">Today's flights</p>
                   </div>
-                  <Plane className="h-4 w-4 text-muted-foreground" />
+                  <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Active Students</p>
-                    <p className="text-2xl font-bold">0</p>
+                    <p className="text-sm font-medium leading-none">Students in Session</p>
+                    <p className="text-2xl font-bold">8</p>
+                    <p className="text-sm text-muted-foreground">Currently training</p>
                   </div>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardContent>
@@ -222,86 +224,40 @@ function DashboardContent() {
               <Card>
                 <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Today's Flights</p>
-                    <p className="text-2xl font-bold">0</p>
+                    <p className="text-sm font-medium leading-none">Aircraft Utilization</p>
+                    <p className="text-2xl font-bold">78%</p>
+                    <p className="text-sm text-muted-foreground">12% increase</p>
                   </div>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <Plane className="h-4 w-4 text-muted-foreground" />
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Flight Hours</p>
-                    <p className="text-2xl font-bold">0</p>
+                    <p className="text-sm font-medium leading-none">Upcoming Flights</p>
+                    <p className="text-2xl font-bold">9</p>
+                    <p className="text-sm text-muted-foreground">Next 2 days</p>
                   </div>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 </CardContent>
               </Card>
             </div>
+
+            {/* Flight Tracking Map */}
+            <FlightTrackingMap />
+
+            {/* Recent Flights and Student Progress */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="col-span-4">
-                <CardContent className="p-6">
-                  <FlightTrackingMap />
-                </CardContent>
-              </Card>
-              <Card className="col-span-3">
-                <CardContent className="p-6">
-                  <StudentProgress />
-                </CardContent>
-              </Card>
+              <div className="col-span-4">
+                <FlightLogOverview />
+              </div>
+              <div className="col-span-3">
+                <StudentProgress />
+              </div>
             </div>
           </TabsContent>
-          <TabsContent value="flights" className="space-y-4">
-            <FlightLogTable />
-          </TabsContent>
-          <TabsContent value="students" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="col-span-4">
-                <CardContent className="p-6">
-                  <FlightLogOverview />
-                </CardContent>
-              </Card>
-              <Card className="col-span-3">
-                <CardContent className="p-6">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <FlightStats
-                      title="Total Flights"
-                      value={stats.totalFlights}
-                      description="Total flights completed"
-                    />
-                    <FlightStats
-                      title="Flight Hours"
-                      value={stats.totalHours}
-                      description="Total flight hours logged"
-                    />
-                    <FlightStats
-                      title="Active Students"
-                      value={stats.activeStudents}
-                      description="Students with active training"
-                    />
-                    <FlightStats
-                      title="Completion Rate"
-                      value={`${stats.completionRate}%`}
-                      description="Flight completion rate"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-          <TabsContent value="schedule" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="col-span-4">
-                <CardContent className="p-6">
-                  <FlightTrackingMap />
-                </CardContent>
-              </Card>
-              <Card className="col-span-3">
-                <CardContent className="p-6">
-                  <StudentProgress />
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="live-tracking" className="space-y-4">
+            <FlightTrackingMap />
           </TabsContent>
         </Tabs>
       </div>
