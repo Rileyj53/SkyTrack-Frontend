@@ -42,9 +42,19 @@ export default function LoginPage() {
         throw new Error(data.message || "Login failed")
       }
 
-      // Store token in both localStorage and cookies with secure options
+      // Store token in localStorage as backup
       localStorage.setItem("token", data.token)
-      document.cookie = `token=${data.token}; path=/; max-age=86400; secure; samesite=strict`
+      
+      // Set cookie with proper attributes for cross-domain access
+      const cookieOptions = [
+        `token=${data.token}`,
+        'path=/',
+        'max-age=86400',
+        'secure',
+        'samesite=lax', // Changed to lax to allow cross-domain requests
+        'domain=rileyjacobson.net' // Removed leading dot to work with all subdomains
+      ].join('; ')
+      document.cookie = cookieOptions
 
       // Decode the JWT token to get the payload
       const base64Url = data.token.split('.')[1]

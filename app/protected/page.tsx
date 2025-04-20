@@ -68,21 +68,31 @@ export default function ProtectedPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Get token from localStorage as backup
-        const token = localStorage.getItem('token')
-        const csrfToken = localStorage.getItem('csrfToken')
-        
+        // Try to get token from cookie first
+        const cookies = document.cookie.split(';')
+        const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('token='))
+        let token = tokenCookie ? tokenCookie.split('=')[1].trim() : null
+
+        // Fallback to localStorage if cookie is not found
+        if (!token) {
+          token = localStorage.getItem("token")
+        }
+
+        if (!token) {
+          throw new Error("No authentication token found")
+        }
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          method: "GET",
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || '',
-            'X-CSRF-Token': csrfToken || '',
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
           },
-          credentials: 'include',
+          credentials: 'include',  // Important: include credentials in the request
         })
 
         if (!response.ok) {
-          throw new Error('Not authenticated')
+          throw new Error("Authentication failed")
         }
 
         const data = await response.json()
