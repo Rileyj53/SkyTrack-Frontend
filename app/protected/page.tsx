@@ -72,10 +72,10 @@ export default function ProtectedPage() {
         const token = localStorage.getItem('token')
         const csrfToken = localStorage.getItem('csrfToken')
         
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+        const response = await fetch(`${process.env.API_URL}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || '',
+            'x-api-key': process.env.API_KEY || '',
             'X-CSRF-Token': csrfToken || '',
           },
           credentials: 'include',

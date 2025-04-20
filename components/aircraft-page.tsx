@@ -321,11 +321,11 @@ export function AircraftPage() {
         throw new Error("School ID or authentication token not found")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`, {
+      const response = await fetch(`${process.env.API_URL}/schools/${schoolId}/planes`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+          'x-api-key': process.env.API_KEY || "",
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
         },
@@ -360,9 +360,9 @@ export function AircraftPage() {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+        const response = await fetch(`${process.env.API_URL}/auth/me`, {
           headers: {
-            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
+            "x-api-key": process.env.API_KEY || "",
             "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
             "Authorization": `Bearer ${token}`
           },
@@ -443,13 +443,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${id}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${id}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -530,13 +530,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${aircraftId}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${aircraftId}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -596,13 +596,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${aircraftId}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${aircraftId}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -651,13 +651,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${editedAircraft.id}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${editedAircraft.id}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -743,13 +743,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${selectedAircraft.id}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${selectedAircraft.id}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -803,13 +803,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${updatingStatus.id}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${updatingStatus.id}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -911,12 +911,12 @@ export function AircraftPage() {
       // Fetch all data in parallel
       const [logsResponse, scheduleResponse, adResponse, sbResponse] = await Promise.all([
         fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`,
+          `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'x-api-key': process.env.API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },
@@ -924,12 +924,12 @@ export function AircraftPage() {
           }
         ),
         fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
+          `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'x-api-key': process.env.API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },
@@ -937,12 +937,12 @@ export function AircraftPage() {
           }
         ),
         fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`,
+          `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'x-api-key': process.env.API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },
@@ -950,12 +950,12 @@ export function AircraftPage() {
           }
         ),
         fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`,
+          `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'x-api-key': process.env.API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },
@@ -1002,12 +1002,12 @@ export function AircraftPage() {
         // Fetch all data in parallel
         const [logsResponse, scheduleResponse, adResponse, sbResponse] = await Promise.all([
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`,
+            `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`,
             {
               headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+                'x-api-key': process.env.API_KEY || "",
                 'Authorization': `Bearer ${token}`,
                 'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
               },
@@ -1015,12 +1015,12 @@ export function AircraftPage() {
             }
           ),
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
+            `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
             {
               headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+                'x-api-key': process.env.API_KEY || "",
                 'Authorization': `Bearer ${token}`,
                 'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
               },
@@ -1028,12 +1028,12 @@ export function AircraftPage() {
             }
           ),
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`,
+            `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`,
             {
               headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+                'x-api-key': process.env.API_KEY || "",
                 'Authorization': `Bearer ${token}`,
                 'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
               },
@@ -1041,12 +1041,12 @@ export function AircraftPage() {
             }
           ),
           fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`,
+            `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`,
             {
               headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+                'x-api-key': process.env.API_KEY || "",
                 'Authorization': `Bearer ${token}`,
                 'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
               },
@@ -1100,8 +1100,8 @@ export function AircraftPage() {
       }
 
       const endpoint = editingServiceBulletin
-        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${editingServiceBulletin._id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`;
+        ? `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${editingServiceBulletin._id}`
+        : `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`;
 
       const method = editingServiceBulletin ? 'PUT' : 'POST';
 
@@ -1110,7 +1110,7 @@ export function AircraftPage() {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+          'x-api-key': process.env.API_KEY || "",
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
         },
@@ -1158,13 +1158,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
         {
           method: 'DELETE',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -1198,13 +1198,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -1239,8 +1239,8 @@ export function AircraftPage() {
       }
 
       const endpoint = editingAD
-        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${editingAD._id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`;
+        ? `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${editingAD._id}`
+        : `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`;
 
       const method = editingAD ? 'PUT' : 'POST';
 
@@ -1249,7 +1249,7 @@ export function AircraftPage() {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+          'x-api-key': process.env.API_KEY || "",
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
         },
@@ -1306,13 +1306,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${adId}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${adId}`,
         {
           method: 'DELETE',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -1346,8 +1346,8 @@ export function AircraftPage() {
       }
 
       const endpoint = editingMaintenanceLog
-        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance/${editingMaintenanceLog._id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`;
+        ? `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance/${editingMaintenanceLog._id}`
+        : `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`;
 
       const method = editingMaintenanceLog ? 'PUT' : 'POST';
 
@@ -1356,7 +1356,7 @@ export function AircraftPage() {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+          'x-api-key': process.env.API_KEY || "",
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
         },
@@ -1416,13 +1416,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance/${logId}`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance/${logId}`,
         {
           method: 'DELETE',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -1456,13 +1456,13 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
+        `${process.env.API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
         {
           method: 'PUT',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },

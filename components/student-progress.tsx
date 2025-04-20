@@ -116,12 +116,12 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/programs`,
+          `${process.env.API_URL}/schools/${schoolId}/programs`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'x-api-key': process.env.API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },
@@ -157,12 +157,12 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+          `${process.env.API_URL}/schools/${schoolId}/students`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'x-api-key': process.env.API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },
@@ -221,13 +221,13 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+        `${process.env.API_URL}/schools/${schoolId}/students`,
         {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'x-api-key': process.env.API_KEY || "",
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
@@ -243,12 +243,12 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
       // Refresh the student list
       const fetchStudents = async () => {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+          `${process.env.API_URL}/schools/${schoolId}/students`,
           {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'x-api-key': process.env.API_KEY || "",
               'Authorization': `Bearer ${token}`,
               'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
             },

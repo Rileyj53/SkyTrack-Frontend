@@ -34,9 +34,9 @@ export function InstructorsPage() {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+        const response = await fetch(`${process.env.API_URL}/auth/me`, {
           headers: {
-            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
+            "x-api-key": process.env.API_KEY || "",
             "X-CSRF-Token": localStorage.getItem("csrfToken") || "",
             "Authorization": `Bearer ${token}`
           },
@@ -73,7 +73,7 @@ export function InstructorsPage() {
       setLoading(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      const apiKey = process.env.API_KEY
       
       if (!schoolId || !token) {
         toast.error("School ID or authentication token not found")
@@ -85,7 +85,7 @@ export function InstructorsPage() {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`
+      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/instructors`
       
       const response = await fetch(apiUrl, {
         method: 'GET',

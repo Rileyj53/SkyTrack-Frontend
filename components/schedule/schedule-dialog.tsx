@@ -147,14 +147,14 @@ export function ScheduleDialog({
       setIsLoadingData(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      const apiKey = process.env.API_KEY
 
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`,
+        `${process.env.API_URL}/schools/${schoolId}/planes`,
         {
           headers: {
             "Accept": "application/json",
@@ -186,14 +186,14 @@ export function ScheduleDialog({
       setIsLoadingData(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      const apiKey = process.env.API_KEY
 
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`,
+        `${process.env.API_URL}/schools/${schoolId}/instructors`,
         {
           headers: {
             "Accept": "application/json",
@@ -226,7 +226,7 @@ export function ScheduleDialog({
       setLoading(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      const apiKey = process.env.API_KEY
 
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
@@ -236,7 +236,7 @@ export function ScheduleDialog({
       const formattedDate = format(date, "yyyy-MM-dd")
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/schedules/${schedule._id}`,
+        `${process.env.API_URL}/schools/${schoolId}/schedules/${schedule._id}`,
         {
           method: "PUT",
           headers: {
@@ -281,14 +281,14 @@ export function ScheduleDialog({
       setIsDeleting(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      const apiKey = process.env.API_KEY
 
       if (!schoolId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/schedules/${schedule._id}`,
+        `${process.env.API_URL}/schools/${schoolId}/schedules/${schedule._id}`,
         {
           method: "DELETE",
           headers: {

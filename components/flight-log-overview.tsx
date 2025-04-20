@@ -80,7 +80,7 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
       setLoading(true)
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      const apiKey = process.env.API_KEY
       
       if (!schoolId || !token) {
         setError("School ID or authentication token not found")
@@ -94,7 +94,7 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/today`
+      const apiUrl = `${process.env.API_URL}/schools/${schoolId}/flight-logs/today`
       
       const response = await fetch(apiUrl, {
         method: 'GET',
