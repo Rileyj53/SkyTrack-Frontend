@@ -73,6 +73,10 @@ export default function ProtectedPage() {
         const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('token='))
         let token = tokenCookie ? tokenCookie.split('=')[1].trim() : null
 
+        // Get CSRF token from cookie or localStorage
+        const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrfToken='))
+        let csrfToken = csrfCookie ? csrfCookie.split('=')[1].trim() : localStorage.getItem('csrfToken')
+
         // Fallback to localStorage if cookie is not found
         if (!token) {
           token = localStorage.getItem("token")
@@ -86,7 +90,9 @@ export default function ProtectedPage() {
           method: "GET",
           headers: {
             "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken || '',
+            "x-api-key": process.env.NEXT_PUBLIC_API_KEY || ''
           },
           credentials: 'include',  // Important: include credentials in the request
         })

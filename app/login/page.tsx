@@ -45,14 +45,29 @@ export default function LoginPage() {
       // Store token in localStorage as backup
       localStorage.setItem("token", data.token)
       
-      // Set cookie with proper attributes for cross-domain access
+      // Store CSRF token if provided
+      if (data.csrfToken) {
+        localStorage.setItem("csrfToken", data.csrfToken)
+        // Set CSRF token cookie
+        const csrfCookieOptions = [
+          `csrfToken=${data.csrfToken}`,
+          'path=/',
+          'max-age=86400',
+          'secure',
+          'samesite=lax',
+          'domain=rileyjacobson.net'
+        ].join('; ')
+        document.cookie = csrfCookieOptions
+      }
+      
+      // Set auth token cookie with proper attributes for cross-domain access
       const cookieOptions = [
         `token=${data.token}`,
         'path=/',
         'max-age=86400',
         'secure',
-        'samesite=lax', // Changed to lax to allow cross-domain requests
-        'domain=rileyjacobson.net' // Removed leading dot to work with all subdomains
+        'samesite=lax',
+        'domain=rileyjacobson.net'
       ].join('; ')
       document.cookie = cookieOptions
 
