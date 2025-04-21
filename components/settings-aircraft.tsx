@@ -40,8 +40,8 @@ interface Aircraft {
   engineHours: number
   tach_time: number
   hopps_time: number
-  last_maintenance: string
-  next_maintenance: string
+  lastMaintenance: string
+  nextMaintenance: string
   status: string
   hourlyRates: {
     wet: number
@@ -81,8 +81,8 @@ export function SettingsAircraft() {
     engineHours: 0,
     tach_time: 0,
     hopps_time: 0,
-    last_maintenance: "",
-    next_maintenance: "",
+    lastMaintenance: "",
+    nextMaintenance: "",
     status: "Available",
     hourlyRates: {
       wet: 0,
@@ -267,8 +267,8 @@ export function SettingsAircraft() {
           engineHours: 0,
           tach_time: 0,
           hopps_time: 0,
-          last_maintenance: "",
-          next_maintenance: "",
+          lastMaintenance: "",
+          nextMaintenance: "",
           status: "Available",
           hourlyRates: {
             wet: 0,
@@ -551,8 +551,8 @@ export function SettingsAircraft() {
                         <Input
                           id="last-maintenance"
                           type="date"
-                          value={newAircraft.last_maintenance ? newAircraft.last_maintenance.split('T')[0] : ''}
-                          onChange={(e) => setNewAircraft({ ...newAircraft, last_maintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
+                          value={newAircraft.lastMaintenance ? newAircraft.lastMaintenance.split('T')[0] : ''}
+                          onChange={(e) => setNewAircraft({ ...newAircraft, lastMaintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -560,8 +560,8 @@ export function SettingsAircraft() {
                         <Input
                           id="next-maintenance"
                           type="date"
-                          value={newAircraft.next_maintenance ? newAircraft.next_maintenance.split('T')[0] : ''}
-                          onChange={(e) => setNewAircraft({ ...newAircraft, next_maintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
+                          value={newAircraft.nextMaintenance ? newAircraft.nextMaintenance.split('T')[0] : ''}
+                          onChange={(e) => setNewAircraft({ ...newAircraft, nextMaintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
                         />
                       </div>
                     </div>
@@ -764,8 +764,8 @@ export function SettingsAircraft() {
                   </TableCell>
                   <TableCell>{plane.engineHours || 0}</TableCell>
                   <TableCell>
-                    {plane.next_maintenance 
-                      ? new Date(plane.next_maintenance).toLocaleDateString() 
+                    {plane.nextMaintenance 
+                      ? new Date(plane.nextMaintenance).toLocaleDateString() 
                       : 'N/A'}
                   </TableCell>
                   <TableCell>
@@ -908,16 +908,16 @@ export function SettingsAircraft() {
                         <Label htmlFor="edit-last-maintenance">Last Maintenance</Label>
                         <Input
                           id="edit-last-maintenance"
-                          value={editingAircraft.last_maintenance}
-                          onChange={(e) => setEditingAircraft({ ...editingAircraft, last_maintenance: e.target.value })}
+                          value={editingAircraft.lastMaintenance}
+                          onChange={(e) => setEditingAircraft({ ...editingAircraft, lastMaintenance: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-next-maintenance">Next Maintenance</Label>
                         <Input
                           id="edit-next-maintenance"
-                          value={editingAircraft.next_maintenance}
-                          onChange={(e) => setEditingAircraft({ ...editingAircraft, next_maintenance: e.target.value })}
+                          value={editingAircraft.nextMaintenance}
+                          onChange={(e) => setEditingAircraft({ ...editingAircraft, nextMaintenance: e.target.value })}
                         />
                       </div>
                     </div>
