@@ -35,13 +35,13 @@ interface Aircraft {
   id: string
   registration: string
   type: string
-  model: string
+  aircraftModel: string
   year: number
   engineHours: number
   tach_time: number
   hopps_time: number
-  lastMaintenance: string
-  nextMaintenance: string
+  last_maintenance: string
+  next_maintenance: string
   status: string
   hourlyRates: {
     wet: number
@@ -76,13 +76,13 @@ export function SettingsAircraft() {
   const [newAircraft, setNewAircraft] = useState<Partial<Aircraft>>({
     registration: "",
     type: "",
-    model: "",
+    aircraftModel: "",
     year: new Date().getFullYear(),
     engineHours: 0,
     tach_time: 0,
     hopps_time: 0,
-    lastMaintenance: "",
-    nextMaintenance: "",
+    last_maintenance: "",
+    next_maintenance: "",
     status: "Available",
     hourlyRates: {
       wet: 0,
@@ -199,7 +199,7 @@ export function SettingsAircraft() {
     return (
       (plane.registration && plane.registration.toLowerCase().includes(searchLower)) ||
       (plane.type && plane.type.toLowerCase().includes(searchLower)) ||
-      (plane.model && plane.model.toLowerCase().includes(searchLower))
+      (plane.aircraftModel && plane.aircraftModel.toLowerCase().includes(searchLower))
     )
   }) : []
 
@@ -210,7 +210,7 @@ export function SettingsAircraft() {
       return
     }
 
-    if (newAircraft.registration && newAircraft.type && newAircraft.model) {
+    if (newAircraft.registration && newAircraft.type && newAircraft.aircraftModel) {
       try {
         const schoolId = localStorage.getItem("schoolId")
         const token = localStorage.getItem("token")
@@ -262,13 +262,13 @@ export function SettingsAircraft() {
         setNewAircraft({
           registration: "",
           type: "",
-          model: "",
+          aircraftModel: "",
           year: new Date().getFullYear(),
           engineHours: 0,
           tach_time: 0,
           hopps_time: 0,
-          lastMaintenance: "",
-          nextMaintenance: "",
+          last_maintenance: "",
+          next_maintenance: "",
           status: "Available",
           hourlyRates: {
             wet: 0,
@@ -306,7 +306,7 @@ export function SettingsAircraft() {
       return
     }
 
-    if (editingAircraft && editingAircraft.registration && editingAircraft.type && editingAircraft.model) {
+    if (editingAircraft && editingAircraft.registration && editingAircraft.type && editingAircraft.aircraftModel) {
       try {
         const schoolId = localStorage.getItem("schoolId")
         const token = localStorage.getItem("token")
@@ -478,8 +478,8 @@ export function SettingsAircraft() {
                         <Label htmlFor="model">Model</Label>
                         <Input
                           id="model"
-                          value={newAircraft.model}
-                          onChange={(e) => setNewAircraft({ ...newAircraft, model: e.target.value })}
+                          value={newAircraft.aircraftModel}
+                          onChange={(e) => setNewAircraft({ ...newAircraft, aircraftModel: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -551,8 +551,8 @@ export function SettingsAircraft() {
                         <Input
                           id="last-maintenance"
                           type="date"
-                          value={newAircraft.lastMaintenance ? newAircraft.lastMaintenance.split('T')[0] : ''}
-                          onChange={(e) => setNewAircraft({ ...newAircraft, lastMaintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
+                          value={newAircraft.last_maintenance ? newAircraft.last_maintenance.split('T')[0] : ''}
+                          onChange={(e) => setNewAircraft({ ...newAircraft, last_maintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -560,8 +560,8 @@ export function SettingsAircraft() {
                         <Input
                           id="next-maintenance"
                           type="date"
-                          value={newAircraft.nextMaintenance ? newAircraft.nextMaintenance.split('T')[0] : ''}
-                          onChange={(e) => setNewAircraft({ ...newAircraft, nextMaintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
+                          value={newAircraft.next_maintenance ? newAircraft.next_maintenance.split('T')[0] : ''}
+                          onChange={(e) => setNewAircraft({ ...newAircraft, next_maintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
                         />
                       </div>
                     </div>
@@ -755,7 +755,7 @@ export function SettingsAircraft() {
               filteredAircraft.map((plane) => (
                 <TableRow key={plane.id}>
                   <TableCell className="font-medium">{plane.registration || 'N/A'}</TableCell>
-                  <TableCell>{plane.type || 'N/A'} {plane.model || ''}</TableCell>
+                  <TableCell>{plane.type || 'N/A'} {plane.aircraftModel || ''}</TableCell>
                   <TableCell>{plane.year || 'N/A'}</TableCell>
                   <TableCell>
                     <Badge variant={plane.status === "Available" ? "default" : "secondary"}>
@@ -764,8 +764,8 @@ export function SettingsAircraft() {
                   </TableCell>
                   <TableCell>{plane.engineHours || 0}</TableCell>
                   <TableCell>
-                    {plane.nextMaintenance 
-                      ? new Date(plane.nextMaintenance).toLocaleDateString() 
+                    {plane.next_maintenance 
+                      ? new Date(plane.next_maintenance).toLocaleDateString() 
                       : 'N/A'}
                   </TableCell>
                   <TableCell>
@@ -844,8 +844,8 @@ export function SettingsAircraft() {
                         <Label htmlFor="edit-model">Model</Label>
                         <Input
                           id="edit-model"
-                          value={editingAircraft.model}
-                          onChange={(e) => setEditingAircraft({ ...editingAircraft, model: e.target.value })}
+                          value={editingAircraft.aircraftModel}
+                          onChange={(e) => setEditingAircraft({ ...editingAircraft, aircraftModel: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -908,16 +908,16 @@ export function SettingsAircraft() {
                         <Label htmlFor="edit-last-maintenance">Last Maintenance</Label>
                         <Input
                           id="edit-last-maintenance"
-                          value={editingAircraft.lastMaintenance}
-                          onChange={(e) => setEditingAircraft({ ...editingAircraft, lastMaintenance: e.target.value })}
+                          value={editingAircraft.last_maintenance}
+                          onChange={(e) => setEditingAircraft({ ...editingAircraft, last_maintenance: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-next-maintenance">Next Maintenance</Label>
                         <Input
                           id="edit-next-maintenance"
-                          value={editingAircraft.nextMaintenance}
-                          onChange={(e) => setEditingAircraft({ ...editingAircraft, nextMaintenance: e.target.value })}
+                          value={editingAircraft.next_maintenance}
+                          onChange={(e) => setEditingAircraft({ ...editingAircraft, next_maintenance: e.target.value })}
                         />
                       </div>
                     </div>
