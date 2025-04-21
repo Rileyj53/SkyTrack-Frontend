@@ -222,6 +222,11 @@ export function SettingsAircraft() {
 
         console.log("Sending new aircraft data:", newAircraft)
 
+        const apiPayload = {
+          ...newAircraft,
+          model: newAircraft.aircraftModel
+        }
+
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`,
           {
@@ -233,7 +238,7 @@ export function SettingsAircraft() {
               "Authorization": `Bearer ${token}`,
               "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
             },
-            body: JSON.stringify(newAircraft),
+            body: JSON.stringify(apiPayload),
             credentials: "include"
           }
         )
@@ -318,6 +323,11 @@ export function SettingsAircraft() {
 
         console.log("Sending update for aircraft:", editingAircraft)
 
+        const apiUpdatePayload = {
+          ...editingAircraft,
+          model: editingAircraft.aircraftModel
+        }
+
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${editingAircraft.id}`,
           {
@@ -329,7 +339,7 @@ export function SettingsAircraft() {
               "Authorization": `Bearer ${token}`,
               "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
             },
-            body: JSON.stringify(editingAircraft),
+            body: JSON.stringify(apiUpdatePayload),
             credentials: "include"
           }
         )
