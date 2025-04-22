@@ -188,20 +188,25 @@ export function SchedulePage() {
         }
       )
 
-      if (!response.ok) return
+      if (!response.ok) {
+        console.error("Failed to fetch students:", response.status, response.statusText)
+        return
+      }
 
       const data = await response.json()
+      console.log("Students API response:", data)
+      
+      // Handle both possible response formats
+      const studentsArray = Array.isArray(data) ? data : (data.students || [])
+      
       const studentsMap: Record<string, Student> = {}
-      
-      // The API response has a students array property
-      if (data.students && Array.isArray(data.students)) {
-        data.students.forEach((student: Student) => {
+      studentsArray.forEach((student: Student) => {
+        if (student && student._id) {
           studentsMap[student._id] = student
-        })
-      } else {
-        console.error("Unexpected API response format:", data)
-      }
+        }
+      })
       
+      console.log("Processed students:", studentsMap)
       setStudents(studentsMap)
     } catch (err) {
       console.error("Error fetching all students:", err)

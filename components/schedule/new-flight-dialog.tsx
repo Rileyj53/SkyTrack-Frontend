@@ -89,13 +89,15 @@ export function NewFlightDialog({
   const [endTime, setEndTime] = useState("")
   const [flightType, setFlightType] = useState("")
   const [notes, setNotes] = useState("")
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
-  // Fetch planes when dialog opens
   useEffect(() => {
+    console.log("NewFlightDialog - Students received:", students)
+    console.log("NewFlightDialog - Instructors received:", instructors)
     if (open) {
       fetchPlanes()
     }
-  }, [open])
+  }, [open, students, instructors])
 
   const fetchPlanes = async () => {
     try {
@@ -242,11 +244,15 @@ export function NewFlightDialog({
                 <SelectValue placeholder="Select student" />
               </SelectTrigger>
               <SelectContent>
-                {(students || []).map((student) => (
-                  <SelectItem key={student._id} value={student._id}>
-                    {student.user_id.first_name} {student.user_id.last_name}
-                  </SelectItem>
-                ))}
+                {students && students.length > 0 ? (
+                  students.map((student) => (
+                    <SelectItem key={student._id} value={student._id}>
+                      {student.user_id.first_name} {student.user_id.last_name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="" disabled>No students available</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

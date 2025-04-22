@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format, addDays, addWeeks, addMonths, startOfWeek } from "date-fns"
 import { CalendarIcon, ChevronLeft, ChevronRight, Filter } from "lucide-react"
 
@@ -62,6 +62,11 @@ export function ScheduleHeader({
 }: ScheduleHeaderProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [isNewFlightOpen, setIsNewFlightOpen] = useState(false)
+
+  useEffect(() => {
+    console.log("ScheduleHeader - Students received:", students)
+    console.log("ScheduleHeader - Instructors received:", instructors)
+  }, [students, instructors])
 
   // Format the date display based on the current view
   const getDateDisplay = () => {
@@ -167,11 +172,15 @@ export function ScheduleHeader({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Students</SelectItem>
-                    {students.map((student) => (
-                      <SelectItem key={student._id} value={student._id}>
-                        {student.user_id.first_name} {student.user_id.last_name}
-                      </SelectItem>
-                    ))}
+                    {students && students.length > 0 ? (
+                      students.map((student) => (
+                        <SelectItem key={student._id} value={student._id}>
+                          {student.user_id.first_name} {student.user_id.last_name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>No students available</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
