@@ -516,12 +516,29 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
   const canStartFlight = (date: string, startTime: string) => {
     // Parse the time string (HH:mm)
     const [hours, minutes] = startTime.split(':').map(Number);
+    
+    // Create a date object for the flight time
     const flightDate = new Date(date);
-    flightDate.setUTCHours(hours, minutes, 0, 0);
+    
+    // Set the hours and minutes
+    flightDate.setHours(hours, minutes, 0, 0);
     
     const now = new Date();
+    
+    // Calculate 30 minutes before flight time
     const thirtyMinutesBefore = new Date(flightDate.getTime() - 30 * 60000);
+    
+    // Calculate 30 minutes after flight time
     const thirtyMinutesAfter = new Date(flightDate.getTime() + 30 * 60000);
+    
+    // Log the time calculations for debugging
+    console.log('canStartFlight calculation:', {
+      flightDate: flightDate.toISOString(),
+      now: now.toISOString(),
+      thirtyMinutesBefore: thirtyMinutesBefore.toISOString(),
+      thirtyMinutesAfter: thirtyMinutesAfter.toISOString(),
+      isWithinWindow: now >= thirtyMinutesBefore && now <= thirtyMinutesAfter
+    });
     
     // Flight can be started if current time is between 30 minutes before and 30 minutes after the scheduled time
     return now >= thirtyMinutesBefore && now <= thirtyMinutesAfter;
@@ -1164,16 +1181,27 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
                   >
                     {flight.status}
                   </Badge>
-                  {flight.status === "Scheduled" && canStartFlight(flight.date, flight.start_time) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => handleStartFlight(e, flight)}
-                      className="w-[100px]"
-                    >
-                      Start Flight
-                    </Button>
-                  )}
+                  {(() => {
+                    const canStart = canStartFlight(flight.date, flight.start_time);
+                    console.log('Flight card rendering:', {
+                      flightId: flight._id,
+                      status: flight.status,
+                      date: flight.date,
+                      startTime: flight.start_time,
+                      canStart,
+                      shouldShowButton: flight.status === "Scheduled" && canStart
+                    });
+                    return flight.status === "Scheduled" && canStart ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => handleStartFlight(e, flight)}
+                        className="w-[100px]"
+                      >
+                        Start Flight
+                      </Button>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             ));
