@@ -418,6 +418,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       const today = now.toISOString().split('T')[0]
       console.log('Fetching flights for date:', today)
       
+      // Try both endpoints to ensure we get the data
       const url = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/today`
       console.log('Fetching flights from URL:', url)
       
@@ -443,11 +444,49 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       if (data.flightLogs && Array.isArray(data.flightLogs)) {
         console.log('Setting today\'s flights:', data.flightLogs.length, 'flights found')
         setTodaysFlights(data.flightLogs)
+      } else if (Array.isArray(data)) {
+        // Handle case where the API returns an array directly
+        console.log('Setting today\'s flights (direct array):', data.length, 'flights found')
+        setTodaysFlights(data)
       } else {
         console.warn('Unexpected flight logs data structure:', data)
+        // Try the alternative endpoint as a fallback
+        const altUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs?date=${today}`
+        console.log('Trying alternative endpoint:', altUrl)
+        
+        const altResponse = await fetch(altUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'Authorization': `Bearer ${token}`,
+            'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+          },
+          credentials: 'include'
+        })
+        
+        if (altResponse.ok) {
+          const altData = await altResponse.json()
+          console.log('Alternative endpoint response:', altData)
+          
+          if (altData.flightLogs && Array.isArray(altData.flightLogs)) {
+            console.log('Setting today\'s flights from alternative endpoint:', altData.flightLogs.length, 'flights found')
+            setTodaysFlights(altData.flightLogs)
+          } else if (Array.isArray(altData)) {
+            console.log('Setting today\'s flights from alternative endpoint (direct array):', altData.length, 'flights found')
+            setTodaysFlights(altData)
+          } else {
+            console.error('Both endpoints returned unexpected data structure')
+            setTodaysFlights([])
+          }
+        } else {
+          console.error('Alternative endpoint also failed:', altResponse.status)
+          setTodaysFlights([])
+        }
       }
     } catch (err) {
       console.error("Error fetching flights:", err)
+      setTodaysFlights([])
     }
   }
 
@@ -455,13 +494,23 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
   useEffect(() => {
     console.log('Initial fetch of today\'s flights')
     fetchTodaysFlights()
+    
     // Set up polling every 30 seconds
     const interval = setInterval(() => {
       console.log('Polling for flight updates')
       fetchTodaysFlights()
     }, 30000)
+    
     return () => clearInterval(interval)
-  }, [])
+  }, []) // Empty dependency array to run only on mount
+  
+  // Add a separate useEffect to refetch flights when school data changes
+  useEffect(() => {
+    if (schoolData) {
+      console.log('School data updated, refetching flights')
+      fetchTodaysFlights()
+    }
+  }, [schoolData])
 
   // Add function to check if flight can be started
   const canStartFlight = (date: string, startTime: string) => {
@@ -472,8 +521,10 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     
     const now = new Date();
     const thirtyMinutesBefore = new Date(flightDate.getTime() - 30 * 60000);
+    const thirtyMinutesAfter = new Date(flightDate.getTime() + 30 * 60000);
     
-    return now >= thirtyMinutesBefore;
+    // Flight can be started if current time is between 30 minutes before and 30 minutes after the scheduled time
+    return now >= thirtyMinutesBefore && now <= thirtyMinutesAfter;
   }
 
   const handleStartFlight = async (event: React.MouseEvent, flight: any) => {
@@ -937,16 +988,28 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
           <CardTitle>Active Flight Tracking</CardTitle>
           <CardDescription>Real-time location of aircraft currently in flight</CardDescription>
         </div>
-        <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select map type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="terrain">Terrain Map</SelectItem>
-            <SelectItem value="street">Street Map</SelectItem>
-            <SelectItem value="satellite">Satellite</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              console.log('Manual refresh triggered')
+              fetchTodaysFlights()
+            }}
+          >
+            Refresh Flights
+          </Button>
+          <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select map type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="terrain">Terrain Map</SelectItem>
+              <SelectItem value="street">Street Map</SelectItem>
+              <SelectItem value="satellite">Satellite</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="h-[400px] w-full rounded-md overflow-hidden border relative">
@@ -1017,6 +1080,12 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
                 
                 // Check if current time is within the window
                 return localDate >= thirtyMinutesBefore && localDate <= thirtyMinutesAfter;
+              }
+              
+              // Include flights that can be started
+              if (canStartFlight(flight.date, flight.start_time)) {
+                console.log('Flight included (can be started):', flight);
+                return true;
               }
               
               console.log('Flight excluded:', flight);

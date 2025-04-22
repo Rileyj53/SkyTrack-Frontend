@@ -251,7 +251,7 @@ export function NewFlightDialog({
                     </SelectItem>
                   ))
                 ) : (
-                  <SelectItem value="" disabled>No students available</SelectItem>
+                  <SelectItem value="no-students" disabled>No students available</SelectItem>
                 )}
               </SelectContent>
             </Select>
