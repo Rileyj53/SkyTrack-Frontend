@@ -40,8 +40,8 @@ interface Aircraft {
   engineHours: number
   tach_time: number
   hopps_time: number
-  lastMaintenance: string
-  nextMaintenance: string
+  last_maintenance: string
+  next_maintenance: string
   status: string
   hourlyRates: {
     wet: number
@@ -81,8 +81,8 @@ export function SettingsAircraft() {
     engineHours: 0,
     tach_time: 0,
     hopps_time: 0,
-    lastMaintenance: "",
-    nextMaintenance: "",
+    last_maintenance: "",
+    next_maintenance: "",
     status: "Available",
     hourlyRates: {
       wet: 0,
@@ -272,8 +272,8 @@ export function SettingsAircraft() {
           engineHours: 0,
           tach_time: 0,
           hopps_time: 0,
-          lastMaintenance: "",
-          nextMaintenance: "",
+          last_maintenance: "",
+          next_maintenance: "",
           status: "Available",
           hourlyRates: {
             wet: 0,
@@ -536,6 +536,7 @@ export function SettingsAircraft() {
                           type="number"
                           value={newAircraft.engineHours}
                           onChange={(e) => setNewAircraft({ ...newAircraft, engineHours: parseInt(e.target.value) || 0 })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -545,6 +546,7 @@ export function SettingsAircraft() {
                           type="number"
                           value={newAircraft.tach_time}
                           onChange={(e) => setNewAircraft({ ...newAircraft, tach_time: parseInt(e.target.value) || 0 })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -554,6 +556,7 @@ export function SettingsAircraft() {
                           type="number"
                           value={newAircraft.hopps_time}
                           onChange={(e) => setNewAircraft({ ...newAircraft, hopps_time: parseInt(e.target.value) || 0 })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -561,8 +564,8 @@ export function SettingsAircraft() {
                         <Input
                           id="last-maintenance"
                           type="date"
-                          value={newAircraft.lastMaintenance ? newAircraft.lastMaintenance.split('T')[0] : ''}
-                          onChange={(e) => setNewAircraft({ ...newAircraft, lastMaintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
+                          value={newAircraft.last_maintenance ? newAircraft.last_maintenance.split('T')[0] : ''}
+                          onChange={(e) => setNewAircraft({ ...newAircraft, last_maintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : '' })}
                         />
                       </div>
                       <div className="space-y-2">
@@ -570,8 +573,8 @@ export function SettingsAircraft() {
                         <Input
                           id="next-maintenance"
                           type="date"
-                          value={newAircraft.nextMaintenance ? newAircraft.nextMaintenance.split('T')[0] : ''}
-                          onChange={(e) => setNewAircraft({ ...newAircraft, nextMaintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : null })}
+                          value={newAircraft.next_maintenance ? newAircraft.next_maintenance.split('T')[0] : ''}
+                          onChange={(e) => setNewAircraft({ ...newAircraft, next_maintenance: e.target.value ? `${e.target.value}T00:00:00.000Z` : '' })}
                         />
                       </div>
                     </div>
@@ -594,6 +597,7 @@ export function SettingsAircraft() {
                               wet: parseInt(e.target.value) || 0 
                             } 
                           })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -609,6 +613,7 @@ export function SettingsAircraft() {
                               dry: parseInt(e.target.value) || 0 
                             } 
                           })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -624,6 +629,7 @@ export function SettingsAircraft() {
                               block: parseInt(e.target.value) || 0 
                             } 
                           })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -639,6 +645,7 @@ export function SettingsAircraft() {
                               instruction: parseInt(e.target.value) || 0 
                             } 
                           })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -654,6 +661,7 @@ export function SettingsAircraft() {
                               weekend: parseInt(e.target.value) || 0 
                             } 
                           })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -669,6 +677,7 @@ export function SettingsAircraft() {
                               solo: parseInt(e.target.value) || 0 
                             } 
                           })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -684,6 +693,7 @@ export function SettingsAircraft() {
                               checkride: parseInt(e.target.value) || 0 
                             } 
                           })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                     </div>
@@ -702,6 +712,7 @@ export function SettingsAircraft() {
                           max="100"
                           value={newAircraft.utilization}
                           onChange={(e) => setNewAircraft({ ...newAircraft, utilization: parseInt(e.target.value) || 0 })}
+                          onWheel={(e) => e.target.blur()}
                         />
                       </div>
                     </div>
@@ -774,8 +785,8 @@ export function SettingsAircraft() {
                   </TableCell>
                   <TableCell>{plane.engineHours || 0}</TableCell>
                   <TableCell>
-                    {plane.nextMaintenance 
-                      ? new Date(plane.nextMaintenance).toLocaleDateString() 
+                    {plane.next_maintenance 
+                      ? new Date(plane.next_maintenance).toLocaleDateString() 
                       : 'N/A'}
                   </TableCell>
                   <TableCell>
@@ -918,16 +929,16 @@ export function SettingsAircraft() {
                         <Label htmlFor="edit-last-maintenance">Last Maintenance</Label>
                         <Input
                           id="edit-last-maintenance"
-                          value={editingAircraft.lastMaintenance}
-                          onChange={(e) => setEditingAircraft({ ...editingAircraft, lastMaintenance: e.target.value })}
+                          value={editingAircraft.last_maintenance}
+                          onChange={(e) => setEditingAircraft({ ...editingAircraft, last_maintenance: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-next-maintenance">Next Maintenance</Label>
                         <Input
                           id="edit-next-maintenance"
-                          value={editingAircraft.nextMaintenance}
-                          onChange={(e) => setEditingAircraft({ ...editingAircraft, nextMaintenance: e.target.value })}
+                          value={editingAircraft.next_maintenance}
+                          onChange={(e) => setEditingAircraft({ ...editingAircraft, next_maintenance: e.target.value })}
                         />
                       </div>
                     </div>
