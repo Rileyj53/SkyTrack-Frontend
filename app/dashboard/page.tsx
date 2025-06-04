@@ -52,6 +52,8 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [userData, setUserData] = useState<UserData | null>(null)
 
+  const firstName = userData?.user?.pilot?.first_name || userData?.user?.email || ""
+
   // Mock data for dashboard statistics
   const stats = {
     totalFlights: "156",
@@ -192,7 +194,12 @@ function DashboardContent() {
       </div>
       <div className="flex-1 space-y-4 p-8 pt-6 mt-[64px]">
         <div className="flex items-center justify-between space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            {firstName && (
+              <p className="text-sm text-muted-foreground">Welcome back, {firstName}!</p>
+            )}
+          </div>
         </div>
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
@@ -201,46 +208,30 @@ function DashboardContent() {
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Daily Flight Hours</p>
-                    <p className="text-2xl font-bold">24.5</p>
-                    <p className="text-sm text-muted-foreground">Today's flights</p>
-                  </div>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Students in Session</p>
-                    <p className="text-2xl font-bold">8</p>
-                    <p className="text-sm text-muted-foreground">Currently training</p>
-                  </div>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Aircraft Utilization</p>
-                    <p className="text-2xl font-bold">78%</p>
-                    <p className="text-sm text-muted-foreground">12% increase</p>
-                  </div>
-                  <Plane className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Upcoming Flights</p>
-                    <p className="text-2xl font-bold">9</p>
-                    <p className="text-sm text-muted-foreground">Next 2 days</p>
-                  </div>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
+              <FlightStats
+                title="Daily Flight Hours"
+                value="24.5"
+                description="Today's flights"
+                icon={<Clock className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FlightStats
+                title="Students in Session"
+                value="8"
+                description="Currently training"
+                icon={<Users className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FlightStats
+                title="Aircraft Utilization"
+                value="78%"
+                description="12% increase"
+                icon={<Plane className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FlightStats
+                title="Upcoming Flights"
+                value="9"
+                description="Next 2 days"
+                icon={<CalendarDays className="h-4 w-4 text-muted-foreground" />}
+              />
             </div>
 
             {/* Flight Tracking Map */}
