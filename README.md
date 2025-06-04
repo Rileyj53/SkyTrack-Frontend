@@ -9,8 +9,6 @@ This repository contains the front‑end of **SkyTrack**, a Next.js application 
 
 ```bash
 pnpm install
-# or
-npm install
 ```
 
 ## Running the project
@@ -19,8 +17,6 @@ To start the development server run:
 
 ```bash
 pnpm dev
-# or
-npm run dev
 ```
 
 The server runs on port `3001` by default (see `package.json`). You can change the port by setting the `PORT` environment variable.
