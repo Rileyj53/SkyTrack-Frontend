@@ -26,22 +26,35 @@ const FlightTrackingMap = dynamic(
 
 interface UserData {
   user: {
+    _id: string
     email: string
+    first_name: string
+    last_name: string
     role: string
     school_id: string
+    isActive: boolean
+    emailVerified: boolean
+    mfaEnabled: boolean
+    mfaVerified: boolean
+    createdAt: string
+    updatedAt: string
     school: {
+      _id: string
       name: string
       address: {
+        street: string
         city: string
         state: string
+        zip: string
+        country: string
       }
+      airport: string
+      phone: string
+      email: string
+      website: string
     }
-    pilot: {
-      first_name: string
-      last_name: string
-      pilot_type: string
-      certifications: string[]
-    }
+    student: any | null
+    instructor: any | null
   }
 }
 
@@ -51,6 +64,11 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState("overview")
   const [loading, setLoading] = useState(true)
   const [userData, setUserData] = useState<UserData | null>(null)
+
+  // Get the user's first name or fall back to email username
+  const firstName = userData?.user?.first_name || 
+                   (userData?.user?.email ? userData.user.email.split('@')[0] : "") || 
+                   ""
 
   // Mock data for dashboard statistics
   const stats = {
@@ -91,8 +109,10 @@ function DashboardContent() {
         console.log('User data structure:', {
           hasUser: !!data.user,
           userKeys: data.user ? Object.keys(data.user) : [],
-          hasPilot: data.user?.pilot,
-          pilotKeys: data.user?.pilot ? Object.keys(data.user.pilot) : []
+          firstName: data.user?.first_name,
+          lastName: data.user?.last_name,
+          email: data.user?.email,
+          role: data.user?.role
         })
         
         // Store the school ID in localStorage for other components to use
@@ -192,7 +212,12 @@ function DashboardContent() {
       </div>
       <div className="flex-1 space-y-4 p-8 pt-6 mt-[64px]">
         <div className="flex items-center justify-between space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            {firstName && (
+              <p className="text-sm text-muted-foreground">Welcome back, {firstName}!</p>
+            )}
+          </div>
         </div>
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
@@ -201,46 +226,30 @@ function DashboardContent() {
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Daily Flight Hours</p>
-                    <p className="text-2xl font-bold">24.5</p>
-                    <p className="text-sm text-muted-foreground">Today's flights</p>
-                  </div>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Students in Session</p>
-                    <p className="text-2xl font-bold">8</p>
-                    <p className="text-sm text-muted-foreground">Currently training</p>
-                  </div>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Aircraft Utilization</p>
-                    <p className="text-2xl font-bold">78%</p>
-                    <p className="text-sm text-muted-foreground">12% increase</p>
-                  </div>
-                  <Plane className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="flex flex-row items-center justify-between space-y-0 p-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">Upcoming Flights</p>
-                    <p className="text-2xl font-bold">9</p>
-                    <p className="text-sm text-muted-foreground">Next 2 days</p>
-                  </div>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
+              <FlightStats
+                title="Daily Flight Hours"
+                value="24.5"
+                description="Today's flights"
+                icon={<Clock className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FlightStats
+                title="Students in Session"
+                value="8"
+                description="Currently training"
+                icon={<Users className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FlightStats
+                title="Aircraft Utilization"
+                value="78%"
+                description="12% increase"
+                icon={<Plane className="h-4 w-4 text-muted-foreground" />}
+              />
+              <FlightStats
+                title="Upcoming Flights"
+                value="9"
+                description="Next 2 days"
+                icon={<CalendarDays className="h-4 w-4 text-muted-foreground" />}
+              />
             </div>
 
             {/* Flight Tracking Map */}
