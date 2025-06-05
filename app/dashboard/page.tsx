@@ -26,22 +26,35 @@ const FlightTrackingMap = dynamic(
 
 interface UserData {
   user: {
+    _id: string
     email: string
+    first_name: string
+    last_name: string
     role: string
     school_id: string
+    isActive: boolean
+    emailVerified: boolean
+    mfaEnabled: boolean
+    mfaVerified: boolean
+    createdAt: string
+    updatedAt: string
     school: {
+      _id: string
       name: string
       address: {
+        street: string
         city: string
         state: string
+        zip: string
+        country: string
       }
+      airport: string
+      phone: string
+      email: string
+      website: string
     }
-    pilot: {
-      first_name: string
-      last_name: string
-      pilot_type: string
-      certifications: string[]
-    }
+    student: any | null
+    instructor: any | null
   }
 }
 
@@ -52,7 +65,10 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [userData, setUserData] = useState<UserData | null>(null)
 
-  const firstName = userData?.user?.pilot?.first_name || userData?.user?.email || ""
+  // Get the user's first name or fall back to email username
+  const firstName = userData?.user?.first_name || 
+                   (userData?.user?.email ? userData.user.email.split('@')[0] : "") || 
+                   ""
 
   // Mock data for dashboard statistics
   const stats = {
@@ -93,8 +109,10 @@ function DashboardContent() {
         console.log('User data structure:', {
           hasUser: !!data.user,
           userKeys: data.user ? Object.keys(data.user) : [],
-          hasPilot: data.user?.pilot,
-          pilotKeys: data.user?.pilot ? Object.keys(data.user.pilot) : []
+          firstName: data.user?.first_name,
+          lastName: data.user?.last_name,
+          email: data.user?.email,
+          role: data.user?.role
         })
         
         // Store the school ID in localStorage for other components to use
