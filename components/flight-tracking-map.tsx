@@ -33,6 +33,11 @@ const createAircraftIcon = (heading: number) => {
   const isDarkMode = document.documentElement.classList.contains("dark")
   const strokeColor = isDarkMode ? "#ffffff" : "#000000"
   const fillColor = isDarkMode ? "#1e293b" : "#e2e8f0"
+  
+  // The airplane SVG points northeast by default, so we need to adjust the rotation
+  // ADS-B track is degrees from north (0° = north, 90° = east, 180° = south, 270° = west)
+  // We subtract 45° because the airplane icon points northeast (45°) by default
+  const adjustedHeading = heading - 45
 
   return L.divIcon({
     html: `
@@ -46,7 +51,7 @@ const createAircraftIcon = (heading: number) => {
         strokeWidth="3" 
         strokeLinecap="round" 
         strokeLinejoin="round" 
-        style="transform: rotate(${heading}deg);"
+        style="transform: rotate(${adjustedHeading}deg); transform-origin: center;"
       >
         <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
       </svg>
@@ -339,16 +344,17 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       flight.tracking && flight.tracking.length > 0
     ) || []
 
-    console.log('Active flights:', activeFlights.length)
-    console.log('School data:', schoolData)
+    console.log('updateMapFocus - Active flights:', activeFlights.length)
+    console.log('updateMapFocus - School data available:', !!schoolData?.address?.latitude)
 
+    // Prioritize active flights over school location
     if (activeFlights.length > 0) {
       if (activeFlights.length === 1) {
         // Single active flight - center on it with animation
         const flight = activeFlights[0]
         const latestPosition = flight.tracking[flight.tracking.length - 1]
-        console.log('Centering on single flight:', latestPosition)
-        mapRef.current.flyTo([latestPosition.latitude, latestPosition.longitude], 12, {
+        console.log('Centering on single active flight:', latestPosition)
+        mapRef.current.flyTo([latestPosition.latitude, latestPosition.longitude], 14, {
           duration: 1.5
         })
       } else {
@@ -357,7 +363,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
           const latestPosition = flight.tracking[flight.tracking.length - 1]
           return [latestPosition.latitude, latestPosition.longitude]
         }))
-        console.log('Fitting bounds for multiple flights:', bounds)
+        console.log('Fitting bounds for multiple active flights:', bounds)
         mapRef.current.flyToBounds(bounds, {
           padding: [50, 50],
           duration: 1.5
@@ -365,7 +371,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       }
     } else if (schoolData?.address?.latitude && schoolData?.address?.longitude) {
       // No active flights - center on school with animation
-      console.log('Centering on school:', schoolData.address)
+      console.log('No active flights, centering on school:', schoolData.address)
       // Save school location for future use
       localStorage.setItem('schoolLocation', JSON.stringify({
         latitude: schoolData.address.latitude,
@@ -380,7 +386,12 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
   // Update map focus when tracking data or school data changes
   useEffect(() => {
     if (!isLoading) {
-      updateMapFocus()
+      // Add a small delay to ensure tracking data has been processed
+      const timeoutId = setTimeout(() => {
+        updateMapFocus()
+      }, 500)
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [trackingData, schoolData, isLoading, updateMapFocus])
 
@@ -702,7 +713,8 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       
       if (!schoolId || !token || !apiKey) return
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/track?school_id=${schoolId}`, {
+      // Fetch aircraft tracking data for all school planes
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/aircraft-tracking`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -718,24 +730,91 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       }
 
       const data = await response.json()
-      if (data.tracks && Array.isArray(data.tracks)) {
-        setTrackingData(data.tracks)
+      console.log('Aircraft tracking response:', data)
+      
+      // Transform the new response format to match existing tracking data structure
+      if (data.active_aircraft && Array.isArray(data.active_aircraft)) {
+        const transformedData = data.active_aircraft
+          .filter((aircraft: any) => aircraft.tracking_data?.ac?.[0]) // Only include aircraft with valid tracking data
+          .map((aircraft: any) => {
+            const trackingInfo = aircraft.tracking_data.ac[0] // Get first (and usually only) tracking entry
+            
+            return {
+              _id: aircraft.plane_id,
+              tail_number: aircraft.registration,
+              plane_id: aircraft.plane_id,
+              aircraft_type: aircraft.type,
+              aircraft_model: aircraft.aircraftModel,
+              tracking: [{
+                latitude: trackingInfo.lat,
+                longitude: trackingInfo.lon,
+                altitude: trackingInfo.alt_baro || trackingInfo.alt_geom || 0,
+                heading: trackingInfo.track || 0,
+                ground_speed: trackingInfo.gs || 0,
+                timestamp: aircraft.last_updated || new Date().toISOString(),
+                // Additional ADS-B specific data
+                flight: trackingInfo.flight?.trim() || null,
+                squawk: trackingInfo.squawk || null,
+                vertical_rate: trackingInfo.baro_rate || 0
+              }],
+              actual_off: aircraft.last_updated,
+              // Store additional aircraft info for display
+              aircraft_info: {
+                type: aircraft.type,
+                model: aircraft.aircraftModel,
+                status: aircraft.status
+              }
+            }
+          })
+        
+        console.log('Transformed tracking data:', transformedData)
+        setTrackingData(transformedData)
+      } else {
+        // No active aircraft found
+        console.log('No active aircraft with tracking data')
+        setTrackingData([])
       }
     } catch (err) {
       console.error("Error fetching tracking updates:", err)
+      setTrackingData([]) // Clear tracking data on error
     }
   }
 
-  // Set up interval to fetch tracking updates every minute
+  // Set up dynamic interval to fetch tracking updates
   useEffect(() => {
-    // Initial fetch
-    fetchTrackingUpdates()
+    let interval: NodeJS.Timeout
+    
+    const updateWithDynamicInterval = async () => {
+      try {
+        // Fetch updates first
+        await fetchTrackingUpdates()
+        
+        // Get fresh tracking data from state after the fetch
+        // We'll use a small delay to ensure state has updated
+        setTimeout(() => {
+          const currentTrackingData = trackingData
+          const hasActiveAircraft = currentTrackingData && currentTrackingData.length > 0
+          const nextInterval = hasActiveAircraft ? 10000 : 30000 // 10s if active aircraft, 30s if none
+          
+          console.log(`Next update in ${nextInterval/1000}s (${hasActiveAircraft ? 'active aircraft detected' : 'no active aircraft'})`)
+          
+          // Schedule next update
+          interval = setTimeout(updateWithDynamicInterval, nextInterval)
+        }, 100) // Small delay to ensure state has updated
+      } catch (error) {
+        console.error('Error in tracking update cycle:', error)
+        // On error, retry in 30 seconds
+        interval = setTimeout(updateWithDynamicInterval, 30000)
+      }
+    }
 
-    // Set up interval for regular updates (1 minute)
-    const interval = setInterval(fetchTrackingUpdates, 60000)
+    // Start the cycle
+    updateWithDynamicInterval()
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      if (interval) clearTimeout(interval)
+    }
+  }, []) // Only run once on mount
 
   // Load active tracking IDs from localStorage on component mount
   useEffect(() => {
@@ -856,23 +935,60 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
                 open={openPopupId === flightData._id}
                 onClose={() => setOpenPopupId(null)}
               >
-                <div className="p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
-                    <span className="font-bold">{flightData.tail_number}</span>
-                    <span className="ml-auto bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">In Flight</span>
+                <div className="p-4 min-w-[280px]">
+                  {/* Header with aircraft info and status */}
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <svg className="h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-lg">{flightData.tail_number}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {flightData.aircraft_info ? `${flightData.aircraft_info.type} ${flightData.aircraft_info.model}` : 'Aircraft'}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">● Live</span>
+                      {latestPosition.flight?.trim() && (
+                        <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                          {latestPosition.flight.trim()}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <div><span className="font-medium">Aircraft:</span> {planeInfo ? `${planeInfo.type} (${planeInfo.registration})` : flightData.tail_number}</div>
-                    <div><span className="font-medium">Student:</span> {flightLog?.student_name}</div>
-                    <div><span className="font-medium">Instructor:</span> {flightLog?.instructor}</div>
-                    <div><span className="font-medium">Altitude:</span> {Number(latestPosition.altitude * 100).toLocaleString()} ft</div>
-                    <div><span className="font-medium">Speed:</span> {latestPosition.ground_speed} kts</div>
-                    <div><span className="font-medium">Heading:</span> {latestPosition.heading}°</div>
-                    <div><span className="font-medium">Departure:</span> {departureTime}</div>
-                    {flightLog?.estimated_on && (
-                      <div><span className="font-medium">Est. Arrival:</span> {formatLocalTime(flightLog.estimated_on)}</div>
-                    )}
+                  
+                  {/* Flight data grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Altitude</div>
+                        <div className="text-sm font-semibold">{Number(latestPosition.altitude).toLocaleString()} ft</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Speed</div>
+                        <div className="text-sm font-semibold">{latestPosition.ground_speed} kts</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Heading</div>
+                        <div className="text-sm font-semibold">{latestPosition.heading}°</div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {latestPosition.squawk && (
+                        <div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wide">Squawk</div>
+                          <div className="text-sm font-semibold">{latestPosition.squawk}</div>
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Vertical Rate</div>
+                        <div className="text-sm font-semibold">
+                          {latestPosition.vertical_rate > 0 ? '↗' : latestPosition.vertical_rate < 0 ? '↘' : '→'} {Math.abs(latestPosition.vertical_rate)} ft/min
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Popup>
@@ -1050,161 +1166,84 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           {(() => {
-            // Get current local time
-            const now = new Date();
-            const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-            console.log('Current local time:', localDate.toISOString());
-            console.log('All today\'s flights:', todaysFlights);
-            
-            const filteredFlights = todaysFlights.filter(flight => {
-              console.log('Checking flight:', flight);
-              
-              // Always include In Flight and Preparing
-              if (flight.status === "In Flight" || flight.status === "Preparing") {
-                console.log('Flight included (In Flight or Preparing):', flight);
-                return true;
-              }
-              
-              // For Scheduled flights, check if within 30 minutes window
-              if (flight.status === "Scheduled") {
-                // Parse the time string (HH:mm)
-                const [hours, minutes] = flight.start_time.split(':').map(Number);
-                
-                // Create a date object for the flight time in local time
-                const flightDate = new Date(flight.date);
-                
-                // Create a new date object for the flight time
-                const localFlightTime = new Date(flightDate);
-                
-                // Set the hours and minutes in local time
-                localFlightTime.setUTCHours(hours, minutes, 0, 0);
-                
-                // Calculate 30 minutes before flight time
-                const thirtyMinutesBefore = new Date(localFlightTime.getTime() - 30 * 60000);
-                
-                // Calculate 30 minutes after flight time
-                const thirtyMinutesAfter = new Date(localFlightTime.getTime() + 30 * 60000);
-                
-                console.log('Flight time check:', {
-                  flight,
-                  flightDate: flightDate.toISOString(),
-                  localFlightTime: localFlightTime.toISOString(),
-                  thirtyMinutesBefore: thirtyMinutesBefore.toISOString(),
-                  thirtyMinutesAfter: thirtyMinutesAfter.toISOString(),
-                  now: localDate.toISOString(),
-                  isWithinWindow: localDate >= thirtyMinutesBefore && localDate <= thirtyMinutesAfter
-                });
-                
-                // Check if current time is within the window
-                return localDate >= thirtyMinutesBefore && localDate <= thirtyMinutesAfter;
-              }
-              
-              // Include flights that can be started
-              if (canStartFlight(flight.date, flight.start_time)) {
-                console.log('Flight included (can be started):', flight);
-                return true;
-              }
-              
-              console.log('Flight excluded:', flight);
-              return false;
-            });
+            // Show active aircraft from tracking data
+            const activeAircraft = trackingData?.filter((aircraft: any) => 
+              aircraft.tracking && aircraft.tracking.length > 0
+            ) || []
 
-            console.log('Filtered flights:', filteredFlights);
+            console.log('Active aircraft for display:', activeAircraft.length)
 
-            if (filteredFlights.length === 0) {
+            if (activeAircraft.length === 0) {
               return (
                 <div className="col-span-full flex flex-col items-center justify-center py-4 px-8 text-center border rounded-md bg-muted/50">
                   <Plane className="h-8 w-8 text-muted-foreground mb-2" strokeWidth={1.5} />
-                  <h3 className="text-lg font-semibold mb-1">No Active Flights</h3>
+                  <h3 className="text-lg font-semibold mb-1">No Active Aircraft</h3>
                   <p className="text-sm text-muted-foreground">
-                    There are no upcoming, preparing, or in-progress flights at this time.
+                    There are no aircraft currently being tracked at this time.
                   </p>
                 </div>
               );
             }
 
-            // Sort flights by status priority
-            const sortedFlights = [...filteredFlights].sort((a, b) => {
-              const statusPriority: { [key: string]: number } = {
-                "In Flight": 1,
-                "Preparing": 2,
-                "Scheduled": 3
-              };
+            return activeAircraft.map((aircraft: any) => {
+              const latestPosition = aircraft.tracking[aircraft.tracking.length - 1]
               
-              const priorityA = statusPriority[a.status] || 999;
-              const priorityB = statusPriority[b.status] || 999;
-              
-              if (priorityA !== priorityB) {
-                return priorityA - priorityB;
-              }
-              
-              // If status is the same, sort by start time
-              return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+              return (
+                <Card
+                  key={aircraft._id}
+                  className="cursor-pointer hover:shadow-md transition-all duration-200 border-l-4 border-l-green-500"
+                  onClick={() => {
+                    // Center map on this aircraft
+                    if (mapRef.current) {
+                      mapRef.current.flyTo([latestPosition.latitude, latestPosition.longitude], 14, {
+                        duration: 1.5
+                      })
+                      setOpenPopupId(aircraft._id)
+                    }
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <Plane className="h-6 w-6 text-primary" strokeWidth={2} />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="font-semibold text-lg">{aircraft.tail_number}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {aircraft.aircraft_info ? `${aircraft.aircraft_info.type} ${aircraft.aircraft_info.model}` : 'Aircraft'}
+                          </div>
+                          {latestPosition.flight?.trim() && (
+                            <div className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                              {latestPosition.flight.trim()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="bg-green-100 text-green-800 hover:bg-green-200 font-medium"
+                        >
+                          ● Live
+                        </Badge>
+                        <div className="text-right space-y-1">
+                          <div className="text-sm font-medium">
+                            {Number(latestPosition.altitude).toLocaleString()} ft
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {latestPosition.ground_speed} kts
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {latestPosition.heading}° HDG
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
             });
-
-            return sortedFlights.map((flight) => (
-              <div
-                key={flight._id}
-                className={`flex items-center justify-between p-3 border rounded-md ${
-                  flight.status === "Completed" 
-                    ? "hover:bg-muted/50 cursor-pointer" 
-                    : "hover:bg-muted/50"
-                }`}
-                onClick={() => handleFlightCardClick(flight)}
-              >
-                <div className="flex items-center gap-3">
-                  <div>
-                    <Plane className="h-10 w-10 text-primary" strokeWidth={3} />
-                  </div>
-                  <div>
-                    <div className="font-medium">{flight.student_name}</div>
-                    <div className="text-sm text-muted-foreground">{flight.plane_reg}</div>
-                    <div className="text-sm text-muted-foreground">{flight.start_time}</div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <Badge
-                    variant={flight.status === "Completed" ? "default" : "secondary"}
-                    className={`${
-                      flight.status === "Completed" 
-                        ? "bg-green-500/80 hover:bg-green-500/90" 
-                        : flight.status === "In Flight"
-                          ? "bg-green-100 text-green-800 hover:bg-green-200"
-                          : flight.status === "Preparing"
-                            ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                          : flight.status === "Scheduled"
-                            ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                          : flight.status === "Canceled"
-                            ? "bg-red-100 text-red-800 hover:bg-red-200"
-                            : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                    }`}
-                  >
-                    {flight.status}
-                  </Badge>
-                  {(() => {
-                    const canStart = canStartFlight(flight.date, flight.start_time);
-                    console.log('Flight card rendering:', {
-                      flightId: flight._id,
-                      status: flight.status,
-                      date: flight.date,
-                      startTime: flight.start_time,
-                      canStart,
-                      shouldShowButton: flight.status === "Scheduled" && canStart
-                    });
-                    return flight.status === "Scheduled" && canStart ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => handleStartFlight(e, flight)}
-                        className="w-[100px]"
-                      >
-                        Start Flight
-                      </Button>
-                    ) : null;
-                  })()}
-                </div>
-              </div>
-            ));
           })()}
         </div>
 
