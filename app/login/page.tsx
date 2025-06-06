@@ -165,8 +165,8 @@ export default function LoginPage() {
         break
       case 'school_admin':
       case 'instructor':
-        console.log('Redirecting to protected page')
-        router.push('/protected')
+        console.log('Redirecting to Dashboard')
+        router.push('/dashboard')
         break
       default:
         console.error('Invalid role:', payload.role)
