@@ -116,14 +116,13 @@ export default function LoginPage() {
     // Store CSRF token in both cookie and localStorage
     if (data.csrfToken) {
       localStorage.setItem("csrfToken", data.csrfToken)
-      // Set CSRF token cookie
+      // Set CSRF token cookie - domain will default to current domain
       const csrfCookieOptions = [
         `csrf-token=${data.csrfToken}`,
         'path=/',
         'max-age=86400',
         'secure',
-        'samesite=lax',
-        'domain=rileyjacobson.net'
+        'samesite=lax'
       ].join('; ')
       document.cookie = csrfCookieOptions
     }
@@ -131,14 +130,13 @@ export default function LoginPage() {
     // Store token in localStorage as backup
     localStorage.setItem("token", data.token)
     
-    // Set auth token cookie with proper attributes for cross-domain access
+    // Set auth token cookie - domain will default to current domain
     const cookieOptions = [
       `token=${data.token}`,
       'path=/',
       'max-age=86400',
       'secure',
-      'samesite=lax',
-      'domain=rileyjacobson.net'
+      'samesite=lax'
     ].join('; ')
     document.cookie = cookieOptions
 
