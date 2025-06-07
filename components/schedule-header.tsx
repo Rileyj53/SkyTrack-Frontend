@@ -149,9 +149,9 @@ export function ScheduleHeader({
             <Button variant="outline" size="sm">
               <Filter className="mr-2 h-4 w-4" />
               Filter
-              {Object.values(filters).some(v => v !== "") && (
+              {Object.values(filters).some(v => v !== "all" && v !== "") && (
                 <Badge variant="secondary" className="ml-2">
-                  {Object.values(filters).filter(v => v !== "").length}
+                  {Object.values(filters).filter(v => v !== "all" && v !== "").length}
                 </Badge>
               )}
             </Button>

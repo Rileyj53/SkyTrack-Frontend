@@ -19,6 +19,7 @@ import { ScheduleCalendar } from "@/components/schedule-calendar"
 import { ScheduleHeader } from "@/components/schedule-header"
 import { UserNav } from "@/components/user-nav"
 import { Button } from "@/components/ui/button"
+import { Loading } from "@/components/ui/loading"
 import { NewFlightDialog } from "@/components/schedule/new-flight-dialog"
 import { toast } from "sonner"
 
@@ -46,17 +47,36 @@ interface Filters {
 
 interface Schedule {
   _id: string
-  school_id: string
-  plane_id: string
-  instructor_id: string
-  student_id: string
-  date: string
-  start_time: string
-  end_time: string
+  school_id: {
+    _id: string
+    name: string
+  }
+  plane_id: {
+    _id: string
+    registration: string
+    type?: string
+    model?: string
+  }
+  instructor_id: {
+    _id: string
+    user_id: {
+      first_name: string
+      last_name: string
+    }
+  }
+  student_id: {
+    _id: string
+    user_id: {
+      first_name: string
+      last_name: string
+    }
+  }
+  scheduled_start_time: string
+  scheduled_end_time: string
+  scheduled_duration: number
   flight_type: string
   status: string
-  notes: string
-  created_by: string
+  notes?: string
   created_at: string
   updated_at: string
 }
@@ -67,8 +87,11 @@ export function SchedulePage() {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [students, setStudents] = useState<Record<string, Student>>({})
   const [instructors, setInstructors] = useState<Record<string, Instructor>>({})
-  const [loading, setLoading] = useState(false)
+  const [allStudents, setAllStudents] = useState<Record<string, Student>>({})
+  const [allInstructors, setAllInstructors] = useState<Record<string, Instructor>>({})
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const [newFlightDialogOpen, setNewFlightDialogOpen] = useState(false)
   const [filters, setFilters] = useState<Filters>({
     student: "all",
@@ -131,7 +154,7 @@ export function SchedulePage() {
     }
   }
 
-  const fetchInstructors = async () => {
+  const fetchInstructors = async (): Promise<void> => {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
@@ -160,13 +183,14 @@ export function SchedulePage() {
       data.forEach((instructor: Instructor) => {
         instructorsMap[instructor._id] = instructor
       })
+      setAllInstructors(instructorsMap)
       setInstructors(instructorsMap)
     } catch (err) {
       console.error("Error fetching instructors:", err)
     }
   }
 
-  const fetchAllStudents = async () => {
+  const fetchAllStudents = async (): Promise<void> => {
     try {
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
@@ -194,7 +218,6 @@ export function SchedulePage() {
       }
 
       const data = await response.json()
-      console.log("Students API response:", data)
       
       // Handle both possible response formats
       const studentsArray = Array.isArray(data) ? data : (data.students || [])
@@ -206,16 +229,18 @@ export function SchedulePage() {
         }
       })
       
-      console.log("Processed students:", studentsMap)
+      setAllStudents(studentsMap)
       setStudents(studentsMap)
     } catch (err) {
       console.error("Error fetching all students:", err)
     }
   }
 
-  const fetchSchedules = async (start: Date, end: Date) => {
+  const fetchSchedules = async (start: Date, end: Date, isRetry: boolean = false) => {
     try {
-      setLoading(true)
+      if (!isRetry) {
+        setLoading(true)
+      }
       setError(null)
       
       const schoolId = localStorage.getItem("schoolId")
@@ -223,19 +248,33 @@ export function SchedulePage() {
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
       if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+        throw new Error("Please sign in again to continue")
       }
 
       if (!apiKey) {
-        throw new Error("API key is not configured")
+        throw new Error("Application configuration error. Please contact support.")
       }
 
       const startDate = format(start, "yyyy-MM-dd")
       const endDate = format(end, "yyyy-MM-dd")
       
-      console.log('Fetching schedules for:', { startDate, endDate }) // Debug log
+      // Build query parameters
+      const params = new URLSearchParams()
+      params.append("start_date", startDate)
+      params.append("end_date", endDate)
       
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/schedules?startDate=${startDate}&endDate=${endDate}`
+      // Add filter parameters if they're not "all"
+      if (filters.status !== "all") {
+        params.append("status", filters.status.toLowerCase())
+      }
+      if (filters.instructor !== "all") {
+        params.append("instructor_id", filters.instructor)
+      }
+      if (filters.student !== "all") {
+        params.append("student_id", filters.student)
+      }
+      
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule?${params.toString()}`
       
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -250,38 +289,87 @@ export function SchedulePage() {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch schedules: ${response.status}`)
+        if (response.status === 401) {
+          throw new Error("Your session has expired. Please sign in again.")
+        } else if (response.status === 403) {
+          throw new Error("You don't have permission to view schedules.")
+        } else if (response.status >= 500) {
+          throw new Error("Server error. Please try again in a moment.")
+        } else {
+          throw new Error(`Failed to load schedules (${response.status})`)
+        }
       }
 
       const data = await response.json()
-      console.log('Received schedules:', data.schedules) // Debug log
       
-      setSchedules(data.schedules || [])
-
-      // Fetch student details for each unique student
-      const uniqueStudentIds = [...new Set(data.schedules?.map((s: Schedule) => s.student_id) || [])]
-      const newStudents: Record<string, Student> = {}
-      
-      await Promise.all(
-        (uniqueStudentIds as string[]).map(async (studentId: string) => {
-          const student = await fetchStudent(studentId)
-          if (student) {
-            newStudents[studentId] = student
+      if (data.schedules && Array.isArray(data.schedules)) {
+        setSchedules(data.schedules)
+        
+        // Extract student and instructor data from the populated response for current schedules
+        const currentStudentsMap: Record<string, Student> = {}
+        const currentInstructorsMap: Record<string, Instructor> = {}
+        
+        data.schedules.forEach((schedule: Schedule) => {
+          if (schedule.student_id && schedule.student_id._id && schedule.student_id.user_id) {
+            currentStudentsMap[schedule.student_id._id] = {
+              _id: schedule.student_id._id,
+              user_id: schedule.student_id.user_id
+            }
+          }
+          if (schedule.instructor_id && schedule.instructor_id._id && schedule.instructor_id.user_id) {
+            currentInstructorsMap[schedule.instructor_id._id] = {
+              _id: schedule.instructor_id._id,
+              user_id: schedule.instructor_id.user_id
+            }
           }
         })
-      )
-      
-      setStudents(newStudents)
-
-      // Fetch all instructors
-      await fetchInstructors()
+        
+        // Update current schedule-specific data only (preserve complete lists)
+        setStudents(currentStudentsMap)
+        setInstructors(currentInstructorsMap)
+        setRetryCount(0) // Reset retry count on success
+      } else {
+        setSchedules([])
+      }
     } catch (err) {
       console.error("Error fetching schedules:", err)
-      setError(err instanceof Error ? err.message : "An unknown error occurred")
-      toast.error("Failed to load schedules")
+      const errorMessage = err instanceof Error ? err.message : "Failed to load schedules"
+      setError(errorMessage)
+      
+      // Only show toast for non-retry attempts to avoid spam
+      if (!isRetry) {
+        toast.error(errorMessage)
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1)
+    
+    let start: Date
+    let end: Date
+
+    switch (view) {
+      case "month":
+        start = startOfMonth(currentDate)
+        end = endOfMonth(currentDate)
+        break
+      case "week":
+        start = weekDays[0]
+        end = weekDays[6]
+        break
+      case "day":
+        start = currentDate
+        end = currentDate
+        break
+      default:
+        start = currentDate
+        end = currentDate
+    }
+
+    fetchSchedules(start, end, true)
   }
 
   const router = useRouter()
@@ -309,12 +397,10 @@ export function SchedulePage() {
         }
 
         const data = await response.json()
-        console.log('User data received:', JSON.stringify(data, null, 2))
         
         // Store the school ID in localStorage for other components to use
         if (data.user && data.user.school_id) {
           localStorage.setItem("schoolId", data.user.school_id)
-          console.log('Stored school ID in localStorage:', data.user.school_id)
         }
       } catch (error) {
         console.error("Auth check failed:", error)
@@ -326,38 +412,43 @@ export function SchedulePage() {
   }, [router])
 
   useEffect(() => {
-    let start: Date
-    let end: Date
+    const loadData = async () => {
+      // First load students and instructors
+      await Promise.all([fetchAllStudents(), fetchInstructors()])
+      
+      // Then load schedules
+      let start: Date
+      let end: Date
 
-    switch (view) {
-      case "month":
-        start = startOfMonth(currentDate)
-        end = endOfMonth(currentDate)
-        break
-      case "week":
-        start = weekDays[0] // Use the first day of our weekDays array
-        end = weekDays[6] // Use the last day of our weekDays array
-        break
-      case "day":
-        start = currentDate
-        end = currentDate
-        break
-      default:
-        start = currentDate
-        end = currentDate
+      switch (view) {
+        case "month":
+          start = startOfMonth(currentDate)
+          end = endOfMonth(currentDate)
+          break
+        case "week":
+          start = weekDays[0] // Use the first day of our weekDays array
+          end = weekDays[6] // Use the last day of our weekDays array
+          break
+        case "day":
+          start = currentDate
+          end = currentDate
+          break
+        default:
+          start = currentDate
+          end = currentDate
+      }
+
+      fetchSchedules(start, end)
     }
-
-    fetchSchedules(start, end)
-    fetchAllStudents()
-    fetchInstructors()
-  }, [currentDate, view])
+    
+    loadData()
+  }, [currentDate, view, filters])
 
   const handleDateChange = (newDate: Date) => {
     setCurrentDate(newDate)
   }
 
   const handleViewChange = (newView: "day" | "week" | "month") => {
-    console.log("Changing view to:", newView);
     setView(newView)
   }
 
@@ -383,18 +474,12 @@ export function SchedulePage() {
         end = currentDate
     }
 
+    // Only refresh schedules since complete lists don't change
     fetchSchedules(start, end)
   }
 
-  // Filter schedules based on current filters
-  const filteredSchedules = useMemo(() => {
-    return schedules.filter(schedule => {
-      if (filters.student !== "all" && schedule.student_id !== filters.student) return false
-      if (filters.instructor !== "all" && schedule.instructor_id !== filters.instructor) return false
-      if (filters.status !== "all" && schedule.status !== filters.status) return false
-      return true
-    })
-  }, [schedules, filters])
+  // Since filtering is now handled server-side, we can use schedules directly
+  const filteredSchedules = schedules
 
   const handleFilterChange = (newFilters: typeof filters) => {
     setFilters(newFilters)
@@ -422,25 +507,56 @@ export function SchedulePage() {
             onDateChange={handleDateChange} 
             view={view} 
             onViewChange={handleViewChange}
-            students={Object.values(students)}
-            instructors={Object.values(instructors)}
+            students={Object.values(allStudents)}
+            instructors={Object.values(allInstructors)}
             onFlightCreated={handleFlightCreated}
             filters={filters}
             onFilterChange={handleFilterChange}
           />
 
           {loading && (
-            <div className="flex justify-center items-center py-8">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span>Loading schedules...</span>
+            <div className="flex justify-center items-center py-12">
+              <div className="flex flex-col items-center gap-3">
+                <Loading 
+                  size="lg" 
+                  text="Loading schedules..."
+                />
+                {retryCount > 0 && (
+                  <span className="text-xs text-muted-foreground">Attempt {retryCount + 1}</span>
+                )}
               </div>
             </div>
           )}
 
           {error && (
-            <div className="flex justify-center py-8">
-              <div className="text-center text-red-500">{error}</div>
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="text-center text-red-600 dark:text-red-400">
+                <p className="font-medium">{error}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRetry}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    'Try Again'
+                  )}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => window.location.reload()}
+                >
+                  Refresh Page
+                </Button>
+              </div>
             </div>
           )}
 
