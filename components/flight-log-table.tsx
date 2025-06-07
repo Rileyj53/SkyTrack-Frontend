@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MoreHorizontal, Plane, User, ArrowLeft, X, Pencil, Save, AlertTriangle, ArrowUpDown } from "lucide-react"
+import { MoreHorizontal, Plane, User, ArrowLeft, X, Pencil, Save, AlertTriangle, ArrowUpDown, Filter, ChevronDown, ChevronUp, Check, ChevronsUpDown, Search, HelpCircle } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +24,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 interface Student {
   _id: string
@@ -65,6 +69,14 @@ interface Instructor {
   specialties: string[]
   created_at: string
   updated_at: string
+}
+
+interface Aircraft {
+  _id: string
+  registration: string
+  type: string
+  aircraftModel: string
+  status: string
 }
 
 interface FlightLog {
@@ -111,6 +123,46 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [instructors, setInstructors] = useState<Instructor[]>([])
   const [loadingInstructors, setLoadingInstructors] = useState(false)
+  const [aircraft, setAircraft] = useState<Aircraft[]>([])
+  const [loadingAircraft, setLoadingAircraft] = useState(false)
+  
+  // Filter state
+  const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [selectedAircraft, setSelectedAircraft] = useState<string>("all")
+  const [selectedInstructor, setSelectedInstructor] = useState<string>("all")
+  const [selectedStudent, setSelectedStudent] = useState<string>("all")
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null)
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Handle end date validation
+  const handleEndDateChange = (date: Date | null) => {
+    if (date && selectedDate && date < selectedDate) {
+      // If end date is before start date, reset it
+      toast.error("End date cannot be before start date")
+      setSelectedEndDate(null)
+    } else {
+      setSelectedEndDate(date)
+    }
+  }
+
+  // Handle start date validation
+  const handleStartDateChange = (date: Date | null) => {
+    setSelectedDate(date)
+    // If there's an existing end date and it's now before the new start date, reset end date
+    if (date && selectedEndDate && selectedEndDate < date) {
+      setSelectedEndDate(null)
+      toast.info("End date reset because it was before the new start date")
+    }
+  }
+  
+  // Combobox open states
+  const [aircraftOpen, setAircraftOpen] = useState(false)
+  const [instructorOpen, setInstructorOpen] = useState(false)
+  const [studentOpen, setStudentOpen] = useState(false)
+  
+  // Search help tooltip state
+  const [searchHelpOpen, setSearchHelpOpen] = useState(false)
+  
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: 'ascending' | 'descending';
@@ -132,10 +184,31 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
   const formatDateForAPI = (date: Date | null) => {
     if (!date) return null
+    // Convert local date to UTC to ensure we get the full day range
+    // When user selects a date, we want all flights for that date in their timezone
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
+  }
+
+  // Get UTC date range for a local date to ensure we capture all flights for that day
+  const getUTCDateRange = (localDate: Date | null) => {
+    if (!localDate) return { startDate: null, endDate: null }
+    
+    // Start of day in local timezone
+    const startOfDay = new Date(localDate)
+    startOfDay.setHours(0, 0, 0, 0)
+    
+    // End of day in local timezone  
+    const endOfDay = new Date(localDate)
+    endOfDay.setHours(23, 59, 59, 999)
+    
+    // Convert to UTC ISO strings and extract date parts
+    const startDateUTC = startOfDay.toISOString().split('T')[0]
+    const endDateUTC = endOfDay.toISOString().split('T')[0]
+    
+    return { startDate: startDateUTC, endDate: endDateUTC }
   }
 
   const formatTime = (time: string) => {
@@ -160,6 +233,25 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     return time // Already in HH:MM format
   }
 
+  // Helper functions to get display names for selected values
+  const getAircraftDisplayName = (aircraftId: string) => {
+    if (aircraftId === "all") return "All aircraft"
+    const plane = aircraft.find(p => p._id === aircraftId)
+    return plane ? `${plane.registration} - ${plane.type}` : "Select aircraft"
+  }
+
+  const getInstructorDisplayName = (instructorId: string) => {
+    if (instructorId === "all") return "All instructors"
+    const instructor = instructors.find(i => i._id === instructorId)
+    return instructor ? `${instructor.user_id.first_name} ${instructor.user_id.last_name}` : "Select instructor"
+  }
+
+  const getStudentDisplayName = (studentId: string) => {
+    if (studentId === "all") return "All students"
+    const student = students.find(s => s._id === studentId)
+    return student ? `${student.user_id.first_name} ${student.user_id.last_name}` : "Select student"
+  }
+
   const fetchFlightLogs = async () => {
     try {
       setLoading(true)
@@ -179,24 +271,43 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      let apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs`
+      let apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule`
       
       // Build query parameters
       const params = new URLSearchParams()
       
-      // Add date filter if selected
-      const dateParam = formatDateForAPI(selectedDate)
-      if (dateParam) {
-        params.append("date", dateParam)
+      // Add date filters
+      if (selectedDate) {
+        const { startDate, endDate } = getUTCDateRange(selectedDate)
+        if (startDate && endDate) {
+          params.append("start_date", startDate)
+          if (selectedEndDate) {
+            const { endDate: endDateRange } = getUTCDateRange(selectedEndDate)
+            if (endDateRange) {
+              params.append("end_date", endDateRange)
+            }
+          } else {
+            params.append("end_date", endDate)
+          }
+        }
       }
       
-      // Add time range if specified
-      if (startTime) {
-        params.append("start_time", formatTimeForAPI(startTime) || "")
+      // Add other filters
+      if (selectedStatus && selectedStatus !== "all") {
+        params.append("status", selectedStatus.toLowerCase())
       }
-      if (endTime) {
-        params.append("end_time", formatTimeForAPI(endTime) || "")
+      if (selectedAircraft && selectedAircraft !== "all") {
+        params.append("plane_id", selectedAircraft)
       }
+      if (selectedInstructor && selectedInstructor !== "all") {
+        params.append("instructor_id", selectedInstructor)
+      }
+      if (selectedStudent && selectedStudent !== "all") {
+        params.append("student_id", selectedStudent)
+      }
+      
+      // Add time range if specified - note: the new API doesn't support time filtering
+      // but we can filter locally after fetching data
       
       // Append query parameters to URL
       if (params.toString()) {
@@ -229,10 +340,90 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       }
 
       const data = await response.json()
-      console.log('Flight logs data:', data)
-      
-      if (data.flightLogs && Array.isArray(data.flightLogs)) {
-        setFlights(data.flightLogs)
+              console.log('Flight logs data:', data)
+        
+        if (data.schedules && Array.isArray(data.schedules)) {
+          console.log('Raw schedules count:', data.schedules.length)
+          
+          // Transform the schedule data to match our FlightLog interface
+          const transformedFlights: FlightLog[] = data.schedules.map((schedule: any) => {
+          // Parse UTC time and convert to local time for display
+          const utcDateTime = schedule.scheduled_start_time ? new Date(schedule.scheduled_start_time) : null
+          
+          return {
+            _id: schedule._id,
+            date: utcDateTime ? utcDateTime.toLocaleDateString('en-CA') : '', // YYYY-MM-DD format in local time
+            start_time: utcDateTime ? 
+              utcDateTime.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+              }) : '',
+            plane_reg: schedule.plane_id?.registration || 'N/A',
+            plane_id: schedule.plane_id?._id || '',
+            student_name: schedule.student_id ? 
+              `${schedule.student_id.user_id?.first_name || ''} ${schedule.student_id.user_id?.last_name || ''}`.trim() : 'N/A',
+            student_id: schedule.student_id?._id || '',
+            instructor: schedule.instructor_id ? 
+              `${schedule.instructor_id.user_id?.first_name || ''} ${schedule.instructor_id.user_id?.last_name || ''}`.trim() : 'N/A',
+            instructor_id: schedule.instructor_id?._id || '',
+            duration: schedule.scheduled_duration || 0,
+            type: schedule.flight_type || 'Training',
+            status: capitalizeStatus(schedule.status || 'scheduled'),
+            school_id: schedule.school_id?._id || schoolId,
+            created_at: schedule.created_at || '',
+            updated_at: schedule.updated_at || ''
+          }
+        })
+        
+        console.log('Transformed flights:', transformedFlights)
+        console.log('Selected date:', selectedDate?.toLocaleDateString('en-CA'))
+        console.log('Selected end date:', selectedEndDate?.toLocaleDateString('en-CA'))
+        
+        // Apply local date and time filtering
+        let filteredFlights = transformedFlights
+        
+        // Filter by date range (if we have both selectedDate and selectedEndDate, use range; otherwise use single date)
+        if (selectedDate) {
+          if (selectedEndDate) {
+            // Date range filtering
+            const startDateStr = selectedDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
+            const endDateStr = selectedEndDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
+            filteredFlights = filteredFlights.filter(flight => {
+              return flight.date >= startDateStr && flight.date <= endDateStr
+            })
+          } else {
+            // Single date filtering
+            const selectedDateStr = selectedDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
+            filteredFlights = filteredFlights.filter(flight => flight.date === selectedDateStr)
+          }
+        }
+        
+        // Apply time filtering if specified
+        if (startTime || endTime) {
+          filteredFlights = filteredFlights.filter(flight => {
+            const flightTime = flight.start_time
+            if (!flightTime) return true
+            
+            const flightMinutes = convertTimeToMinutes(flightTime)
+            
+            if (startTime) {
+              const startMinutes = convertTimeToMinutes(startTime)
+              if (flightMinutes < startMinutes) return false
+            }
+            
+            if (endTime) {
+              const endMinutes = convertTimeToMinutes(endTime)
+              if (flightMinutes > endMinutes) return false
+            }
+            
+            return true
+          })
+        }
+        
+        console.log('Final filtered flights:', filteredFlights)
+        setFlights(filteredFlights)
       } else {
         setError("Invalid data format received from API")
       }
@@ -242,6 +433,24 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Helper function to convert time string to minutes for comparison
+  const convertTimeToMinutes = (timeString: string): number => {
+    const [hours, minutes] = timeString.split(':').map(Number)
+    return hours * 60 + minutes
+  }
+
+  // Helper function to capitalize status for display
+  const capitalizeStatus = (status: string): string => {
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
+  }
+
+  // Convert local date and time to UTC ISO string
+  const convertLocalToUTC = (localDate: string, localTime: string): string => {
+    // Create a date object from local date and time
+    const localDateTime = new Date(`${localDate}T${localTime}:00`)
+    return localDateTime.toISOString()
   }
 
   const fetchStudents = async () => {
@@ -364,9 +573,77 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     }
   };
 
+  const fetchAircraft = async () => {
+    try {
+      setLoadingAircraft(true);
+      const schoolId = localStorage.getItem("schoolId");
+      const token = localStorage.getItem("token");
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+      
+      if (!schoolId || !token) {
+        toast.error("School ID or authentication token not found");
+        return;
+      }
+
+      if (!apiKey) {
+        toast.error("API key is not configured");
+        return;
+      }
+
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`;
+      
+      console.log('Fetching aircraft from:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          error: errorData
+        });
+        throw new Error(`Failed to fetch aircraft: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Aircraft data:', data);
+      
+      if (Array.isArray(data)) {
+        setAircraft(data);
+      } else if (data.planes && Array.isArray(data.planes)) {
+        setAircraft(data.planes);
+      } else {
+        toast.error("Invalid data format received from API");
+      }
+    } catch (err) {
+      console.error("Error fetching aircraft:", err);
+      toast.error(err instanceof Error ? err.message : "An unknown error occurred");
+    } finally {
+      setLoadingAircraft(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents()
+    fetchInstructors()
+    fetchAircraft()
+  }, [])
+
   useEffect(() => {
     fetchFlightLogs()
-  }, [selectedDate, startTime, endTime])
+  }, [selectedDate, selectedEndDate, selectedStatus, selectedAircraft, selectedInstructor, selectedStudent, startTime, endTime])
 
   // Check for edit parameter in URL and enter edit mode if found
   useEffect(() => {
@@ -389,15 +666,52 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     }
   }, [searchParams, flights])
 
-  // Sort flights based on search query and sort configuration
+  // Enhanced search function with multiple improvements
+  const enhancedSearch = (flight: FlightLog, query: string) => {
+    if (!query.trim()) return true;
+    
+    const searchTerms = query.toLowerCase().trim().split(/\s+/);
+    const searchableText = [
+      flight._id,
+      flight.student_name,
+      flight.plane_reg,
+      flight.instructor,
+      flight.type,
+      flight.status,
+      flight.date,
+      flight.start_time,
+      `${flight.duration}h`,
+      `${flight.duration} hours`,
+      formatDate(flight.date), // Formatted date like "06/06/2025"
+      formatTime(flight.start_time), // Formatted time like "3:00 AM"
+    ].join(' ').toLowerCase();
+    
+    // Support for different search modes
+    if (query.startsWith('"') && query.endsWith('"')) {
+      // Exact phrase search
+      const phrase = query.slice(1, -1).toLowerCase();
+      return searchableText.includes(phrase);
+    }
+    
+    if (query.includes(' AND ')) {
+      // AND search: all terms must match
+      const andTerms = query.toLowerCase().split(' and ').map(t => t.trim());
+      return andTerms.every(term => searchableText.includes(term));
+    }
+    
+    if (query.includes(' OR ')) {
+      // OR search: any term can match
+      const orTerms = query.toLowerCase().split(' or ').map(t => t.trim());
+      return orTerms.some(term => searchableText.includes(term));
+    }
+    
+    // Default: any search term can match (partial matching)
+    return searchTerms.some(term => searchableText.includes(term));
+  };
+
+  // Sort flights based on enhanced search and sort configuration
   const filteredAndSortedFlights = flights
-    .filter(
-    (flight) =>
-        flight._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        flight.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        flight.plane_reg.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      flight.instructor.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+    .filter((flight) => enhancedSearch(flight, searchQuery))
     .sort((a, b) => {
       if (!sortConfig) return 0;
       
@@ -469,9 +783,17 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
   const handleResetFilters = () => {
     setSelectedDate(new Date())
+    setSelectedEndDate(null)
     setStartTime(null)
     setEndTime(null)
-    fetchFlightLogs()
+    setSelectedStatus("all")
+    setSelectedAircraft("all")
+    setSelectedInstructor("all")
+    setSelectedStudent("all")
+    // Close any open comboboxes
+    setAircraftOpen(false)
+    setInstructorOpen(false)
+    setStudentOpen(false)
   }
 
   const handleEditClick = () => {
@@ -502,7 +824,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/${editedFlight._id}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${editedFlight._id}`
       
       console.log('Updating flight log:', apiUrl)
       
@@ -515,7 +837,15 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
         },
-        body: JSON.stringify(editedFlight),
+        body: JSON.stringify({
+          scheduled_start_time: convertLocalToUTC(editedFlight.date, editedFlight.start_time),
+          scheduled_duration: editedFlight.duration,
+          flight_type: editedFlight.type,
+          status: editedFlight.status.toLowerCase(),
+          student_id: editedFlight.student_id,
+          instructor_id: editedFlight.instructor_id,
+          plane_id: editedFlight.plane_id
+        }),
         credentials: 'include'
       })
 
@@ -613,7 +943,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
       const updatedFlight = { ...selectedFlight, status: newStatus };
       
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/${selectedFlight._id}`;
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`;
       
       console.log('Updating flight status:', apiUrl);
       
@@ -626,7 +956,9 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
         },
-        body: JSON.stringify(updatedFlight),
+        body: JSON.stringify({
+          status: newStatus.toLowerCase()
+        }),
         credentials: 'include'
       });
 
@@ -705,52 +1037,344 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
             </Alert>
           )}
           <div className="space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-1 items-center space-x-2">
-          <Input
-            placeholder="Search flights..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-full sm:w-[300px] dark:bg-muted/50"
-                />
+            {/* Header with Search and Filters */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search flights..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-9 w-full sm:w-[300px] pl-10 pr-10 dark:bg-muted/50"
+                    />
+                    {searchQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 p-0 hover:bg-muted"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <TooltipProvider>
+                    <Tooltip open={searchHelpOpen} onOpenChange={setSearchHelpOpen}>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-9 w-9 p-0"
+                          onClick={() => setSearchHelpOpen(!searchHelpOpen)}
+                          onMouseEnter={() => setSearchHelpOpen(true)}
+                          onMouseLeave={() => setSearchHelpOpen(false)}
+                        >
+                          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <div className="space-y-2 text-sm">
+                          <div className="font-medium">Search Tips:</div>
+                          <div>• Search by: student name, aircraft, instructor, status, date, time</div>
+                          <div>• <code>"exact phrase"</code> - for exact matches</div>
+                          <div>• <code>term AND term</code> - both must match</div>
+                          <div>• <code>term OR term</code> - either can match</div>
+                          <div>• Examples: <code>David N166</code>, <code>"Solo"</code>, <code>Scheduled OR Completed</code></div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                {!selectedFlight && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="h-9 px-3 gap-2 whitespace-nowrap"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    {showFilters ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
               </div>
-              {!selectedFlight && (
-                <div className="grid grid-flow-col items-center gap-2">
-                  <DatePicker
-                    date={selectedDate}
-                    setDate={setSelectedDate}
-                    className="dark:bg-muted/50"
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">From</span>
-                  <TimePicker
-                    time={startTime}
-                    setTime={setStartTime}
-                    onApply={handleApplyFilters}
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">To</span>
-                  <TimePicker
-                    time={endTime}
-                    setTime={setEndTime}
-                    onApply={handleApplyFilters}
-                  />
+              
+              <div className="text-sm text-muted-foreground">
+                {searchQuery ? (
+                  <>
+                    {filteredAndSortedFlights.length} of {flights.length} flight{flights.length !== 1 ? 's' : ''} 
+                    {filteredAndSortedFlights.length !== flights.length && (
+                      <span className="text-blue-600 dark:text-blue-400"> (filtered)</span>
+                    )}
+                  </>
+                ) : (
+                  `${flights.length} flight${flights.length !== 1 ? 's' : ''} found`
+                )}
+              </div>
+            </div>
+
+            {/* Collapsible Filters */}
+            {!selectedFlight && showFilters && (
+              <div className="space-y-4 p-4 border rounded-lg dark:border-muted-foreground/20 bg-muted/20 animate-in slide-in-from-top-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {/* Date Range */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Start Date</Label>
+                    <DatePicker
+                      date={selectedDate}
+                      setDate={handleStartDateChange}
+                      className="dark:bg-muted/50 h-8"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">End Date</Label>
+                    <DatePicker
+                      date={selectedEndDate}
+                      setDate={handleEndDateChange}
+                      className="dark:bg-muted/50 h-8"
+                    />
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Status</Label>
+                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                      <SelectTrigger className="h-8 dark:bg-muted/50 text-xs">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="in-flight">In Flight</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="preparing">Preparing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Aircraft Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Aircraft</Label>
+                    <Popover open={aircraftOpen} onOpenChange={setAircraftOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={aircraftOpen}
+                          className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <span className="truncate">{getAircraftDisplayName(selectedAircraft)}</span>
+                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search aircraft..." className="h-9" />
+                          <CommandEmpty>No aircraft found.</CommandEmpty>
+                          <CommandList>
+                            <CommandGroup>
+                              <CommandItem
+                                key="all-aircraft"
+                                value="all"
+                                onSelect={() => {
+                                  setSelectedAircraft("all")
+                                  setAircraftOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedAircraft === "all" ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                All aircraft
+                              </CommandItem>
+                              {aircraft.map((plane, index) => (
+                                <CommandItem
+                                  key={plane._id || `aircraft-${index}`}
+                                  value={`${plane.registration} ${plane.type} ${plane.aircraftModel}`}
+                                  onSelect={() => {
+                                    setSelectedAircraft(plane._id)
+                                    setAircraftOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedAircraft === plane._id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {plane.registration} - {plane.type}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Instructor Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Instructor</Label>
+                    <Popover open={instructorOpen} onOpenChange={setInstructorOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={instructorOpen}
+                          className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <span className="truncate">{getInstructorDisplayName(selectedInstructor)}</span>
+                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search instructors..." className="h-9" />
+                          <CommandEmpty>No instructors found.</CommandEmpty>
+                          <CommandList>
+                            <CommandGroup>
+                              <CommandItem
+                                key="all-instructors"
+                                value="all"
+                                onSelect={() => {
+                                  setSelectedInstructor("all")
+                                  setInstructorOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedInstructor === "all" ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                All instructors
+                              </CommandItem>
+                              {instructors.map((instructor, index) => (
+                                <CommandItem
+                                  key={instructor._id || `instructor-${index}`}
+                                  value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                  onSelect={() => {
+                                    setSelectedInstructor(instructor._id)
+                                    setInstructorOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedInstructor === instructor._id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {instructor.user_id.first_name} {instructor.user_id.last_name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Student Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Student</Label>
+                    <Popover open={studentOpen} onOpenChange={setStudentOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={studentOpen}
+                          className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <span className="truncate">{getStudentDisplayName(selectedStudent)}</span>
+                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search students..." className="h-9" />
+                          <CommandEmpty>No students found.</CommandEmpty>
+                          <CommandList>
+                            <CommandGroup>
+                              <CommandItem
+                                key="all-students"
+                                value="all"
+                                onSelect={() => {
+                                  setSelectedStudent("all")
+                                  setStudentOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedStudent === "all" ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                All students
+                              </CommandItem>
+                              {students.map((student, index) => (
+                                <CommandItem
+                                  key={student._id || `student-${index}`}
+                                  value={`${student.user_id.first_name} ${student.user_id.last_name}`}
+                                  onSelect={() => {
+                                    setSelectedStudent(student._id)
+                                    setStudentOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedStudent === student._id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {student.user_id.first_name} {student.user_id.last_name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* Time Range and Actions */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Time:</Label>
+                    <TimePicker
+                      time={startTime}
+                      setTime={setStartTime}
+                      onApply={handleApplyFilters}
+                    />
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <TimePicker
+                      time={endTime}
+                      setTime={setEndTime}
+                      onApply={handleApplyFilters}
+                    />
+                  </div>
+                  
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={handleResetFilters}
-                    className="dark:border-muted-foreground/20"
+                    className="h-8 text-xs dark:border-muted-foreground/20"
                   >
-                    Reset
+                    Reset All
                   </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={handleApplyFilters}
-                  >
-                    Apply Filters
-            </Button>
                 </div>
-          )}
-        </div>
+              </div>
+            )}
             <div className="rounded-md border dark:border-muted-foreground/20">
         <Table>
           <TableHeader>
@@ -926,21 +1550,19 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                 </TableCell>
                 <TableCell>{flight.duration} hrs</TableCell>
                 <TableCell>
-                  <Badge
+                                  <Badge
                     variant={flight.status === "Completed" ? "default" : "secondary"}
-                            className={(() => {
-                              const isInFlight = flight.status === "In Flight";
-                              console.log('Status:', flight.status, 'isInFlight:', isInFlight);
+                    className={(() => {
                               return `${
                                 flight.status === "Completed" 
-                                  ? "bg-green-500/80 hover:bg-green-500/90" 
-                                  : flight.status === "In Flight"
+                                  ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
+                                  : flight.status === "In Flight" || flight.status === "In-flight"
                                     ? "bg-green-100 text-green-800 hover:bg-green-200"
                                     : flight.status === "Preparing"
                                       ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                                     : flight.status === "Scheduled"
                                       ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                                    : flight.status === "Canceled"
+                                    : flight.status === "Cancelled" || flight.status === "Canceled"
                                       ? "bg-red-100 text-red-800 hover:bg-red-200"
                                       : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                               }`
@@ -1144,14 +1766,14 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                             variant={editedFlight?.status === "Completed" ? "default" : "secondary"}
                             className={`text-sm px-2 py-0.5 ${
                               editedFlight?.status === "Completed" 
-                                ? "bg-green-500/80 hover:bg-green-500/90" 
-                                : editedFlight?.status === "In Flight"
+                                ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
+                                : editedFlight?.status === "In Flight" || editedFlight?.status === "In-flight"
                                   ? "bg-green-100 text-green-800 hover:bg-green-200"
                                   : editedFlight?.status === "Preparing"
                                     ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                                   : editedFlight?.status === "Scheduled"
                                     ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                                  : editedFlight?.status === "Canceled"
+                                  : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
                                     ? "bg-red-100 text-red-800 hover:bg-red-200"
                                   : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                             }`}
@@ -1257,14 +1879,14 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
                         className={`text-sm px-3 py-1 ${
                           selectedFlight.status === "Completed" 
-                            ? "bg-green-500/80 hover:bg-green-500/90" 
-                            : selectedFlight.status === "In Flight"
+                            ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
+                            : selectedFlight.status === "In Flight" || selectedFlight.status === "In-flight"
                               ? "bg-green-100 text-green-800 hover:bg-green-200"
                               : selectedFlight.status === "Preparing"
                                 ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                               : selectedFlight.status === "Scheduled"
                                 ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                              : selectedFlight.status === "Canceled"
+                              : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
                                 ? "bg-red-100 text-red-800 hover:bg-red-200"
                               : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                         }`}

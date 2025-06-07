@@ -75,6 +75,11 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
     }
   }
 
+  // Helper function to capitalize status for display
+  const capitalizeStatus = (status: string): string => {
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
+  }
+
   const fetchFlightLogs = async () => {
     try {
       setLoading(true)
@@ -94,7 +99,17 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/today`
+      // Get today's date range in UTC to ensure we capture all flights for today in local timezone
+      const today = new Date()
+      const startOfDay = new Date(today)
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(today)
+      endOfDay.setHours(23, 59, 59, 999)
+      
+      const startDateUTC = startOfDay.toISOString().split('T')[0]
+      const endDateUTC = endOfDay.toISOString().split('T')[0]
+      
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule?start_date=${startDateUTC}&end_date=${endDateUTC}`
       
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -122,10 +137,44 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
       const data = await response.json()
       console.log('Flight logs data:', data)
       
-      if (Array.isArray(data)) {
-        setFlights(data)
-      } else if (data.flightLogs && Array.isArray(data.flightLogs)) {
-        setFlights(data.flightLogs)
+      if (data.schedules && Array.isArray(data.schedules)) {
+        // Transform the schedule data to match our FlightLog interface
+        const transformedFlights: FlightLog[] = data.schedules.map((schedule: any) => {
+          // Parse UTC time and convert to local time for display
+          const utcDateTime = schedule.scheduled_start_time ? new Date(schedule.scheduled_start_time) : null
+          
+          return {
+            _id: schedule._id,
+            date: utcDateTime ? utcDateTime.toLocaleDateString('en-CA') : '', // YYYY-MM-DD format in local time
+            start_time: utcDateTime ? 
+              utcDateTime.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+              }) : '',
+            plane_reg: schedule.plane_id?.registration || 'N/A',
+            plane_id: schedule.plane_id?._id || '',
+            student_name: schedule.student_id ? 
+              `${schedule.student_id.user_id?.first_name || ''} ${schedule.student_id.user_id?.last_name || ''}`.trim() : 'N/A',
+            student_id: schedule.student_id?._id || '',
+            instructor: schedule.instructor_id ? 
+              `${schedule.instructor_id.user_id?.first_name || ''} ${schedule.instructor_id.user_id?.last_name || ''}`.trim() : 'N/A',
+            instructor_id: schedule.instructor_id?._id || '',
+            duration: schedule.scheduled_duration || 0,
+            type: schedule.flight_type || 'Training',
+            status: capitalizeStatus(schedule.status || 'scheduled'),
+            school_id: schedule.school_id?._id || schoolId,
+            created_at: schedule.created_at || '',
+            updated_at: schedule.updated_at || ''
+          }
+        })
+        
+        // Filter flights to only show today's flights in local timezone
+        const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD format
+        const todaysFlights = transformedFlights.filter(flight => flight.date === todayStr)
+        
+        setFlights(todaysFlights)
       } else {
         setError("Invalid data format received from API")
       }
@@ -269,14 +318,14 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
                   variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
                   className={`text-sm px-3 py-1 ${
                     selectedFlight.status === "Completed" 
-                      ? "bg-green-500/80 hover:bg-green-500/90" 
-                      : selectedFlight.status === "In Flight"
+                      ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
+                      : selectedFlight.status === "In Flight" || selectedFlight.status === "In-flight"
                         ? "bg-green-100 text-green-800 hover:bg-green-200"
                         : selectedFlight.status === "Preparing"
                           ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                         : selectedFlight.status === "Scheduled"
                           ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                        : selectedFlight.status === "Canceled"
+                        : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
                           ? "bg-red-100 text-red-800 hover:bg-red-200"
                           : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                   }`}
@@ -361,14 +410,14 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
                       variant={flight.status === "Completed" ? "default" : "secondary"}
                       className={`${
                         flight.status === "Completed" 
-                          ? "bg-green-500/80 hover:bg-green-500/90" 
-                          : flight.status === "In Flight"
+                          ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
+                          : flight.status === "In Flight" || flight.status === "In-flight"
                             ? "bg-green-100 text-green-800 hover:bg-green-200"
                             : flight.status === "Preparing"
                               ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                             : flight.status === "Scheduled"
                               ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                            : flight.status === "Canceled"
+                            : flight.status === "Cancelled" || flight.status === "Canceled"
                               ? "bg-red-100 text-red-800 hover:bg-red-200"
                               : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                       }`}
