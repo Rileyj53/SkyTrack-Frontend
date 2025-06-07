@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MoreHorizontal, Plane, User, ArrowLeft, X, Pencil, Save, AlertTriangle, ArrowUpDown, Filter, ChevronDown, ChevronUp, Check, ChevronsUpDown, Search, HelpCircle } from "lucide-react"
+import { MoreHorizontal, Plane, User, ArrowLeft, X, Pencil, Save, AlertTriangle, ArrowUpDown, Filter, ChevronDown, ChevronUp, Check, ChevronsUpDown, Search, HelpCircle, Trash2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { DatePicker } from "@/components/ui/date-picker"
 import { TimePicker } from "@/components/ui/time-picker"
 import {
@@ -27,6 +28,17 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 
 interface Student {
@@ -72,10 +84,10 @@ interface Instructor {
 }
 
 interface Aircraft {
-  _id: string
+  id: string
   registration: string
   type: string
-  aircraftModel: string
+  model: string
   status: string
 }
 
@@ -125,6 +137,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const [loadingInstructors, setLoadingInstructors] = useState(false)
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [loadingAircraft, setLoadingAircraft] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   
   // Filter state
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
@@ -236,8 +249,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   // Helper functions to get display names for selected values
   const getAircraftDisplayName = (aircraftId: string) => {
     if (aircraftId === "all") return "All aircraft"
-    const plane = aircraft.find(p => p._id === aircraftId)
-    return plane ? `${plane.registration} - ${plane.type}` : "Select aircraft"
+    const plane = aircraft.find(p => p.id === aircraftId)
+    if (plane) {
+      const typeModel = [plane.type, plane.model].filter(Boolean).join(' ')
+      return `${plane.registration} - ${typeModel}`
+    }
+    return "Select aircraft"
   }
 
   const getInstructorDisplayName = (instructorId: string) => {
@@ -620,10 +637,10 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       const data = await response.json();
       console.log('Aircraft data:', data);
       
-      if (Array.isArray(data)) {
-        setAircraft(data);
-      } else if (data.planes && Array.isArray(data.planes)) {
+      if (data.planes && Array.isArray(data.planes)) {
         setAircraft(data.planes);
+      } else if (Array.isArray(data)) {
+        setAircraft(data);
       } else {
         toast.error("Invalid data format received from API");
       }
@@ -655,9 +672,10 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         setEditedFlight({...flightToEdit})
         setIsEditing(true)
         
-        // Fetch students and instructors when entering edit mode
+        // Fetch students, instructors, and aircraft when entering edit mode
         fetchStudents()
         fetchInstructors()
+        fetchAircraft()
         
         // Remove the edit parameter from the URL without refreshing the page
         const newUrl = window.location.pathname + window.location.search.replace(/[?&]edit=[^&]+(&|$)/, '$1')
@@ -803,6 +821,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       setShowWarning(false)
       fetchStudents() // Fetch students when entering edit mode
       fetchInstructors() // Fetch instructors when entering edit mode
+      fetchAircraft() // Fetch aircraft when entering edit mode
     }
   }
 
@@ -888,6 +907,72 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     setShowWarning(false)
   }
 
+  const handleDeleteFlight = async () => {
+    if (!selectedFlight) return
+
+    try {
+      setIsDeleting(true)
+      const schoolId = localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      
+      if (!schoolId || !token) {
+        toast.error("School ID or authentication token not found")
+        return
+      }
+
+      if (!apiKey) {
+        toast.error("API key is not configured")
+        return
+      }
+
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`
+      
+      console.log('Deleting flight log:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          error: errorData
+        })
+        throw new Error(`Failed to delete flight log: ${response.status} ${response.statusText}`)
+      }
+
+      console.log('Flight log deleted successfully')
+      
+      // Remove the flight from the list
+      setFlights(flights.filter(flight => flight._id !== selectedFlight._id))
+      
+      // Go back to list view
+      setSelectedFlight(null)
+      setIsEditing(false)
+      setEditedFlight(null)
+      setShowWarning(false)
+      
+      toast.success("Flight log deleted successfully")
+    } catch (err) {
+      console.error("Error deleting flight log:", err)
+      toast.error(err instanceof Error ? err.message : "An unknown error occurred")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const handleInputChange = (field: keyof FlightLog, value: any) => {
     if (editedFlight) {
       setEditedFlight({
@@ -921,6 +1006,60 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         instructor: `${selectedInstructor.user_id.first_name} ${selectedInstructor.user_id.last_name}`
       })
     }
+  }
+
+  const handleAircraftChange = (aircraftId: string) => {
+    if (!editedFlight) return
+    
+    const selectedAircraft = aircraft.find(plane => plane.id === aircraftId)
+    if (selectedAircraft) {
+      setEditedFlight({
+        ...editedFlight,
+        plane_id: selectedAircraft.id,
+        plane_reg: selectedAircraft.registration
+      })
+    }
+  }
+
+  // Helper function to get the correct plane_id for the dropdown
+  const getSelectedPlaneId = (flight: FlightLog | null) => {
+    if (!flight || aircraft.length === 0) return ''
+    
+    // First try to match by plane_id
+    if (flight.plane_id && aircraft.find(plane => plane.id === flight.plane_id)) {
+      return flight.plane_id
+    }
+    
+    // Fallback: try to match by registration
+    if (flight.plane_reg) {
+      const matchedPlane = aircraft.find(plane => plane.registration === flight.plane_reg)
+      if (matchedPlane) {
+        return matchedPlane.id
+      }
+    }
+    
+    return ''
+  }
+
+  // Helper function to get the display text for the selected aircraft
+  const getSelectedPlaneDisplay = (flight: FlightLog | null) => {
+    if (!flight || aircraft.length === 0) return null
+    
+    const selectedId = getSelectedPlaneId(flight)
+    if (selectedId) {
+      const selectedPlane = aircraft.find(p => p.id === selectedId)
+      if (selectedPlane) {
+        const typeModel = [selectedPlane.type, selectedPlane.model].filter(Boolean).join(' ')
+        return `${selectedPlane.registration} - ${typeModel}`
+      }
+    }
+    
+    // Fallback to showing the registration from the flight data
+    if (flight.plane_reg && flight.plane_reg !== 'N/A') {
+      return flight.plane_reg
+    }
+    
+    return null
   }
 
   const handleStatusChange = async (newStatus: string) => {
@@ -991,19 +1130,8 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     }
   };
 
-  if (loading) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle>Flight Log</CardTitle>
-          <CardDescription>Loading flight data...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center py-8">
-          <div className="text-center">Loading flight logs...</div>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Render the component structure immediately to prevent blank screen
+  // Show loading state only within the table body area
 
   if (error) {
   return (
@@ -1199,17 +1327,17 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                               </CommandItem>
                               {aircraft.map((plane, index) => (
                                 <CommandItem
-                                  key={plane._id || `aircraft-${index}`}
-                                  value={`${plane.registration} ${plane.type} ${plane.aircraftModel}`}
+                                  key={plane.id || `aircraft-${index}`}
+                                  value={`${plane.registration} ${plane.type} ${plane.model}`}
                                   onSelect={() => {
-                                    setSelectedAircraft(plane._id)
+                                    setSelectedAircraft(plane.id)
                                     setAircraftOpen(false)
                                   }}
                                 >
                                   <Check
                                     className={cn(
                                       "mr-2 h-4 w-4",
-                                      selectedAircraft === plane._id ? "opacity-100" : "opacity-0"
+                                      selectedAircraft === plane.id ? "opacity-100" : "opacity-0"
                                     )}
                                   />
                                   {plane.registration} - {plane.type}
@@ -1519,7 +1647,50 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-                  {filteredAndSortedFlights.length > 0 ? (
+                  {loading ? (
+                    <>
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <TableRow key={i} className="dark:border-muted-foreground/20">
+                          <TableCell>
+                            <Skeleton className="h-4 w-20" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-16" />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-4 w-4 rounded" />
+                              <Skeleton className="h-4 w-16" />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-4 w-4 rounded" />
+                              <Skeleton className="h-4 w-24" />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Skeleton className="h-4 w-4 rounded" />
+                              <Skeleton className="h-4 w-28" />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-14" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-6 w-16 rounded-full" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-12" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </>
+                  ) : filteredAndSortedFlights.length > 0 ? (
                     filteredAndSortedFlights.map((flight) => (
                       <TableRow 
                         key={flight._id}
@@ -1606,6 +1777,87 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
               <div className="flex items-center gap-2">
                 {isEditing ? (
                   <>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          className="flex items-center gap-2"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="max-w-md">
+                        <AlertDialogHeader>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                              <Trash2 className="h-5 w-5 text-destructive" />
+                            </div>
+                            <div>
+                              <AlertDialogTitle className="text-lg font-semibold">Delete Flight Log</AlertDialogTitle>
+                            </div>
+                          </div>
+                          <AlertDialogDescription className="text-sm text-muted-foreground mt-4">
+                            Are you sure you want to delete this flight log? This action cannot be undone and will permanently remove all flight data.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        
+                        {/* Flight Details Card */}
+                        <div className="my-4 p-4 rounded-lg bg-muted/30 border border-muted">
+                          <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                            <Plane className="h-4 w-4 text-muted-foreground" />
+                            Flight Details
+                          </h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">Date:</span>
+                              <span className="font-medium">{formatDate(selectedFlight?.date || '')}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">Time:</span>
+                              <span className="font-medium">{formatTime(selectedFlight?.start_time || '')}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">Aircraft:</span>
+                              <span className="font-medium font-mono">{selectedFlight?.plane_reg}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">Student:</span>
+                              <span className="font-medium">{selectedFlight?.student_name}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">Instructor:</span>
+                              <span className="font-medium">{selectedFlight?.instructor}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <AlertDialogFooter className="gap-2">
+                          <AlertDialogCancel className="flex-1">
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleDeleteFlight}
+                            className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive/50"
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? (
+                              <>
+                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Flight
+                              </>
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -1735,14 +1987,61 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                   <div className="space-y-2 p-3 rounded-md bg-card border">
                     <div className="flex items-center gap-1">
                       <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
-                      <Label htmlFor="plane_reg" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</Label>
+                      <Label htmlFor="aircraft" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</Label>
                     </div>
-                    <Input
-                      id="plane_reg"
-                      value={editedFlight?.plane_reg || ''}
-                      onChange={(e) => handleInputChange('plane_reg', e.target.value)}
-                      className="h-8 text-sm font-mono"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="h-8 w-full justify-between text-sm font-mono font-normal"
+                        >
+                          <span className="truncate">
+                            {getSelectedPlaneDisplay(editedFlight) || (loadingAircraft ? "Loading aircraft..." : "Select aircraft")}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search aircraft..." className="h-9" />
+                          <CommandEmpty>No aircraft found.</CommandEmpty>
+                          <CommandList>
+                            <CommandGroup>
+                              {loadingAircraft ? (
+                                <CommandItem value="loading" disabled>
+                                  Loading aircraft...
+                                </CommandItem>
+                              ) : aircraft.length === 0 ? (
+                                <CommandItem value="no-aircraft" disabled>
+                                  No aircraft available
+                                </CommandItem>
+                              ) : (
+                                aircraft.map((plane) => {
+                                  const typeModel = [plane.type, plane.model].filter(Boolean).join(' ')
+                                  const displayText = `${plane.registration} - ${typeModel}`
+                                  return (
+                                    <CommandItem
+                                      key={plane.id}
+                                      value={displayText}
+                                      onSelect={() => handleAircraftChange(plane.id)}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          getSelectedPlaneId(editedFlight) === plane.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {displayText}
+                                    </CommandItem>
+                                  )
+                                })
+                              )}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 
@@ -1764,21 +2063,50 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
                         <Label htmlFor="student" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</Label>
                       </div>
-                      <Select
-                        value={editedFlight?.student_id || ''}
-                        onValueChange={handleStudentChange}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder="Select a student" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {students.map((student) => (
-                            <SelectItem key={student._id} value={student._id}>
-                              {student.user_id.first_name} {student.user_id.last_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="h-8 w-full justify-between text-sm font-normal"
+                          >
+                            <span className="truncate">
+                              {editedFlight?.student_id ? 
+                                students.find(s => s._id === editedFlight.student_id)?.user_id ? 
+                                  `${students.find(s => s._id === editedFlight.student_id)?.user_id.first_name} ${students.find(s => s._id === editedFlight.student_id)?.user_id.last_name}`
+                                  : "Select a student"
+                                : "Select a student"
+                              }
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search students..." className="h-9" />
+                            <CommandEmpty>No students found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
+                                {students.map((student) => (
+                                  <CommandItem
+                                    key={student._id}
+                                    value={`${student.user_id.first_name} ${student.user_id.last_name}`}
+                                    onSelect={() => handleStudentChange(student._id)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        editedFlight?.student_id === student._id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {student.user_id.first_name} {student.user_id.last_name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     
                     <div className="space-y-2 p-3 rounded-md bg-card border">
@@ -1786,21 +2114,50 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
                         <Label htmlFor="instructor" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</Label>
                       </div>
-                      <Select
-                        value={editedFlight?.instructor_id || ''}
-                        onValueChange={handleInstructorChange}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder="Select an instructor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {instructors.map((instructor) => (
-                            <SelectItem key={instructor._id} value={instructor._id}>
-                              {instructor.user_id.first_name} {instructor.user_id.last_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="h-8 w-full justify-between text-sm font-normal"
+                          >
+                            <span className="truncate">
+                              {editedFlight?.instructor_id ? 
+                                instructors.find(i => i._id === editedFlight.instructor_id)?.user_id ? 
+                                  `${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.first_name} ${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.last_name}`
+                                  : "Select an instructor"
+                                : "Select an instructor"
+                              }
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search instructors..." className="h-9" />
+                            <CommandEmpty>No instructors found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
+                                {instructors.map((instructor) => (
+                                  <CommandItem
+                                    key={instructor._id}
+                                    value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                    onSelect={() => handleInstructorChange(instructor._id)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        editedFlight?.instructor_id === instructor._id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {instructor.user_id.first_name} {instructor.user_id.last_name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 </div>
