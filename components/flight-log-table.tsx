@@ -1650,279 +1650,380 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
           </CardHeader>
           <CardContent className="pt-4">
             {isEditing ? (
-              <div className="space-y-3">
-                <div className="grid gap-3">
-                  <div className="space-y-2 p-2.5 rounded-lg bg-muted/30 dark:bg-muted/20">
-                    <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Flight Information</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="date" className="text-xs">Date</Label>
-                        <Input
-                          id="date"
-                          type="date"
-                          value={editedFlight?.date || ''}
-                          onChange={(e) => handleInputChange('date', e.target.value)}
-                          className="dark:bg-muted/50 h-7 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="start_time" className="text-xs">Start Time</Label>
-                        <Input
-                          id="start_time"
-                          type="time"
-                          value={editedFlight?.start_time || ''}
-                          onChange={(e) => handleInputChange('start_time', e.target.value)}
-                          className="dark:bg-muted/50 h-7 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="duration" className="text-xs">Duration (hours)</Label>
-                        <Input
-                          id="duration"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          value={editedFlight?.duration || 0}
-                          onChange={(e) => handleInputChange('duration', parseFloat(e.target.value))}
-                          className="dark:bg-muted/50 h-7 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="type" className="text-xs">Type</Label>
-                        <Input
-                          id="type"
-                          value={editedFlight?.type || ''}
-                          onChange={(e) => handleInputChange('type', e.target.value)}
-                          className="dark:bg-muted/50 h-7 text-sm"
-                        />
-                      </div>
+              <div className="space-y-4">
+                {/* Flight Information Header */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-500/10 dark:bg-blue-400/10">
+                      <Plane className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">Flight Information</h3>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">Edit flight details</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2 p-2.5 rounded-lg bg-muted/30 dark:bg-muted/20">
-                      <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Aircraft</h3>
-                      <div className="space-y-1">
-                        <Label htmlFor="plane_reg" className="text-xs">Registration</Label>
-                        <Input
-                          id="plane_reg"
-                          value={editedFlight?.plane_reg || ''}
-                          onChange={(e) => handleInputChange('plane_reg', e.target.value)}
-                          className="dark:bg-muted/50 h-7 text-sm"
-                        />
+                    <div className="space-y-2 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                        <Label htmlFor="date" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</Label>
                       </div>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={editedFlight?.date || ''}
+                        onChange={(e) => handleInputChange('date', e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-indigo-500"></div>
+                        <Label htmlFor="start_time" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</Label>
+                      </div>
+                      <Input
+                        id="start_time"
+                        type="time"
+                        value={editedFlight?.start_time || ''}
+                        onChange={(e) => handleInputChange('start_time', e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                        <Label htmlFor="duration" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration (HRS)</Label>
+                      </div>
+                      <Input
+                        id="duration"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={editedFlight?.duration || 0}
+                        onChange={(e) => handleInputChange('duration', parseFloat(e.target.value))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
+                        <Label htmlFor="type" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
+                      </div>
+                      <Input
+                        id="type"
+                        value={editedFlight?.type || ''}
+                        onChange={(e) => handleInputChange('type', e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Aircraft Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-400/10">
+                      <Plane className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-emerald-900 dark:text-emerald-100">Aircraft</h3>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300">Aircraft registration details</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 p-3 rounded-md bg-card border">
+                    <div className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                      <Label htmlFor="plane_reg" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</Label>
+                    </div>
+                    <Input
+                      id="plane_reg"
+                      value={editedFlight?.plane_reg || ''}
+                      onChange={(e) => handleInputChange('plane_reg', e.target.value)}
+                      className="h-8 text-sm font-mono"
+                    />
+                  </div>
+                </div>
+                
+                {/* Flight Crew Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg border border-amber-100 dark:border-amber-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 dark:bg-amber-400/10">
+                      <User className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">Flight Crew</h3>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">Student and instructor assignment</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
+                        <Label htmlFor="student" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</Label>
+                      </div>
+                      <Select
+                        value={editedFlight?.student_id || ''}
+                        onValueChange={handleStudentChange}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="Select a student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map((student) => (
+                            <SelectItem key={student._id} value={student._id}>
+                              {student.user_id.first_name} {student.user_id.last_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     
-                    <div className="space-y-2 p-2.5 rounded-lg bg-muted/30 dark:bg-muted/20">
-                      <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Student</h3>
-                      <div className="space-y-1">
-                        <Label htmlFor="student" className="text-xs">Select Student</Label>
-                        <Select
-                          value={editedFlight?.student_id || ''}
-                          onValueChange={handleStudentChange}
-                        >
-                          <SelectTrigger className="dark:bg-muted/50 h-7 text-sm">
-                            <SelectValue placeholder="Select a student" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {students.map((student) => (
-                              <SelectItem key={student._id} value={student._id}>
-                                {student.user_id.first_name} {student.user_id.last_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    <div className="space-y-2 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
+                        <Label htmlFor="instructor" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</Label>
                       </div>
+                      <Select
+                        value={editedFlight?.instructor_id || ''}
+                        onValueChange={handleInstructorChange}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="Select an instructor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {instructors.map((instructor) => (
+                            <SelectItem key={instructor._id} value={instructor._id}>
+                              {instructor.user_id.first_name} {instructor.user_id.last_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Status Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
+                      <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
+                      <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 rounded-md bg-card border">
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
+                      <Badge
+                        variant={editedFlight?.status === "Completed" ? "default" : "secondary"}
+                        className={`text-xs px-3 py-1 font-medium ${
+                          editedFlight?.status === "Completed" 
+                            ? "bg-green-500/90 hover:bg-green-500 text-white border-green-600" 
+                            : editedFlight?.status === "In Flight" || editedFlight?.status === "In-flight"
+                              ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-300"
+                              : editedFlight?.status === "Preparing"
+                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300"
+                              : editedFlight?.status === "Scheduled"
+                                ? "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300"
+                              : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
+                                ? "bg-red-100 text-red-800 hover:bg-red-200 border-red-300"
+                              : "bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300"
+                        }`}
+                      >
+                        {editedFlight?.status}
+                      </Badge>
                     </div>
                     
-                    <div className="space-y-2 p-2.5 rounded-lg bg-muted/30 dark:bg-muted/20">
-                      <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Instructor</h3>
-                      <div className="space-y-1">
-                        <Label htmlFor="instructor" className="text-xs">Select Instructor</Label>
-                        <Select
-                          value={editedFlight?.instructor_id || ''}
-                          onValueChange={handleInstructorChange}
-                        >
-                          <SelectTrigger className="dark:bg-muted/50 h-7 text-sm">
-                            <SelectValue placeholder="Select an instructor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {instructors.map((instructor) => (
-                              <SelectItem key={instructor._id} value={instructor._id}>
-                                {instructor.user_id.first_name} {instructor.user_id.last_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2 p-2.5 rounded-lg bg-muted/30 dark:bg-muted/20">
-                      <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Status</h3>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Current Status</Label>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={editedFlight?.status === "Completed" ? "default" : "secondary"}
-                            className={`text-sm px-2 py-0.5 ${
-                              editedFlight?.status === "Completed" 
-                                ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
-                                : editedFlight?.status === "In Flight" || editedFlight?.status === "In-flight"
-                                  ? "bg-green-100 text-green-800 hover:bg-green-200"
-                                  : editedFlight?.status === "Preparing"
-                                    ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                                  : editedFlight?.status === "Scheduled"
-                                    ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                                  : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
-                                    ? "bg-red-100 text-red-800 hover:bg-red-200"
-                                  : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                            }`}
-                          >
-                            {editedFlight?.status}
-                          </Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-7 text-xs">
-                                Change
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Select Status</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleInputChange('status', "Scheduled")}>
-                                <Badge className="bg-blue-100 text-blue-800 mr-2">Scheduled</Badge>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleInputChange('status', "Preparing")}>
-                                <Badge className="bg-yellow-100 text-yellow-800 mr-2">Preparing</Badge>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleInputChange('status', "In Flight")}>
-                                <Badge className="bg-green-100 text-green-800 mr-2">In Flight</Badge>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleInputChange('status', "Completed")}>
-                                <Badge className="bg-green-500/80 mr-2">Completed</Badge>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleInputChange('status', "Canceled")}>
-                                <Badge className="bg-red-100 text-red-800 mr-2">Canceled</Badge>
-                              </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                        </div>
-                      </div>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="text-xs">
+                          Change Status
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleInputChange('status', "Scheduled")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">Scheduled</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleInputChange('status', "Preparing")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">Preparing</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleInputChange('status', "In Flight")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">In Flight</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleInputChange('status', "Completed")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-green-500/90 text-white border-green-600 text-xs">Completed</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleInputChange('status', "Canceled")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Canceled</Badge>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="grid gap-4">
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="space-y-2 p-3 rounded-lg bg-muted/30 dark:bg-muted/20">
-                    <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Flight Information</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <h4 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">Start Time</h4>
-                        <p className="text-sm font-medium">{formatTime(selectedFlight.start_time)}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <h4 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">Duration</h4>
-                        <p className="text-sm font-medium">{selectedFlight.duration} hours</p>
-                      </div>
-                      <div className="space-y-1">
-                        <h4 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">Type</h4>
-                        <p className="text-sm font-medium">{selectedFlight.type}</p>
-                      </div>
+              <div className="space-y-4">
+                {/* Flight Information Header */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-500/10 dark:bg-blue-400/10">
+                      <Plane className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">Flight Information</h3>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">Primary flight details</p>
                     </div>
                   </div>
                   
-                  <div className="space-y-2 p-3 rounded-lg bg-muted/30 dark:bg-muted/20">
-                    <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Aircraft</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
-                        <Plane className="h-3.5 w-3.5 text-primary dark:text-primary/80" strokeWidth={2.5} />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</h4>
                       </div>
-                      <div>
-                        <h4 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">Registration</h4>
-                        <p className="text-sm font-medium">{selectedFlight.plane_reg}</p>
+                      <p className="text-sm font-semibold text-foreground">{formatTime(selectedFlight.start_time)}</p>
+                    </div>
+                    <div className="space-y-1 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration</h4>
                       </div>
+                      <p className="text-sm font-semibold text-foreground">{selectedFlight.duration} hrs</p>
+                    </div>
+                    <div className="space-y-1 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</h4>
+                      </div>
+                      <p className="text-sm font-semibold text-foreground">{selectedFlight.type}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Aircraft Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-400/10">
+                      <Plane className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-emerald-900 dark:text-emerald-100">Aircraft</h3>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300">Aircraft registration details</p>
                     </div>
                   </div>
                   
-                  <div className="space-y-2 p-3 rounded-lg bg-muted/30 dark:bg-muted/20">
-                    <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Student</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
-                        <User className="h-3.5 w-3.5 text-primary dark:text-primary/80" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">Name</h4>
-                        <p className="text-sm font-medium">{selectedFlight.student_name}</p>
-                      </div>
+                  <div className="space-y-1 p-3 rounded-md bg-card border">
+                    <div className="flex items-center gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</h4>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground font-mono">{selectedFlight.plane_reg}</p>
+                  </div>
+                </div>
+                
+                {/* People Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg border border-amber-100 dark:border-amber-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 dark:bg-amber-400/10">
+                      <User className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">Flight Crew</h3>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">Student and instructor information</p>
                     </div>
                   </div>
                   
-                  <div className="space-y-2 p-3 rounded-lg bg-muted/30 dark:bg-muted/20">
-                    <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Instructor</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
-                        <User className="h-3.5 w-3.5 text-primary dark:text-primary/80" />
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-1 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</h4>
                       </div>
-                      <div>
-                        <h4 className="text-xs font-medium text-muted-foreground dark:text-muted-foreground/80">Name</h4>
-                        <p className="text-sm font-medium">{selectedFlight.instructor}</p>
+                      <p className="text-sm font-semibold text-foreground">{selectedFlight.student_name}</p>
+                    </div>
+                    
+                    <div className="space-y-1 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</h4>
                       </div>
+                      <p className="text-sm font-semibold text-foreground">{selectedFlight.instructor}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Status Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
+                      <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
+                      <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
                     </div>
                   </div>
                   
-                  <div className="space-y-2 p-3 rounded-lg bg-muted/30 dark:bg-muted/20">
-                    <h3 className="text-sm font-medium text-muted-foreground dark:text-muted-foreground/80">Status</h3>
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between p-3 rounded-md bg-card border">
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
                       <Badge
                         variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
-                        className={`text-sm px-3 py-1 ${
+                        className={`text-xs px-3 py-1 font-medium ${
                           selectedFlight.status === "Completed" 
-                            ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
+                            ? "bg-green-500/90 hover:bg-green-500 text-white border-green-600" 
                             : selectedFlight.status === "In Flight" || selectedFlight.status === "In-flight"
-                              ? "bg-green-100 text-green-800 hover:bg-green-200"
+                              ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-300"
                               : selectedFlight.status === "Preparing"
-                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300"
                               : selectedFlight.status === "Scheduled"
-                                ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                                ? "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300"
                               : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
-                                ? "bg-red-100 text-red-800 hover:bg-red-200"
-                              : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                ? "bg-red-100 text-red-800 hover:bg-red-200 border-red-300"
+                              : "bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300"
                         }`}
                       >
                         {selectedFlight.status}
                       </Badge>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-7 text-xs">
-                            Change Status
-            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Select Status</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleStatusChange("Scheduled")}>
-                            <Badge className="bg-blue-100 text-blue-800 mr-2">Scheduled</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange("Preparing")}>
-                            <Badge className="bg-yellow-100 text-yellow-800 mr-2">Preparing</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange("In Flight")}>
-                            <Badge className="bg-green-100 text-green-800 mr-2">In Flight</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange("Completed")}>
-                            <Badge className="bg-green-500/80 mr-2">Completed</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange("Canceled")}>
-                            <Badge className="bg-red-100 text-red-800 mr-2">Canceled</Badge>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="text-xs">
+                          Change Status
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleStatusChange("Scheduled")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">Scheduled</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange("Preparing")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">Preparing</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange("In Flight")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">In Flight</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange("Completed")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-green-500/90 text-white border-green-600 text-xs">Completed</Badge>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleStatusChange("Canceled")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Canceled</Badge>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
-          </div>
+              </div>
         )}
       </CardContent>
     </Card>
