@@ -11,7 +11,7 @@ import { StudentDetailProgress } from "@/components/student-detail-progress"
 import { UserNav } from "@/components/user-nav"
 
 interface StudentDetailPageProps {
-  studentId: number
+  studentId: string
 }
 
 export function StudentDetailPage({ studentId }: StudentDetailPageProps) {

@@ -158,19 +158,19 @@ export function MonthView({
     return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`
   }
 
-  // Get flight type color - exactly matching day/week views
+  // Get flight type color - using brand colors
   const getFlightTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case 'training':
-        return 'bg-blue-600 dark:bg-blue-800/80 text-white border-blue-700 dark:border-blue-700/60'
+        return 'bg-[#3366ff] dark:bg-[#3366ff]/80 text-white border-[#3366ff] dark:border-[#3366ff]/60'
       case 'solo':
-        return 'bg-green-600 dark:bg-green-800/80 text-white border-green-700 dark:border-green-700/60'
+        return 'bg-[#33cc33] dark:bg-[#33cc33]/80 text-white border-[#33cc33] dark:border-[#33cc33]/60'
       case 'checkride':
-        return 'bg-purple-600 dark:bg-purple-800/80 text-white border-purple-700 dark:border-purple-700/60'
+        return 'bg-[#cc00ff] dark:bg-[#cc00ff]/80 text-white border-[#cc00ff] dark:border-[#cc00ff]/60'
       case 'maintenance':
-        return 'bg-orange-600 dark:bg-orange-800/80 text-white border-orange-700 dark:border-orange-700/60'
+        return 'bg-[#ff9900] dark:bg-[#ff9900]/80 text-white border-[#ff9900] dark:border-[#ff9900]/60'
       default:
-        return 'bg-gray-600 dark:bg-gray-800/80 text-white border-gray-700 dark:border-gray-700/60'
+        return 'bg-[#73738c] dark:bg-[#73738c]/80 text-white border-[#73738c] dark:border-[#73738c]/60'
     }
   }
 
@@ -270,14 +270,14 @@ export function MonthView({
                       "min-h-[120px] p-3 border-r border-b border-border last-in-row:border-r-0 cursor-pointer transition-colors",
                       "hover:bg-muted/30",
                       !isCurrentMonth && "text-muted-foreground bg-muted/20",
-                      isDayToday && "bg-orange-50 dark:bg-orange-950/30"
+                      isDayToday && "bg-[#ff9900]/10 dark:bg-[#ff9900]/20"
                     )}
                     onClick={() => handleDateClick(date)}
                   >
                     {/* Date Number */}
                     <div className={cn(
                       "font-semibold text-sm mb-2",
-                      isDayToday && "text-orange-700 dark:text-orange-300"
+                      isDayToday && "text-[#ff9900] dark:text-[#ff9900]"
                     )}>
                       {format(date, "d")}
                     </div>

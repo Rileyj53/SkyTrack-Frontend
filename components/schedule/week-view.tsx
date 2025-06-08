@@ -278,28 +278,28 @@ export function WeekView({
                 key={dayIndex}
                 className={cn(
                   "relative border-r border-border last:border-r-0",
-                  isSelected && "bg-blue-50/50 dark:bg-blue-950/20",
-                  isDayToday && "bg-orange-50/30 dark:bg-orange-950/20"
+                  isSelected && "bg-[#3366ff]/10 dark:bg-[#3366ff]/20",
+                  isDayToday && "bg-[#ff9900]/10 dark:bg-[#ff9900]/20"
                 )}
               >
                 {/* Day header */}
                 <div
                   className={cn(
                     "h-16 border-b border-border flex flex-col items-center justify-center cursor-pointer",
-                    isSelected && "bg-blue-100/50 dark:bg-blue-900/30",
-                    isDayToday && "bg-orange-100/50 dark:bg-orange-900/30"
+                    isSelected && "bg-[#3366ff]/15 dark:bg-[#3366ff]/30",
+                    isDayToday && "bg-[#ff9900]/15 dark:bg-[#ff9900]/30"
                   )}
                   onClick={() => onSelectDate?.(day)}
                 >
                   <div className={cn(
                     "text-sm font-semibold",
-                    isDayToday && "text-orange-700 dark:text-orange-300"
+                    isDayToday && "text-[#ff9900] dark:text-[#ff9900]"
                   )}>
                     {format(day, "EEE")}
                   </div>
                   <div className={cn(
                     "text-xs",
-                    isDayToday ? "text-orange-600 dark:text-orange-400 font-medium" : "text-muted-foreground"
+                    isDayToday ? "text-[#ff9900] dark:text-[#ff9900] font-medium" : "text-muted-foreground"
                   )}>
                     {format(day, "MMM d")}
                   </div>
@@ -328,8 +328,8 @@ export function WeekView({
                       className="absolute w-full z-20 pointer-events-none"
                       style={{ top: currentTimePosition }}
                     >
-                      <div className="w-full h-0.5 bg-red-500 relative">
-                        <div className="absolute -left-1 -top-1 w-2 h-2 bg-red-500 rounded-full" />
+                      <div className="w-full h-0.5 bg-[#f90606] relative">
+                        <div className="absolute -left-1 -top-1 w-2 h-2 bg-[#f90606] rounded-full" />
                       </div>
                     </div>
                   )}

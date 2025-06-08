@@ -1141,7 +1141,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
           <CardDescription>Error loading flight data</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
-          <div className="text-center text-red-500">{error}</div>
+                        <div className="text-center text-[#f90606]">{error}</div>
         </CardContent>
       </Card>
     )
@@ -1238,7 +1238,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                   <>
                     {filteredAndSortedFlights.length} of {flights.length} flight{flights.length !== 1 ? 's' : ''} 
                     {filteredAndSortedFlights.length !== flights.length && (
-                      <span className="text-blue-600 dark:text-blue-400"> (filtered)</span>
+                      <span className="text-[#3366ff] dark:text-[#3366ff]"> (filtered)</span>
                     )}
                   </>
                 ) : (
@@ -1726,16 +1726,16 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                     className={(() => {
                               return `${
                                 flight.status === "Completed" 
-                                  ? "bg-green-500/80 hover:bg-green-500/90 text-white" 
+                                  ? "bg-[#33cc33]/80 hover:bg-[#33cc33]/90 text-white" 
                                   : flight.status === "In Flight" || flight.status === "In-flight"
-                                    ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                    ? "bg-[#c2f0c2] text-[#33cc33] hover:bg-[#99e699]"
                                     : flight.status === "Preparing"
-                                      ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                      ? "bg-[#fbfbb6] text-[#f2f20d] hover:bg-[#f9f986]"
                                     : flight.status === "Scheduled"
-                                      ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                                      ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff]"
                                     : flight.status === "Cancelled" || flight.status === "Canceled"
-                                      ? "bg-red-100 text-red-800 hover:bg-red-200"
-                                      : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                                      ? "bg-[#fc9c9c] text-[#f90606] hover:bg-[#fb6a6a]"
+                                      : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6]"
                               }`
                             })()}
                   >
@@ -1905,20 +1905,20 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
               <div className="space-y-4">
                 {/* Flight Information Header */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-500/10 dark:bg-blue-400/10">
-                      <Plane className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
+                      <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">Flight Information</h3>
-                      <p className="text-xs text-blue-700 dark:text-blue-300">Edit flight details</p>
+                      <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
+                      <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Edit flight details</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2 p-3 rounded-md bg-card border">
                       <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#3366ff]"></div>
                         <Label htmlFor="date" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</Label>
                       </div>
                       <Input
@@ -1931,7 +1931,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                     </div>
                     <div className="space-y-2 p-3 rounded-md bg-card border">
                       <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-indigo-500"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#809fff]"></div>
                         <Label htmlFor="start_time" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</Label>
                       </div>
                       <Input
@@ -1944,7 +1944,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                     </div>
                     <div className="space-y-2 p-3 rounded-md bg-card border">
                       <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
                         <Label htmlFor="duration" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration (HRS)</Label>
                       </div>
                       <Input
@@ -1959,7 +1959,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                     </div>
                     <div className="space-y-2 p-3 rounded-md bg-card border">
                       <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#cc00ff]"></div>
                         <Label htmlFor="type" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
                       </div>
                       <Input
@@ -1974,19 +1974,19 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                 
                 {/* Aircraft Section */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-400/10">
-                      <Plane className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#c2f0c2]/20 to-[#99e699]/20 dark:from-[#33cc33]/20 dark:to-[#33cc33]/10 rounded-lg border border-[#99e699]/30 dark:border-[#33cc33]/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#33cc33]/10 dark:bg-[#33cc33]/20">
+                      <Plane className="h-4 w-4 text-[#33cc33] dark:text-[#33cc33]" strokeWidth={2} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-emerald-900 dark:text-emerald-100">Aircraft</h3>
-                      <p className="text-xs text-emerald-700 dark:text-emerald-300">Aircraft registration details</p>
+                      <h3 className="text-sm font-medium text-[#33cc33] dark:text-[#c2f0c2]">Aircraft</h3>
+                      <p className="text-xs text-[#33cc33]/80 dark:text-[#99e699]">Aircraft registration details</p>
                     </div>
                   </div>
                   
                   <div className="space-y-2 p-3 rounded-md bg-card border">
                     <div className="flex items-center gap-1">
-                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                      <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
                       <Label htmlFor="aircraft" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</Label>
                     </div>
                     <Popover>
@@ -2047,20 +2047,20 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                 
                 {/* Flight Crew Section */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg border border-amber-100 dark:border-amber-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 dark:bg-amber-400/10">
-                      <User className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#ffe0b3]/20 to-[#ffcc80]/20 dark:from-[#ff9900]/20 dark:to-[#ff9900]/10 rounded-lg border border-[#ffcc80]/30 dark:border-[#ff9900]/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#ff9900]/10 dark:bg-[#ff9900]/20">
+                      <User className="h-4 w-4 text-[#ff9900] dark:text-[#ff9900]" strokeWidth={2} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">Flight Crew</h3>
-                      <p className="text-xs text-amber-700 dark:text-amber-300">Student and instructor assignment</p>
+                      <h3 className="text-sm font-medium text-[#ff9900] dark:text-[#ffe0b3]">Flight Crew</h3>
+                      <p className="text-xs text-[#ff9900]/80 dark:text-[#ffcc80]">Student and instructor assignment</p>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2 p-3 rounded-md bg-card border">
                       <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#ff9900]"></div>
                         <Label htmlFor="student" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</Label>
                       </div>
                       <Popover>
@@ -2111,7 +2111,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                     
                     <div className="space-y-2 p-3 rounded-md bg-card border">
                       <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#ffcc80]"></div>
                         <Label htmlFor="instructor" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</Label>
                       </div>
                       <Popover>
@@ -2181,16 +2181,16 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         variant={editedFlight?.status === "Completed" ? "default" : "secondary"}
                         className={`text-xs px-3 py-1 font-medium ${
                           editedFlight?.status === "Completed" 
-                            ? "bg-green-500/90 hover:bg-green-500 text-white border-green-600" 
+                            ? "bg-[#33cc33]/90 hover:bg-[#33cc33] text-white border-[#33cc33]" 
                             : editedFlight?.status === "In Flight" || editedFlight?.status === "In-flight"
-                              ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-300"
+                              ? "bg-[#c2f0c2] text-[#33cc33] hover:bg-[#99e699] border-[#99e699]"
                               : editedFlight?.status === "Preparing"
-                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300"
+                                ? "bg-[#fbfbb6] text-[#f2f20d] hover:bg-[#f9f986] border-[#f9f986]"
                               : editedFlight?.status === "Scheduled"
-                                ? "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300"
+                                ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border-[#809fff]"
                               : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
-                                ? "bg-red-100 text-red-800 hover:bg-red-200 border-red-300"
-                              : "bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300"
+                                ? "bg-[#fc9c9c] text-[#f90606] hover:bg-[#fb6a6a] border-[#fb6a6a]"
+                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border-[#b9b9c6]"
                         }`}
                       >
                         {editedFlight?.status}
@@ -2207,19 +2207,19 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Scheduled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">Scheduled</Badge>
+                          <Badge className="bg-[#b3c6ff] text-[#3366ff] border-[#809fff] text-xs">Scheduled</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Preparing")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">Preparing</Badge>
+                          <Badge className="bg-[#fbfbb6] text-[#f2f20d] border-[#f9f986] text-xs">Preparing</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleInputChange('status', "In Flight")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">In Flight</Badge>
+                          <Badge className="bg-[#c2f0c2] text-[#33cc33] border-[#99e699] text-xs">In Flight</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Completed")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-green-500/90 text-white border-green-600 text-xs">Completed</Badge>
+                          <Badge className="bg-[#33cc33]/90 text-white border-[#33cc33] text-xs">Completed</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Canceled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Canceled</Badge>
+                          <Badge className="bg-[#fc9c9c] text-[#f90606] border-[#fb6a6a] text-xs">Canceled</Badge>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -2230,13 +2230,13 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
               <div className="space-y-4">
                 {/* Flight Information Header */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-500/10 dark:bg-blue-400/10">
-                      <Plane className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
+                      <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">Flight Information</h3>
-                      <p className="text-xs text-blue-700 dark:text-blue-300">Primary flight details</p>
+                      <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
+                      <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Primary flight details</p>
                     </div>
                   </div>
                   
@@ -2336,16 +2336,16 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
                         className={`text-xs px-3 py-1 font-medium ${
                           selectedFlight.status === "Completed" 
-                            ? "bg-green-500/90 hover:bg-green-500 text-white border-green-600" 
+                            ? "bg-[#33cc33]/90 hover:bg-[#33cc33] text-white border-[#33cc33]" 
                             : selectedFlight.status === "In Flight" || selectedFlight.status === "In-flight"
-                              ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-300"
+                              ? "bg-[#c2f0c2] text-[#33cc33] hover:bg-[#99e699] border-[#99e699]"
                               : selectedFlight.status === "Preparing"
-                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300"
+                                ? "bg-[#fbfbb6] text-[#f2f20d] hover:bg-[#f9f986] border-[#f9f986]"
                               : selectedFlight.status === "Scheduled"
-                                ? "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300"
+                                ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border-[#809fff]"
                               : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
-                                ? "bg-red-100 text-red-800 hover:bg-red-200 border-red-300"
-                              : "bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-300"
+                                ? "bg-[#fc9c9c] text-[#f90606] hover:bg-[#fb6a6a] border-[#fb6a6a]"
+                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border-[#b9b9c6]"
                         }`}
                       >
                         {selectedFlight.status}
@@ -2362,19 +2362,19 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleStatusChange("Scheduled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">Scheduled</Badge>
+                          <Badge className="bg-[#b3c6ff] text-[#3366ff] border-[#809fff] text-xs">Scheduled</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange("Preparing")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">Preparing</Badge>
+                          <Badge className="bg-[#fbfbb6] text-[#f2f20d] border-[#f9f986] text-xs">Preparing</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange("In Flight")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">In Flight</Badge>
+                          <Badge className="bg-[#c2f0c2] text-[#33cc33] border-[#99e699] text-xs">In Flight</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange("Completed")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-green-500/90 text-white border-green-600 text-xs">Completed</Badge>
+                          <Badge className="bg-[#33cc33]/90 text-white border-[#33cc33] text-xs">Completed</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange("Canceled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Canceled</Badge>
+                          <Badge className="bg-[#fc9c9c] text-[#f90606] border-[#fb6a6a] text-xs">Canceled</Badge>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

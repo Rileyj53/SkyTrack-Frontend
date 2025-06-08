@@ -226,7 +226,10 @@ export function DayView({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="border border-border rounded-lg overflow-hidden bg-card shadow-sm">
+      <div className={cn(
+        "border border-border rounded-lg overflow-hidden bg-card shadow-sm flex-1",
+        isToday && "bg-[#ff9900]/10 dark:bg-[#ff9900]/20"
+      )}>
         <div className="grid grid-cols-[80px,1fr]">
           {/* Time column */}
           <div className="bg-muted/30 border-r border-border">
@@ -254,7 +257,7 @@ export function DayView({
             {/* Day header */}
             <div className={cn(
               "h-16 border-b border-border flex flex-col items-center justify-center",
-              isToday && "bg-orange-100/50 dark:bg-orange-900/30"
+              isToday && "bg-[#ff9900]/15 dark:bg-[#ff9900]/30"
             )}>
               <div className={cn(
                 "text-sm font-semibold",
@@ -293,8 +296,8 @@ export function DayView({
                   className="absolute w-full z-20 pointer-events-none"
                   style={{ top: currentTimePosition }}
                 >
-                  <div className="w-full h-0.5 bg-red-500 relative">
-                    <div className="absolute -left-1 -top-1 w-2 h-2 bg-red-500 rounded-full" />
+                  <div className="w-full h-0.5 bg-[#f90606] relative">
+                    <div className="absolute -left-1 -top-1 w-2 h-2 bg-[#f90606] rounded-full" />
                   </div>
                 </div>
               )}

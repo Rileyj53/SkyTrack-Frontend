@@ -148,36 +148,36 @@ export function ScheduleCard({
     }
   }
 
-  // Get flight type color - optimized for both light and dark mode
+  // Get flight type color - using brand colors
   const getFlightTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
       case 'training':
-        return 'bg-blue-600 dark:bg-blue-800/80 text-white border-blue-700 dark:border-blue-700/60'
+        return 'bg-[#3366ff] dark:bg-[#3366ff]/80 text-white border-[#3366ff] dark:border-[#3366ff]/60'
       case 'solo':
-        return 'bg-green-600 dark:bg-green-800/80 text-white border-green-700 dark:border-green-700/60'
+        return 'bg-[#33cc33] dark:bg-[#33cc33]/80 text-white border-[#33cc33] dark:border-[#33cc33]/60'
       case 'checkride':
-        return 'bg-purple-600 dark:bg-purple-800/80 text-white border-purple-700 dark:border-purple-700/60'
+        return 'bg-[#cc00ff] dark:bg-[#cc00ff]/80 text-white border-[#cc00ff] dark:border-[#cc00ff]/60'
       case 'maintenance':
-        return 'bg-orange-600 dark:bg-orange-800/80 text-white border-orange-700 dark:border-orange-700/60'
+        return 'bg-[#ff9900] dark:bg-[#ff9900]/80 text-white border-[#ff9900] dark:border-[#ff9900]/60'
       default:
-        return 'bg-gray-600 dark:bg-gray-800/80 text-white border-gray-700 dark:border-gray-700/60'
+        return 'bg-[#73738c] dark:bg-[#73738c]/80 text-white border-[#73738c] dark:border-[#73738c]/60'
     }
   }
 
-  // Get status color - optimized for both light and dark mode
+  // Get status color - using brand colors
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'confirmed':
       case 'scheduled':
-        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700/50'
+        return 'bg-[#c2f0c2] text-[#33cc33] border-[#99e699] dark:bg-[#33cc33]/30 dark:text-[#c2f0c2] dark:border-[#33cc33]/50'
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700/50'
+        return 'bg-[#fbfbb6] text-[#f2f20d] border-[#f9f986] dark:bg-[#f2f20d]/30 dark:text-[#fbfbb6] dark:border-[#f2f20d]/50'
       case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700/50'
+        return 'bg-[#fc9c9c] text-[#f90606] border-[#fb6a6a] dark:bg-[#f90606]/30 dark:text-[#fc9c9c] dark:border-[#f90606]/50'
       case 'completed':
-        return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/50'
+        return 'bg-[#b3c6ff] text-[#3366ff] border-[#809fff] dark:bg-[#3366ff]/30 dark:text-[#b3c6ff] dark:border-[#3366ff]/50'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700/50'
+        return 'bg-[#d5d5dd] text-[#73738c] border-[#b9b9c6] dark:bg-[#73738c]/30 dark:text-[#d5d5dd] dark:border-[#73738c]/50'
     }
   }
 

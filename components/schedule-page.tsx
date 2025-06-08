@@ -530,7 +530,7 @@ export function SchedulePage() {
 
           {error && (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="text-center text-red-600 dark:text-red-400">
+              <div className="text-center text-[#f90606] dark:text-[#f90606]">
                 <p className="font-medium">{error}</p>
               </div>
               <div className="flex gap-2">
