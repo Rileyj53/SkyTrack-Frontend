@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, CheckCircle, Mail, User, Phone, Lock } from "lucide-react"
@@ -11,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "sonner"
 
-export default function CompleteRegistration() {
+function CompleteRegistrationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
@@ -267,5 +268,28 @@ export default function CompleteRegistration() {
         </form>
       </Card>
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
+      <Card className="w-full max-w-md border-none shadow-lg dark:shadow-none dark:border dark:border-border bg-card">
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center space-y-4 text-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export default function CompleteRegistration() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <CompleteRegistrationForm />
+    </Suspense>
   )
 } 
