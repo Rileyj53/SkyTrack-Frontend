@@ -33,6 +33,13 @@ const nextConfig = {
     env: {
         PORT: process.env.PORT || '3000',
     },
+    async redirects() {
+        return [{
+            source: '/login',
+            destination: '/auth/login',
+            permanent: true,
+        }, ]
+    },
 }
 
 if (userConfig) {

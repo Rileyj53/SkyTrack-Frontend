@@ -149,9 +149,9 @@ export function ScheduleHeader({
             <Button variant="outline" size="sm">
               <Filter className="mr-2 h-4 w-4" />
               Filter
-              {Object.values(filters).some(v => v !== "") && (
+              {Object.values(filters).some(v => v !== "all" && v !== "") && (
                 <Badge variant="secondary" className="ml-2">
-                  {Object.values(filters).filter(v => v !== "").length}
+                  {Object.values(filters).filter(v => v !== "all" && v !== "").length}
                 </Badge>
               )}
             </Button>
@@ -173,11 +173,13 @@ export function ScheduleHeader({
                   <SelectContent>
                     <SelectItem value="all">All Students</SelectItem>
                     {students && students.length > 0 ? (
-                      students.map((student) => (
-                        <SelectItem key={student._id} value={student._id}>
-                          {student.user_id.first_name} {student.user_id.last_name}
-                        </SelectItem>
-                      ))
+                      students
+                        .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
+                        .map((student) => (
+                          <SelectItem key={student._id} value={student._id}>
+                            {student.user_id.first_name} {student.user_id.last_name}
+                          </SelectItem>
+                        ))
                     ) : (
                       <SelectItem value="no-students" disabled>No students available</SelectItem>
                     )}
@@ -196,11 +198,13 @@ export function ScheduleHeader({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Instructors</SelectItem>
-                    {instructors.map((instructor) => (
-                      <SelectItem key={instructor._id} value={instructor._id}>
-                        {instructor.user_id.first_name} {instructor.user_id.last_name}
-                      </SelectItem>
-                    ))}
+                    {instructors
+                      .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                      .map((instructor) => (
+                        <SelectItem key={instructor._id} value={instructor._id}>
+                          {instructor.user_id.first_name} {instructor.user_id.last_name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

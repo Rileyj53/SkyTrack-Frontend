@@ -32,7 +32,27 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { 
+  User, 
+  UserCheck, 
+  Plane, 
+  Calendar as CalendarIconLucide, 
+  Clock, 
+  Tag, 
+  FileText,
+  Check,
+  ChevronsUpDown
+} from "lucide-react"
 
 interface Student {
   _id: string
@@ -92,8 +112,6 @@ export function NewFlightDialog({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
   useEffect(() => {
-    console.log("NewFlightDialog - Students received:", students)
-    console.log("NewFlightDialog - Instructors received:", instructors)
     if (open) {
       fetchPlanes()
     }
@@ -139,7 +157,7 @@ export function NewFlightDialog({
   }
 
   const handleCreate = async () => {
-    if (!date || !selectedPlaneId || !selectedStudentId || !selectedInstructorId || !startTime || !endTime) {
+    if (!date || !selectedPlaneId || !selectedStudentId || !selectedInstructorId || !startTime || !endTime || !flightType) {
       toast.error("Please fill in all required fields")
       return
     }
@@ -154,11 +172,23 @@ export function NewFlightDialog({
         throw new Error("Missing required credentials")
       }
 
-      // Format the date in YYYY-MM-DD format without timezone conversion
-      const formattedDate = format(date, "yyyy-MM-dd")
+      // Combine date and time to create ISO string in local timezone
+      const [startHours, startMinutes] = startTime.split(':').map(Number)
+      const scheduledStartTime = new Date(date)
+      scheduledStartTime.setHours(startHours, startMinutes, 0, 0)
+
+      // Calculate scheduled end time from end time input
+      const [endHours, endMinutes] = endTime.split(':').map(Number)
+      const scheduledEndTime = new Date(date)
+      scheduledEndTime.setHours(endHours, endMinutes, 0, 0)
+
+      // Handle overnight flights (end time is next day)
+      if (scheduledEndTime <= scheduledStartTime) {
+        scheduledEndTime.setDate(scheduledEndTime.getDate() + 1)
+      }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/schedules`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule`,
         {
           method: "POST",
           headers: {
@@ -169,13 +199,11 @@ export function NewFlightDialog({
             "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
           },
           body: JSON.stringify({
-            school_id: schoolId,
             plane_id: selectedPlaneId,
             instructor_id: selectedInstructorId,
             student_id: selectedStudentId,
-            date: formattedDate,
-            start_time: startTime,
-            end_time: endTime,
+            scheduled_start_time: scheduledStartTime.toISOString(),
+            scheduled_end_time: scheduledEndTime.toISOString(),
             flight_type: flightType,
             status: "scheduled",
             notes: notes
@@ -185,15 +213,28 @@ export function NewFlightDialog({
       )
 
       if (!response.ok) {
-        throw new Error("Failed to create schedule")
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.message || errorData.error || `Failed to create schedule (${response.status})`
+        throw new Error(errorMessage)
       }
 
       toast.success("Flight scheduled successfully")
       onFlightCreated()
       onOpenChange(false)
+      
+      // Reset form
+      setSelectedPlaneId("")
+      setSelectedStudentId("")
+      setSelectedInstructorId("")
+      setDate(undefined)
+      setStartTime("")
+      setEndTime("")
+      setFlightType("")
+      setNotes("")
     } catch (error) {
       console.error("Error creating schedule:", error)
-      toast.error("Failed to create schedule")
+      const errorMessage = error instanceof Error ? error.message : "Failed to create schedule"
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -201,139 +242,318 @@ export function NewFlightDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Schedule New Flight</DialogTitle>
           <DialogDescription>
             {date ? format(date, "EEEE, MMMM d, yyyy") : "Select a date"}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4 py-4">
-          <div className="grid gap-2">
-            <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+          {/* Left Column - People & Aircraft */}
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <User className="h-4 w-4 text-blue-600" />
+                  <Label className="text-sm font-semibold">Student</Label>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between text-sm font-normal"
+                    >
+                      <span className="truncate">
+                        {selectedStudentId ? 
+                          students.find(s => s._id === selectedStudentId && s.user_id?.first_name && s.user_id?.last_name) ? 
+                            `${students.find(s => s._id === selectedStudentId)?.user_id.first_name} ${students.find(s => s._id === selectedStudentId)?.user_id.last_name}`
+                            : "Select student"
+                          : "Select student"
+                        }
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search students..." className="h-9" />
+                      <CommandEmpty>No students found.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {students && students.length > 0 ? (
+                            students
+                              .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
+                              .map((student) => (
+                                <CommandItem
+                                  key={`student-${student._id}`}
+                                  value={`${student.user_id.first_name} ${student.user_id.last_name}`}
+                                  onSelect={() => setSelectedStudentId(student._id)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedStudentId === student._id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {student.user_id.first_name} {student.user_id.last_name}
+                                </CommandItem>
+                              ))
+                          ) : (
+                            <CommandItem value="no-students" disabled>
+                              No students available
+                            </CommandItem>
+                          )}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <UserCheck className="h-4 w-4 text-green-600" />
+                  <Label className="text-sm font-semibold">Instructor</Label>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between text-sm font-normal"
+                    >
+                      <span className="truncate">
+                        {selectedInstructorId ? 
+                          instructors.find(i => i._id === selectedInstructorId && i.user_id?.first_name && i.user_id?.last_name) ? 
+                            `${instructors.find(i => i._id === selectedInstructorId)?.user_id.first_name} ${instructors.find(i => i._id === selectedInstructorId)?.user_id.last_name}`
+                            : "Select instructor"
+                          : "Select instructor"
+                        }
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search instructors..." className="h-9" />
+                      <CommandEmpty>No instructors found.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {instructors && instructors.length > 0 ? (
+                            instructors
+                              .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                              .map((instructor) => (
+                                <CommandItem
+                                  key={`instructor-${instructor._id}`}
+                                  value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                  onSelect={() => setSelectedInstructorId(instructor._id)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedInstructorId === instructor._id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {instructor.user_id.first_name} {instructor.user_id.last_name}
+                                </CommandItem>
+                              ))
+                          ) : (
+                            <CommandItem value="no-instructors" disabled>
+                              No instructors available
+                            </CommandItem>
+                          )}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Plane className="h-4 w-4 text-purple-600" />
+                  <Label className="text-sm font-semibold">Aircraft</Label>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between text-sm font-normal"
+                    >
+                      <span className="truncate">
+                        {selectedPlaneId ? 
+                          planes.find(p => p.id === selectedPlaneId) ? 
+                            (() => {
+                              const plane = planes.find(p => p.id === selectedPlaneId)
+                              return `${plane?.registration} - ${plane?.type} ${plane?.model}`
+                            })()
+                            : "Select aircraft"
+                          : "Select aircraft"
+                        }
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search aircraft..." className="h-9" />
+                      <CommandEmpty>No aircraft found.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {isLoadingData ? (
+                            <div className="flex items-center gap-2 p-2 text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Loading planes...
+                            </div>
+                          ) : planes && planes.length > 0 ? (
+                            planes.map((plane) => {
+                              const displayText = `${plane.registration} - ${plane.type} ${plane.model}`
+                              return (
+                                <CommandItem
+                                  key={`plane-${plane.id}`}
+                                  value={displayText}
+                                  onSelect={() => setSelectedPlaneId(plane.id)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedPlaneId === plane.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {displayText}
+                                </CommandItem>
+                              )
+                            })
+                          ) : (
+                            <CommandItem value="no-planes" disabled>
+                              No aircraft available
+                            </CommandItem>
+                          )}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </CardContent>
+            </Card>
           </div>
-          <div className="grid gap-2">
-            <Label>Student</Label>
-            <Select 
-              value={selectedStudentId} 
-              onValueChange={setSelectedStudentId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select student" />
-              </SelectTrigger>
-              <SelectContent>
-                {students && students.length > 0 ? (
-                  students.map((student) => (
-                    <SelectItem key={student._id} value={student._id}>
-                      {student.user_id.first_name} {student.user_id.last_name}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="no-students" disabled>No students available</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label>Instructor</Label>
-            <Select 
-              value={selectedInstructorId} 
-              onValueChange={setSelectedInstructorId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select instructor" />
-              </SelectTrigger>
-              <SelectContent>
-                {(instructors || []).map((instructor) => (
-                  <SelectItem key={instructor._id} value={instructor._id}>
-                    {instructor.user_id.first_name} {instructor.user_id.last_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label>Plane</Label>
-            <Select 
-              value={selectedPlaneId} 
-              onValueChange={setSelectedPlaneId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select plane" />
-              </SelectTrigger>
-              <SelectContent>
-                {isLoadingData ? (
-                  <div className="flex items-center gap-2 p-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading planes...
-                  </div>
-                ) : planes.map((plane) => (
-                  <SelectItem key={plane.id} value={plane.id}>
-                    {plane.registration} - {plane.model} ({plane.year})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="flight-type">Flight Type</Label>
-            <Input
-              id="flight-type"
-              value={flightType}
-              onChange={(e) => setFlightType(e.target.value)}
-              placeholder="Enter flight type (e.g., Dual, Solo, Checkride)"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Time</Label>
-            <div className="flex gap-2">
-              <div className="flex-1">
+
+          {/* Right Column - Schedule Details */}
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CalendarIconLucide className="h-4 w-4 text-orange-600" />
+                  <Label className="text-sm font-semibold">Date</Label>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? format(date, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="h-4 w-4 text-green-600" />
+                  <Label className="text-sm font-semibold">Start Time</Label>
+                </div>
                 <TimePicker
                   time={startTime}
                   setTime={(time) => time !== null && setStartTime(time)}
                 />
-              </div>
-              <div className="flex-1">
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="h-4 w-4 text-purple-600" />
+                  <Label className="text-sm font-semibold">End Time</Label>
+                </div>
                 <TimePicker
                   time={endTime}
                   setTime={(time) => time !== null && setEndTime(time)}
                 />
-              </div>
-            </div>
-          </div>
-          <div className="col-span-2 grid gap-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add notes about this flight..."
-              className="min-h-[80px]"
-            />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Tag className="h-4 w-4 text-pink-600" />
+                  <Label className="text-sm font-semibold">Flight Type</Label>
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    value={flightType}
+                    onChange={(e) => setFlightType(e.target.value)}
+                    placeholder="Enter flight type..."
+                    className="w-full"
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {["Training", "Solo", "Checkride", "Cross-Country", "Maintenance"].map((type) => (
+                      <Button
+                        key={type}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFlightType(type)}
+                        className="h-6 px-2 text-xs"
+                      >
+                        {type}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
+
+        {/* Notes Section */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-gray-600" />
+              <Label className="text-sm font-semibold">Notes</Label>
+            </div>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional notes"
+              rows={3}
+              className="resize-none"
+              maxLength={500}
+            />
+          </CardContent>
+        </Card>
         <DialogFooter>
           <Button
             variant="outline"
@@ -344,7 +564,7 @@ export function NewFlightDialog({
           </Button>
           <Button
             onClick={handleCreate}
-            disabled={loading || !date || !selectedPlaneId || !selectedStudentId || !selectedInstructorId || !startTime || !endTime}
+            disabled={loading || !date || !selectedPlaneId || !selectedStudentId || !selectedInstructorId || !startTime || !endTime || !flightType}
           >
             {loading ? (
               <>
