@@ -517,7 +517,7 @@ export function ScheduleDialog({
                     <Label className="text-sm font-semibold">Student</Label>
                   </div>
                   <p className="text-sm font-medium">
-                    {student ? `${student.user_id.first_name} ${student.user_id.last_name}` : 'Loading...'}
+                    {student ? `${student.user_id?.first_name || 'Unknown'} ${student.user_id?.last_name || 'Student'}` : 'Loading...'}
                   </p>
                 </CardContent>
               </Card>
@@ -538,7 +538,7 @@ export function ScheduleDialog({
                         >
                           <span className="truncate">
                             {selectedInstructorId ? 
-                              instructors.find(i => i._id === selectedInstructorId)?.user_id ? 
+                              instructors.find(i => i._id === selectedInstructorId && i.user_id?.first_name && i.user_id?.last_name) ? 
                                 `${instructors.find(i => i._id === selectedInstructorId)?.user_id.first_name} ${instructors.find(i => i._id === selectedInstructorId)?.user_id.last_name}`
                                 : "Select instructor"
                               : "Select instructor"
@@ -554,21 +554,23 @@ export function ScheduleDialog({
                           <CommandList>
                             <CommandGroup>
                               {instructors && instructors.length > 0 ? (
-                                instructors.map((inst) => (
-                                  <CommandItem
-                                    key={`instructor-${inst._id}`}
-                                    value={`${inst.user_id.first_name} ${inst.user_id.last_name}`}
-                                    onSelect={() => setSelectedInstructorId(inst._id)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        selectedInstructorId === inst._id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {inst.user_id.first_name} {inst.user_id.last_name}
-                                  </CommandItem>
-                                ))
+                                instructors
+                                  .filter((inst) => inst.user_id?.first_name && inst.user_id?.last_name)
+                                  .map((inst) => (
+                                    <CommandItem
+                                      key={`instructor-${inst._id}`}
+                                      value={`${inst.user_id.first_name} ${inst.user_id.last_name}`}
+                                      onSelect={() => setSelectedInstructorId(inst._id)}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedInstructorId === inst._id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {inst.user_id.first_name} {inst.user_id.last_name}
+                                    </CommandItem>
+                                  ))
                               ) : (
                                 <CommandItem value="no-instructors" disabled>
                                   {isLoadingData ? "Loading instructors..." : "No instructors available"}
@@ -581,7 +583,7 @@ export function ScheduleDialog({
                     </Popover>
                   ) : (
                     <p className="text-sm font-medium">
-                      {instructor ? `${instructor.user_id.first_name} ${instructor.user_id.last_name}` : 'Loading...'}
+                      {instructor ? `${instructor.user_id?.first_name || 'Unknown'} ${instructor.user_id?.last_name || 'Instructor'}` : 'Loading...'}
                     </p>
                   )}
                 </CardContent>
@@ -853,7 +855,7 @@ export function ScheduleDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm">
-            <p><strong>Student:</strong> {student ? `${student.user_id.first_name} ${student.user_id.last_name}` : 'Loading...'}</p>
+            <p><strong>Student:</strong> {student ? `${student.user_id?.first_name || 'Unknown'} ${student.user_id?.last_name || 'Student'}` : 'Loading...'}</p>
             <p><strong>Date:</strong> {formatDisplayDate(schedule.scheduled_start_time)}</p>
             <p><strong>Time:</strong> {formatDisplayTime(schedule.scheduled_start_time)}</p>
             <p><strong>Aircraft:</strong> {schedule.plane_id.registration}</p>

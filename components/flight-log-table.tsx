@@ -999,7 +999,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     if (!editedFlight) return
     
     const selectedInstructor = instructors.find(instructor => instructor._id === instructorId)
-    if (selectedInstructor) {
+    if (selectedInstructor && selectedInstructor.user_id?.first_name && selectedInstructor.user_id?.last_name) {
       setEditedFlight({
         ...editedFlight,
         instructor_id: selectedInstructor._id,
@@ -1387,24 +1387,26 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                                 />
                                 All instructors
                               </CommandItem>
-                              {instructors.map((instructor, index) => (
-                                <CommandItem
-                                  key={instructor._id || `instructor-${index}`}
-                                  value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
-                                  onSelect={() => {
-                                    setSelectedInstructor(instructor._id)
-                                    setInstructorOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedInstructor === instructor._id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {instructor.user_id.first_name} {instructor.user_id.last_name}
-                                </CommandItem>
-                              ))}
+                              {instructors
+                                .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                                .map((instructor, index) => (
+                                  <CommandItem
+                                    key={instructor._id || `instructor-${index}`}
+                                    value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                    onSelect={() => {
+                                      setSelectedInstructor(instructor._id)
+                                      setInstructorOpen(false)
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedInstructor === instructor._id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {instructor.user_id.first_name} {instructor.user_id.last_name}
+                                  </CommandItem>
+                                ))}
                             </CommandGroup>
                           </CommandList>
                         </Command>
@@ -1449,24 +1451,26 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                                 />
                                 All students
                               </CommandItem>
-                              {students.map((student, index) => (
-                                <CommandItem
-                                  key={student._id || `student-${index}`}
-                                  value={`${student.user_id.first_name} ${student.user_id.last_name}`}
-                                  onSelect={() => {
-                                    setSelectedStudent(student._id)
-                                    setStudentOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedStudent === student._id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {student.user_id.first_name} {student.user_id.last_name}
-                                </CommandItem>
-                              ))}
+                              {students
+                                .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
+                                .map((student, index) => (
+                                  <CommandItem
+                                    key={student._id || `student-${index}`}
+                                    value={`${student.user_id.first_name} ${student.user_id.last_name}`}
+                                    onSelect={() => {
+                                      setSelectedStudent(student._id)
+                                      setStudentOpen(false)
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedStudent === student._id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {student.user_id.first_name} {student.user_id.last_name}
+                                  </CommandItem>
+                                ))}
                             </CommandGroup>
                           </CommandList>
                         </Command>
@@ -2138,21 +2142,23 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                             <CommandEmpty>No instructors found.</CommandEmpty>
                             <CommandList>
                               <CommandGroup>
-                                {instructors.map((instructor) => (
-                                  <CommandItem
-                                    key={instructor._id}
-                                    value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
-                                    onSelect={() => handleInstructorChange(instructor._id)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        editedFlight?.instructor_id === instructor._id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {instructor.user_id.first_name} {instructor.user_id.last_name}
-                                  </CommandItem>
-                                ))}
+                                {instructors
+                                  .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                                  .map((instructor) => (
+                                    <CommandItem
+                                      key={instructor._id}
+                                      value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                      onSelect={() => handleInstructorChange(instructor._id)}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          editedFlight?.instructor_id === instructor._id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {instructor.user_id.first_name} {instructor.user_id.last_name}
+                                    </CommandItem>
+                                  ))}
                               </CommandGroup>
                             </CommandList>
                           </Command>

@@ -236,6 +236,45 @@ export function StudentsPage() {
     checkAuth()
   }, [router])
 
+  // Add effect to refresh data when returning to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Only refresh if page becomes visible and we have existing data
+      if (!document.hidden && !loading && students.length > 0) {
+        fetchStudents()
+      }
+    }
+
+    // Listen for page visibility changes (better than focus for tab switching)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [loading, students.length])
+
+  // Also add a way to manually refresh data (useful for debugging)
+  const refreshStudents = () => {
+    fetchStudents()
+  }
+
+  // Helper function to get the current stage from progress data
+  const getCurrentStage = (student: Student): string => {
+    if (!student.progress?.stages?.length) {
+      return student.stage || 'Not Set'
+    }
+
+    // Find the highest completed stage or the first incomplete stage
+    const sortedStages = [...student.progress.stages].sort((a, b) => a.order - b.order)
+    
+    // Find the last completed stage
+    let currentStage = sortedStages.find(stage => !stage.completed)
+    
+    // If all stages are completed, return the last stage
+    if (!currentStage) {
+      currentStage = sortedStages[sortedStages.length - 1]
+    }
+    
+    return currentStage?.name || student.stage || 'Not Set'
+  }
+
   const fetchStudents = async () => {
     try {
       setLoading(true)
@@ -372,7 +411,7 @@ export function StudentsPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/invite`,
         {
           method: 'POST',
           headers: {
@@ -382,22 +421,25 @@ export function StudentsPage() {
             'Authorization': `Bearer ${token}`,
             'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
           },
-          body: JSON.stringify(newStudent),
+          body: JSON.stringify({
+            email: newStudent.contact_email,
+            program: newStudent.program
+          }),
           credentials: 'include'
         }
       )
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || 'Failed to add student')
+        throw new Error(errorData.message || 'Failed to send student invitation')
       }
 
       await fetchStudents()
       setIsAddingStudent(false)
       setNewStudent({ contact_email: "", program: "" })
-      toast.success("Student added successfully")
+      toast.success("Student invitation sent successfully")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add student')
+      toast.error(err instanceof Error ? err.message : 'Failed to send student invitation')
     }
   }
 
@@ -411,7 +453,8 @@ export function StudentsPage() {
 
     const matchesStatus = statusFilter === "all" || student.status === statusFilter
     const matchesProgram = programFilter === "all" || student.program === programFilter
-    const matchesStage = stageFilter === "all" || student.stage === stageFilter
+    const currentStage = getCurrentStage(student)
+    const matchesStage = stageFilter === "all" || currentStage === stageFilter
 
     return matchesSearch && matchesStatus && matchesProgram && matchesStage
   })
@@ -448,7 +491,7 @@ export function StudentsPage() {
 
   const uniqueStatuses = [...new Set(students.map(s => s.status))]
   const uniquePrograms = [...new Set(students.map(s => s.program))]
-  const uniqueStages = [...new Set(students.map(s => s.stage))]
+  const uniqueStages = [...new Set(students.map(s => getCurrentStage(s)))]
 
   if (loading) {
     return (
@@ -476,7 +519,7 @@ export function StudentsPage() {
             <h1 className="text-2xl font-bold tracking-tight">Students</h1>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-red-500">Error: {error}</p>
+                <p style={{ color: '#f90606' }}>Error: {error}</p>
               </CardContent>
             </Card>
           </div>
@@ -509,7 +552,7 @@ export function StudentsPage() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white">
+                  <Button style={{ backgroundColor: '#3366ff', color: 'white' }} className="hover:opacity-90 transition-opacity">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Student
                   </Button>
@@ -560,7 +603,7 @@ export function StudentsPage() {
                     <Button variant="outline" onClick={() => setIsAddingStudent(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handleAddStudent} className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white">
+                    <Button onClick={handleAddStudent} style={{ backgroundColor: '#3366ff', color: 'white' }} className="hover:opacity-90 transition-opacity">
                       Add Student
                     </Button>
                   </div>
@@ -571,40 +614,40 @@ export function StudentsPage() {
 
           {/* Summary Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
+            <Card style={{ borderLeftColor: '#3366ff' }} className="border-l-4 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Students</CardTitle>
+                <CardTitle style={{ color: '#3366ff' }} className="text-sm font-medium dark:opacity-80">Total Students</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{students.length}</div>
+                <div style={{ color: '#3366ff' }} className="text-2xl font-bold dark:opacity-70">{students.length}</div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-white dark:from-green-950/20 dark:to-background">
+            <Card style={{ borderLeftColor: '#33cc33' }} className="border-l-4 bg-gradient-to-r from-green-50 to-white dark:from-green-950/20 dark:to-background">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-green-600 dark:text-green-400">Active Students</CardTitle>
+                <CardTitle style={{ color: '#33cc33' }} className="text-sm font-medium dark:opacity-80">Active Students</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                <div style={{ color: '#33cc33' }} className="text-2xl font-bold dark:opacity-70">
                   {students.filter(s => s.status === 'Active').length}
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/20 dark:to-background">
+            <Card style={{ borderLeftColor: '#ff9900' }} className="border-l-4 bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/20 dark:to-background">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-orange-600 dark:text-orange-400">Pre-Solo</CardTitle>
+                <CardTitle style={{ color: '#ff9900' }} className="text-sm font-medium dark:opacity-80">Pre-Solo</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  {students.filter(s => s.stage === 'Pre-Solo').length}
+                <div style={{ color: '#ff9900' }} className="text-2xl font-bold dark:opacity-70">
+                  {students.filter(s => getCurrentStage(s) === 'Pre-Solo').length}
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
+            <Card style={{ borderLeftColor: '#cc00ff' }} className="border-l-4 bg-gradient-to-r from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-purple-600 dark:text-purple-400">Graduates This Year</CardTitle>
+                <CardTitle style={{ color: '#cc00ff' }} className="text-sm font-medium dark:opacity-80">Graduates This Year</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                <div style={{ color: '#cc00ff' }} className="text-2xl font-bold dark:opacity-70">
                   {students.filter(s => s.status === 'Graduated').length}
                 </div>
               </CardContent>
@@ -621,13 +664,14 @@ export function StudentsPage() {
                       placeholder="Search students..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8 max-w-sm border-slate-200 focus:border-blue-500 dark:border-slate-700 dark:focus:border-blue-400"
+                      style={{ '--tw-ring-color': '#3366ff' } as any}
+                      className="pl-8 max-w-sm border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]"
                     />
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[130px] border-slate-200 focus:border-blue-500 dark:border-slate-700 dark:focus:border-blue-400">
+                    <SelectTrigger className="w-[130px] border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -638,7 +682,7 @@ export function StudentsPage() {
                     </SelectContent>
                   </Select>
                   <Select value={programFilter} onValueChange={setProgramFilter}>
-                    <SelectTrigger className="w-[160px] border-slate-200 focus:border-blue-500 dark:border-slate-700 dark:focus:border-blue-400">
+                    <SelectTrigger className="w-[160px] border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]">
                       <SelectValue placeholder="Program" />
                     </SelectTrigger>
                     <SelectContent>
@@ -649,7 +693,7 @@ export function StudentsPage() {
                     </SelectContent>
                   </Select>
                   <Select value={stageFilter} onValueChange={setStageFilter}>
-                    <SelectTrigger className="w-[140px] border-slate-200 focus:border-blue-500 dark:border-slate-700 dark:focus:border-blue-400">
+                    <SelectTrigger className="w-[140px] border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]">
                       <SelectValue placeholder="Stage" />
                     </SelectTrigger>
                     <SelectContent>
@@ -708,7 +752,7 @@ export function StudentsPage() {
                           </TableCell>
                           <TableCell>{student.program}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{student.stage}</Badge>
+                            <Badge variant="outline">{getCurrentStage(student)}</Badge>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">

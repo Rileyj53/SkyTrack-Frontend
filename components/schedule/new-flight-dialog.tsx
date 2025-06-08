@@ -267,7 +267,7 @@ export function NewFlightDialog({
                     >
                       <span className="truncate">
                         {selectedStudentId ? 
-                          students.find(s => s._id === selectedStudentId) ? 
+                          students.find(s => s._id === selectedStudentId && s.user_id?.first_name && s.user_id?.last_name) ? 
                             `${students.find(s => s._id === selectedStudentId)?.user_id.first_name} ${students.find(s => s._id === selectedStudentId)?.user_id.last_name}`
                             : "Select student"
                           : "Select student"
@@ -283,21 +283,23 @@ export function NewFlightDialog({
                       <CommandList>
                         <CommandGroup>
                           {students && students.length > 0 ? (
-                            students.map((student) => (
-                              <CommandItem
-                                key={`student-${student._id}`}
-                                value={`${student.user_id.first_name} ${student.user_id.last_name}`}
-                                onSelect={() => setSelectedStudentId(student._id)}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedStudentId === student._id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {student.user_id.first_name} {student.user_id.last_name}
-                              </CommandItem>
-                            ))
+                            students
+                              .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
+                              .map((student) => (
+                                <CommandItem
+                                  key={`student-${student._id}`}
+                                  value={`${student.user_id.first_name} ${student.user_id.last_name}`}
+                                  onSelect={() => setSelectedStudentId(student._id)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedStudentId === student._id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {student.user_id.first_name} {student.user_id.last_name}
+                                </CommandItem>
+                              ))
                           ) : (
                             <CommandItem value="no-students" disabled>
                               No students available
@@ -326,7 +328,7 @@ export function NewFlightDialog({
                     >
                       <span className="truncate">
                         {selectedInstructorId ? 
-                          instructors.find(i => i._id === selectedInstructorId) ? 
+                          instructors.find(i => i._id === selectedInstructorId && i.user_id?.first_name && i.user_id?.last_name) ? 
                             `${instructors.find(i => i._id === selectedInstructorId)?.user_id.first_name} ${instructors.find(i => i._id === selectedInstructorId)?.user_id.last_name}`
                             : "Select instructor"
                           : "Select instructor"
@@ -342,21 +344,23 @@ export function NewFlightDialog({
                       <CommandList>
                         <CommandGroup>
                           {instructors && instructors.length > 0 ? (
-                            instructors.map((instructor) => (
-                              <CommandItem
-                                key={`instructor-${instructor._id}`}
-                                value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
-                                onSelect={() => setSelectedInstructorId(instructor._id)}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedInstructorId === instructor._id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {instructor.user_id.first_name} {instructor.user_id.last_name}
-                              </CommandItem>
-                            ))
+                            instructors
+                              .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                              .map((instructor) => (
+                                <CommandItem
+                                  key={`instructor-${instructor._id}`}
+                                  value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                  onSelect={() => setSelectedInstructorId(instructor._id)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedInstructorId === instructor._id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {instructor.user_id.first_name} {instructor.user_id.last_name}
+                                </CommandItem>
+                              ))
                           ) : (
                             <CommandItem value="no-instructors" disabled>
                               No instructors available
