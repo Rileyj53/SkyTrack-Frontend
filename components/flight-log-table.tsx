@@ -460,6 +460,9 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
   // Helper function to capitalize status for display
   const capitalizeStatus = (status: string): string => {
+    if (status.toLowerCase() === 'in-progress') {
+      return 'In-Progress'
+    }
     return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
   }
 
@@ -1280,7 +1283,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                       <SelectContent>
                         <SelectItem value="all">All statuses</SelectItem>
                         <SelectItem value="scheduled">Scheduled</SelectItem>
-                        <SelectItem value="in-flight">In Flight</SelectItem>
+                        
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                         <SelectItem value="preparing">Preparing</SelectItem>
@@ -1725,26 +1728,24 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                 </TableCell>
                 <TableCell>{flight.duration} hrs</TableCell>
                 <TableCell>
-                                  <Badge
-                    variant={flight.status === "Completed" ? "default" : "secondary"}
-                    className={(() => {
-                              return `${
-                                flight.status === "Completed" 
-                                  ? "bg-[#33cc33]/80 hover:bg-[#33cc33]/90 text-white" 
-                                  : flight.status === "In Flight" || flight.status === "In-flight"
-                                    ? "bg-[#c2f0c2] text-[#33cc33] hover:bg-[#99e699]"
-                                    : flight.status === "Preparing"
-                                      ? "bg-[#fbfbb6] text-[#f2f20d] hover:bg-[#f9f986]"
-                                    : flight.status === "Scheduled"
-                                      ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff]"
-                                    : flight.status === "Cancelled" || flight.status === "Canceled"
-                                      ? "bg-[#fc9c9c] text-[#f90606] hover:bg-[#fb6a6a]"
-                                      : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6]"
-                              }`
-                            })()}
+                  <div
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                                              flight.status === "Completed" 
+                          ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
+                        : flight.status === "In-Progress"
+                          ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+                        
+                          : flight.status === "Preparing"
+                            ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
+                          : flight.status === "Scheduled"
+                            ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
+                          : flight.status === "Cancelled" || flight.status === "Canceled"
+                            ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                            : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
+                    }`}
                   >
                     {flight.status}
-                  </Badge>
+                  </div>
                 </TableCell>
                         <TableCell>{flight.type}</TableCell>
                         <TableCell></TableCell>
@@ -2183,24 +2184,24 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                   <div className="flex items-center justify-between p-3 rounded-md bg-card border">
                     <div className="space-y-1">
                       <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
-                      <Badge
-                        variant={editedFlight?.status === "Completed" ? "default" : "secondary"}
-                        className={`text-xs px-3 py-1 font-medium ${
+                      <div
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
                           editedFlight?.status === "Completed" 
-                            ? "bg-[#33cc33]/90 hover:bg-[#33cc33] text-white border-[#33cc33]" 
-                            : editedFlight?.status === "In Flight" || editedFlight?.status === "In-flight"
-                              ? "bg-[#c2f0c2] text-[#33cc33] hover:bg-[#99e699] border-[#99e699]"
+                            ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border border-[#809fff]" 
+                            : editedFlight?.status === "In-Progress"
+                              ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+
                               : editedFlight?.status === "Preparing"
-                                ? "bg-[#fbfbb6] text-[#f2f20d] hover:bg-[#f9f986] border-[#f9f986]"
+                                ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
                               : editedFlight?.status === "Scheduled"
-                                ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border-[#809fff]"
+                                ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
                               : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
-                                ? "bg-[#fc9c9c] text-[#f90606] hover:bg-[#fb6a6a] border-[#fb6a6a]"
-                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border-[#b9b9c6]"
+                                ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
                         }`}
                       >
                         {editedFlight?.status}
-                      </Badge>
+                      </div>
                     </div>
                     
                     <DropdownMenu>
@@ -2213,19 +2214,20 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Scheduled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#b3c6ff] text-[#3366ff] border-[#809fff] text-xs">Scheduled</Badge>
+                          <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Preparing")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fbfbb6] text-[#f2f20d] border-[#f9f986] text-xs">Preparing</Badge>
+                          <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleInputChange('status', "In Flight")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#c2f0c2] text-[#33cc33] border-[#99e699] text-xs">In Flight</Badge>
+                        <DropdownMenuItem onClick={() => handleInputChange('status', "In-Progress")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
                         </DropdownMenuItem>
+
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Completed")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#33cc33]/90 text-white border-[#33cc33] text-xs">Completed</Badge>
+                          <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleInputChange('status', "Canceled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fc9c9c] text-[#f90606] border-[#fb6a6a] text-xs">Canceled</Badge>
+                          <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -2338,24 +2340,24 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                   <div className="flex items-center justify-between p-3 rounded-md bg-card border">
                     <div className="space-y-1">
                       <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
-                      <Badge
-                        variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
-                        className={`text-xs px-3 py-1 font-medium ${
+                      <div
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
                           selectedFlight.status === "Completed" 
-                            ? "bg-[#33cc33]/90 hover:bg-[#33cc33] text-white border-[#33cc33]" 
-                            : selectedFlight.status === "In Flight" || selectedFlight.status === "In-flight"
-                              ? "bg-[#c2f0c2] text-[#33cc33] hover:bg-[#99e699] border-[#99e699]"
+                            ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
+                            : selectedFlight.status === "In-Progress"
+                              ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+
                               : selectedFlight.status === "Preparing"
-                                ? "bg-[#fbfbb6] text-[#f2f20d] hover:bg-[#f9f986] border-[#f9f986]"
+                                ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
                               : selectedFlight.status === "Scheduled"
-                                ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border-[#809fff]"
+                                ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
                               : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
-                                ? "bg-[#fc9c9c] text-[#f90606] hover:bg-[#fb6a6a] border-[#fb6a6a]"
-                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border-[#b9b9c6]"
+                                ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
                         }`}
                       >
                         {selectedFlight.status}
-                      </Badge>
+                      </div>
                     </div>
                     
                     <DropdownMenu>
@@ -2368,19 +2370,20 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleStatusChange("Scheduled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#b3c6ff] text-[#3366ff] border-[#809fff] text-xs">Scheduled</Badge>
+                          <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange("Preparing")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fbfbb6] text-[#f2f20d] border-[#f9f986] text-xs">Preparing</Badge>
+                          <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange("In Flight")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#c2f0c2] text-[#33cc33] border-[#99e699] text-xs">In Flight</Badge>
+                        <DropdownMenuItem onClick={() => handleStatusChange("In-Progress")} className="flex items-center gap-2 py-1.5">
+                          <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
                         </DropdownMenuItem>
+
                         <DropdownMenuItem onClick={() => handleStatusChange("Completed")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#33cc33]/90 text-white border-[#33cc33] text-xs">Completed</Badge>
+                          <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleStatusChange("Canceled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fc9c9c] text-[#f90606] border-[#fb6a6a] text-xs">Canceled</Badge>
+                          <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

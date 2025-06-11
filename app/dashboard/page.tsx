@@ -6,7 +6,6 @@ import { CalendarDays, Clock, Plane, Users } from "lucide-react"
 
 import { DashboardHeader } from "@/components/dashboard-header"
 import { DashboardShell } from "@/components/dashboard-shell"
-import FlightLogTable from "@/components/flight-log-table"
 import FlightLogOverview from "@/components/flight-log-overview"
 import { FlightStats } from "@/components/flight-stats"
 import { MainNav } from "@/components/main-nav"

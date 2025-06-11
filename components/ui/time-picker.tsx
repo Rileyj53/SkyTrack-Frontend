@@ -23,9 +23,10 @@ interface TimePickerProps {
   setTime: (time: string | null) => void
   className?: string
   onApply?: () => void
+  minuteInterval?: number // Default to 5, can be set to 1 for more precision
 }
 
-export function TimePicker({ time, setTime, className, onApply }: TimePickerProps) {
+export function TimePicker({ time, setTime, className, onApply, minuteInterval = 5 }: TimePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState(time || "")
   
@@ -46,12 +47,13 @@ export function TimePicker({ time, setTime, className, onApply }: TimePickerProp
     )
   }, [])
 
-  // Generate minute options in 5-minute increments (00, 05, 10, ..., 55)
+  // Generate minute options based on minuteInterval prop
   const minuteOptions = React.useMemo(() => {
-    return Array.from({ length: 12 }, (_, i) => 
-      (i * 5).toString().padStart(2, '0')
+    const totalOptions = 60 / minuteInterval;
+    return Array.from({ length: totalOptions }, (_, i) => 
+      (i * minuteInterval).toString().padStart(2, '0')
     )
-  }, [])
+  }, [minuteInterval])
 
   // Period options (AM/PM)
   const periodOptions = ["AM", "PM"]
@@ -117,9 +119,9 @@ export function TimePicker({ time, setTime, className, onApply }: TimePickerProp
           {time ? formatDisplayTime(time) : <span>Pick a time</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="start">
+      <PopoverContent className="w-auto p-4 dark:bg-muted dark:border-muted-foreground/20" align="start">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-center gap-2 bg-muted/30 p-3 rounded-md">
+                      <div className="flex items-center justify-center gap-2 bg-muted/30 dark:bg-muted/50 p-3 rounded-md">
             <Select value={hour12} onValueChange={handleHourChange}>
               <SelectTrigger className="w-[60px] h-9 dark:bg-muted/50">
                 <SelectValue placeholder="Hour" />
@@ -132,7 +134,7 @@ export function TimePicker({ time, setTime, className, onApply }: TimePickerProp
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-lg font-medium">:</span>
+            <span className="text-lg font-medium dark:text-muted-foreground">:</span>
             <Select value={minute} onValueChange={handleMinuteChange}>
               <SelectTrigger className="w-[60px] h-9 dark:bg-muted/50">
                 <SelectValue placeholder="Min" />
