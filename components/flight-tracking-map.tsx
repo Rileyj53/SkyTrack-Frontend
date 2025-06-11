@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react"
 import L from "leaflet"
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet"
 import { Plane } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
@@ -36,12 +36,12 @@ const getAircraftType = (aircraft: any) => {
 
 // Function to determine aircraft color based on altitude
 const getAircraftColor = (altitude: number): string => {
-  if (altitude < 1000) return "#FF4444"      // Red - Low altitude
-  if (altitude < 3000) return "#FF8800"      // Orange - Medium-low altitude  
-  if (altitude < 5000) return "#FFDD00"      // Yellow - Medium altitude
-  if (altitude < 10000) return "#44FF44"     // Green - Medium-high altitude
-  if (altitude < 20000) return "#0088FF"     // Blue - High altitude
-  return "#8844FF"                           // Purple - Very high altitude
+  if (altitude < 1000) return "#f90606"      // Red - Low altitude
+  if (altitude < 3000) return "#ff9900"      // Orange - Medium-low altitude  
+  if (altitude < 5000) return "#f2f20d"      // Yellow - Medium altitude
+  if (altitude < 10000) return "#33cc33"     // Green - Medium-high altitude
+  if (altitude < 20000) return "#3366ff"     // Blue - High altitude
+  return "#cc00ff"                           // Purple - Very high altitude
 }
 
 // Create aircraft icon with different types
@@ -125,6 +125,11 @@ const AircraftIconStyles = () => {
 
 // Map layer options
 const mapLayers = {
+  aviation: {
+    url: "https://tiles.openflightmaps.org/live/tiles/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://openflightmaps.org/">OpenFlightMaps</a> contributors',
+    maxZoom: 14,
+  },
   terrain: {
     url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
@@ -181,18 +186,20 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     if (savedSchoolLocation) {
       try {
         const { latitude, longitude } = JSON.parse(savedSchoolLocation)
+        console.log('Using saved school location for initial map center:', { latitude, longitude })
         return [latitude, longitude]
       } catch (e) {
         console.error('Error parsing saved school location:', e)
       }
     }
-    // Fallback to Seattle only if no school location is available
-    return [47.6062, -122.3321]
+    // Fallback to KPAE (Paine Field) - a reasonable default for flight schools
+    console.log('No saved location, using KPAE as default center')
+    return [47.9063, -122.2815]
   })
   const [mapZoom, setMapZoom] = useState(12)
   const [activeMapLayer, setActiveMapLayer] = useState<string>("street")
   const [activeFlights, setActiveFlights] = useState<any[]>([])
-  const [todaysFlights, setTodaysFlights] = useState<any[]>([])
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedFlight, setSelectedFlight] = useState<any | null>(null)
@@ -227,24 +234,139 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     }
   }
 
-  // Geocode address to get coordinates
-  const geocodeAddress = async (address: any) => {
-    try {
-      // Check if we already have coordinates for this address
-      if (geocodedCoordinatesRef.current) {
-        console.log('Using cached coordinates:', geocodedCoordinatesRef.current)
-        return geocodedCoordinatesRef.current
-      }
+  // Airport data cache - using Map for O(1) lookups
+  const [airportData, setAirportData] = useState<Map<string, any>>(new Map())
 
-      // Format address with more specific details
-      const addressString = `${address.street}, ${address.city}, ${address.state} ${address.zip}, ${address.country}`
-      console.log('Geocoding address:', addressString)
+  // Parse CSV into fast lookup Map
+  const parseAirportCSV = (csvText: string) => {
+    const lines = csvText.trim().split('\n')
+    const headers = lines[0].split(',')
+    const airportMap = new Map()
+
+    console.log('Parsing airport CSV with', lines.length - 1, 'airports')
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',')
+      const airport: { [key: string]: string } = {}
       
-      // Add a delay to respect rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Map CSV columns to object properties
+      headers.forEach((header, index) => {
+        airport[header.trim()] = values[index]?.trim() || ''
+      })
+
+      // Only include airports with valid coordinates
+      if (airport['latitude_deg'] && airport['longitude_deg']) {
+        const lat = parseFloat(airport['latitude_deg'])
+        const lng = parseFloat(airport['longitude_deg'])
+        
+        if (!isNaN(lat) && !isNaN(lng)) {
+          // Create airport object with standardized properties
+          const standardizedAirport = {
+            ident: airport['ident'],
+            icao: airport['icao_code'],
+            iata: airport['iata_code'],
+            name: airport['name'],
+            type: airport['type'],
+            latitude: lat,
+            longitude: lng,
+            elevation: airport['elevation_ft'] ? parseInt(airport['elevation_ft']) : 0,
+            municipality: airport['municipality'],
+            country: airport['country_name'],
+            region: airport['region_name']
+          }
+
+          // Index by multiple identifiers for flexible lookup
+          if (airport['ident']) airportMap.set(airport['ident'], standardizedAirport)
+          if (airport['icao_code']) airportMap.set(airport['icao_code'], standardizedAirport)
+          if (airport['iata_code']) airportMap.set(airport['iata_code'], standardizedAirport)
+        }
+      }
+    }
+
+    console.log('Created airport lookup map with', airportMap.size, 'entries')
+    return airportMap
+  }
+
+  // Load airport data on component mount
+  useEffect(() => {
+    const loadAirportData = async () => {
+      try {
+        console.log('Loading cleaned world airports CSV...')
+        const response = await fetch('/world-airports-clean.csv')
+        if (response.ok) {
+          const csvText = await response.text()
+          const airportMap = parseAirportCSV(csvText)
+          setAirportData(airportMap)
+          console.log('Successfully loaded airport database with', airportMap.size, 'airport entries')
+        } else {
+          console.error('Failed to load airport CSV:', response.status)
+        }
+      } catch (err) {
+        console.error('Error loading airport data:', err)
+      }
+    }
+    
+    loadAirportData()
+  }, [])
+
+  // Get airport coordinates by ICAO code
+  const getAirportCoordinates = async (airportCode: string) => {
+    // First check our airport database (O(1) Map lookup)
+    if (airportData.has(airportCode)) {
+      const airport = airportData.get(airportCode)
+      console.log(`Found ${airportCode} in airport database:`, airport)
+      return {
+        latitude: airport.latitude,
+        longitude: airport.longitude,
+        name: airport.name
+      }
+    }
+
+    // If not in local database, try geocoding the airport code
+    try {
+      console.log(`Looking up airport ${airportCode} via geocoding`)
       
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressString)}&limit=1`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(`${airportCode} airport`)}&limit=3`,
+        {
+          headers: {
+            'User-Agent': 'Flight School Dashboard/1.0'
+          }
+        }
+      )
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log(`Geocoding response for ${airportCode}:`, data)
+        
+        if (data && data[0]) {
+          const coordinates = {
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon),
+            name: data[0].display_name
+          }
+          console.log(`Found coordinates for ${airportCode}:`, coordinates)
+          return coordinates
+        }
+      }
+    } catch (err) {
+      console.error(`Error geocoding airport ${airportCode}:`, err)
+    }
+    
+    return null
+  }
+
+  // Geocode address to get coordinates (fallback for non-airport addresses)
+  const geocodeAddress = async (address: any) => {
+    try {
+      console.log('Geocoding address:', address)
+
+      // Try geocoding the full address
+      const addressString = `${address.street}, ${address.city}, ${address.state} ${address.zip}, ${address.country}`
+      console.log('Geocoding address string:', addressString)
+      
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressString)}&limit=3`,
         {
           headers: {
             'User-Agent': 'Flight School Dashboard/1.0'
@@ -265,42 +387,10 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
           latitude: parseFloat(data[0].lat),
           longitude: parseFloat(data[0].lon)
         }
-        console.log('Found coordinates:', coordinates)
-        geocodedCoordinatesRef.current = coordinates
+        console.log('Found address coordinates:', coordinates)
         return coordinates
       }
       
-      // If no results found, try with just the city and state
-      console.log('No results found with full address, trying city and state only')
-      const cityStateString = `${address.city}, ${address.state}`
-      const cityStateResponse = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityStateString)}&limit=1`,
-        {
-          headers: {
-            'User-Agent': 'Flight School Dashboard/1.0'
-          }
-        }
-      )
-      
-      if (!cityStateResponse.ok) {
-        console.error('City/State geocoding request failed:', cityStateResponse.status)
-        return null
-      }
-      
-      const cityStateData = await cityStateResponse.json()
-      console.log('City/State geocoding response:', cityStateData)
-      
-      if (cityStateData && cityStateData[0]) {
-        const coordinates = {
-          latitude: parseFloat(cityStateData[0].lat),
-          longitude: parseFloat(cityStateData[0].lon)
-        }
-        console.log('Found coordinates from city/state:', coordinates)
-        geocodedCoordinatesRef.current = coordinates
-        return coordinates
-      }
-      
-      console.log('No coordinates found')
       return null
     } catch (err) {
       console.error("Error geocoding address:", err)
@@ -340,21 +430,58 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       console.log('Received school data:', data.school)
       const school = data.school
       
-      // Geocode the address
-      if (school.address) {
-        console.log('School address found:', school.address)
-        const coordinates = await geocodeAddress(school.address)
-        if (coordinates) {
-          school.address = {
-            ...school.address,
-            ...coordinates
+      // Prioritize airport location over street address
+      let schoolCoordinates = null
+      
+      // First, try to get airport coordinates if available
+      if (school.airport) {
+        console.log('School airport found:', school.airport)
+        schoolCoordinates = await getAirportCoordinates(school.airport)
+        
+        if (schoolCoordinates) {
+          console.log(`Using airport coordinates for ${school.airport}:`, schoolCoordinates)
+          geocodedCoordinatesRef.current = {
+            latitude: schoolCoordinates.latitude,
+            longitude: schoolCoordinates.longitude
           }
-          console.log('Updated school address with coordinates:', school.address)
-        } else {
-          console.log('Failed to geocode address')
+          // Add airport info to school data
+          school.airportInfo = schoolCoordinates
         }
-      } else {
-        console.log('No address found in school data')
+      }
+      
+      // If no airport coordinates, fallback to address
+      if (!schoolCoordinates && school.address) {
+        console.log('No airport coordinates found, trying address:', school.address)
+        
+        // Check if coordinates are already provided in the school data
+        if (school.address.latitude && school.address.longitude) {
+          console.log('Using coordinates from school address data:', { 
+            latitude: school.address.latitude, 
+            longitude: school.address.longitude 
+          })
+          geocodedCoordinatesRef.current = {
+            latitude: school.address.latitude,
+            longitude: school.address.longitude
+          }
+        } else {
+          // Try geocoding the address
+          const coordinates = await geocodeAddress(school.address)
+          if (coordinates) {
+            school.address = {
+              ...school.address,
+              ...coordinates
+            }
+            geocodedCoordinatesRef.current = coordinates
+            console.log('Updated school address with geocoded coordinates:', school.address)
+          } else {
+            console.log('Failed to geocode address')
+            console.log('Address that failed to geocode:', JSON.stringify(school.address, null, 2))
+          }
+        }
+      }
+      
+      if (!schoolCoordinates && !school.address?.latitude) {
+        console.log('No coordinates found for school location')
       }
       
       setSchoolData(school)
@@ -370,7 +497,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     fetchSchoolData()
   }, [])
 
-  // Update map focus based on active flights or school location
+  // Update map focus based on active flights or school airport location
   const updateMapFocus = useCallback(() => {
     if (!mapRef.current || isLoading) return
 
@@ -379,7 +506,8 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     ) || []
 
     console.log('updateMapFocus - Active flights:', activeFlights.length)
-    console.log('updateMapFocus - School data available:', !!schoolData?.address?.latitude)
+    console.log('updateMapFocus - Airport coordinates available:', !!geocodedCoordinatesRef.current)
+    console.log('updateMapFocus - School airport:', schoolData?.airport)
 
     // Prioritize active flights over school location
     if (activeFlights.length > 0) {
@@ -403,17 +531,23 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
           duration: 1.5
         })
       }
-    } else if (schoolData?.address?.latitude && schoolData?.address?.longitude) {
-      // No active flights - center on school with animation
-      console.log('No active flights, centering on school:', schoolData.address)
-      // Save school location for future use
-      localStorage.setItem('schoolLocation', JSON.stringify({
-        latitude: schoolData.address.latitude,
-        longitude: schoolData.address.longitude
-      }))
-      mapRef.current.flyTo([schoolData.address.latitude, schoolData.address.longitude], 12, {
+    } else if (geocodedCoordinatesRef.current) {
+      // No active flights - center on school's airport with animation
+      const airportCoords = geocodedCoordinatesRef.current
+      console.log(`No active flights, centering on airport ${schoolData?.airport}:`, airportCoords)
+      
+      // Save airport location for future use
+      localStorage.setItem('schoolLocation', JSON.stringify(airportCoords))
+      
+      // Use a good zoom level for airports (not too close, not too far)
+      mapRef.current.flyTo([airportCoords.latitude, airportCoords.longitude], 13, {
         duration: 1.5
       })
+      
+      // Update map center state
+      setMapCenter([airportCoords.latitude, airportCoords.longitude])
+    } else {
+      console.log('No airport coordinates available for centering map')
     }
   }, [trackingData, schoolData, isLoading])
 
@@ -448,114 +582,9 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
     }
   }, [trackingData])
 
-  const fetchTodaysFlights = async () => {
-    try {
-      const schoolId = localStorage.getItem("schoolId")
-      const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
-      
-      if (!schoolId || !token || !apiKey) {
-        console.error("Missing required authentication:", { schoolId: !!schoolId, token: !!token, apiKey: !!apiKey })
-        throw new Error("Missing required authentication")
-      }
 
-      const now = new Date()
-      const today = now.toISOString().split('T')[0]
-      console.log('Fetching flights for date:', today)
-      
-      // Try both endpoints to ensure we get the data
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs/today`
-      console.log('Fetching flights from URL:', url)
-      
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'Authorization': `Bearer ${token}`,
-          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-        },
-        credentials: 'include'
-      })
 
-      console.log('Flight logs response status:', response.status)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch flights: ${response.status}`)
-      }
 
-      const data = await response.json()
-      console.log('Flight logs response data:', data)
-      
-      if (data.flightLogs && Array.isArray(data.flightLogs)) {
-        console.log('Setting today\'s flights:', data.flightLogs.length, 'flights found')
-        setTodaysFlights(data.flightLogs)
-      } else if (Array.isArray(data)) {
-        // Handle case where the API returns an array directly
-        console.log('Setting today\'s flights (direct array):', data.length, 'flights found')
-        setTodaysFlights(data)
-      } else {
-        console.warn('Unexpected flight logs data structure:', data)
-        // Try the alternative endpoint as a fallback
-        const altUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight-logs?date=${today}`
-        console.log('Trying alternative endpoint:', altUrl)
-        
-        const altResponse = await fetch(altUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'Authorization': `Bearer ${token}`,
-            'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-          },
-          credentials: 'include'
-        })
-        
-        if (altResponse.ok) {
-          const altData = await altResponse.json()
-          console.log('Alternative endpoint response:', altData)
-          
-          if (altData.flightLogs && Array.isArray(altData.flightLogs)) {
-            console.log('Setting today\'s flights from alternative endpoint:', altData.flightLogs.length, 'flights found')
-            setTodaysFlights(altData.flightLogs)
-          } else if (Array.isArray(altData)) {
-            console.log('Setting today\'s flights from alternative endpoint (direct array):', altData.length, 'flights found')
-            setTodaysFlights(altData)
-          } else {
-            console.error('Both endpoints returned unexpected data structure')
-            setTodaysFlights([])
-          }
-        } else {
-          console.error('Alternative endpoint also failed:', altResponse.status)
-          setTodaysFlights([])
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching flights:", err)
-      setTodaysFlights([])
-    }
-  }
-
-  // Add useEffect for fetching today's flights
-  useEffect(() => {
-    console.log('Initial fetch of today\'s flights')
-    fetchTodaysFlights()
-    
-    // Set up polling every 30 seconds
-    const interval = setInterval(() => {
-      console.log('Polling for flight updates')
-      fetchTodaysFlights()
-    }, 30000)
-    
-    return () => clearInterval(interval)
-  }, []) // Empty dependency array to run only on mount
-  
-  // Add a separate useEffect to refetch flights when school data changes
-  useEffect(() => {
-    if (schoolData) {
-      console.log('School data updated, refetching flights')
-      fetchTodaysFlights()
-    }
-  }, [schoolData])
 
   // Add function to check if flight can be started
   const canStartFlight = (date: string, startTime: string) => {
@@ -722,11 +751,10 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
         setActiveTrackingIds(prev => [...prev, trackingId])
       }
 
-      // Close dialog and refresh flights
+      // Close dialog
       setShowTimeDialog(false)
       setSelectedFlight(null)
       setPlaneData(null)
-      fetchTodaysFlights()
 
       // Fetch latest tracking data immediately
       await fetchTrackingUpdates()
@@ -941,11 +969,51 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
   const renderMapMarkers = () => {
     const markers: React.JSX.Element[] = []
     
+    // Add school location marker if available
+    if (schoolData?.address) {
+      const schoolCoords = geocodedCoordinatesRef.current
+      if (schoolCoords) {
+        markers.push(
+          <Circle
+            key="school-location"
+            center={[schoolCoords.latitude, schoolCoords.longitude]}
+            radius={1000} // 1km radius
+            pathOptions={{
+              color: '#3366ff',
+              fillColor: '#b3c6ff',
+              fillOpacity: 0.2,
+              weight: 2
+            }}
+          >
+            <Popup>
+              <div className="p-3 min-w-[250px]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 rounded-lg" style={{ backgroundColor: '#b3c6ff' }}>
+                    <svg className="w-4 h-4" style={{ color: '#3366ff' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+                    </svg>
+                  </div>
+                  <span className="font-bold text-lg">{schoolData.name}</span>
+                </div>
+                <div className="text-sm text-gray-600 space-y-1">
+                  {schoolData.airport && (
+                    <div className="font-medium text-blue-600 mb-1">
+                      📍 {schoolData.airport} {schoolData.airportInfo?.name ? `- ${schoolData.airportInfo.name}` : ''}
+                    </div>
+                  )}
+                  <div>{schoolData.address.city}, {schoolData.address.state}</div>
+                  <div className="text-xs text-gray-500 mt-2">✈️ Flight Training Base</div>
+                </div>
+              </div>
+            </Popup>
+          </Circle>
+        )
+      }
+    }
+    
     if (trackingData && Array.isArray(trackingData)) {
       trackingData.forEach((flightData) => {
         if (flightData.tracking && flightData.tracking.length > 0) {
-          // Find matching flight log for additional info
-          const flightLog = todaysFlights.find(f => f.plane_reg === flightData.tail_number && f.status === "In Flight")
           const latestPosition = flightData.tracking[flightData.tracking.length - 1]
           const planeInfo = planeInfoCache[flightData.plane_id]
           
@@ -958,6 +1026,8 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
             console.warn(`Invalid coordinates for flight ${flightData.tail_number}:`, latestPosition)
             return // Skip this marker
           }
+          
+
           
           // Format departure time if available
           const departureTime = flightData.actual_off ? formatLocalTime(flightData.actual_off) : 'Not departed'
@@ -975,62 +1045,109 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
               }}
             >
               <Popup>
-                <div className="p-4 min-w-[280px]">
+                <div className="p-0 min-w-[320px] bg-white rounded-lg shadow-lg overflow-hidden">
                   {/* Header with aircraft info and status */}
-                  <div className="flex items-center gap-3 mb-4 pb-3 border-b">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <svg className="h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-semibold text-lg">{flightData.tail_number}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {flightData.aircraft_info ? `${flightData.aircraft_info.type} ${flightData.aircraft_info.model}` : 'Aircraft'}
+                  <div className="p-4 border-b" style={{ backgroundColor: '#f8f9fa' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: '#d5d5dd' }}>
+                        <svg className="h-5 w-5" style={{ color: 'black' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+                        </svg>
                       </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                        <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                        Live
-                      </span>
-                      {latestPosition.flight?.trim() && (
-                        <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                          {latestPosition.flight.trim()}
+                      <div className="flex-1">
+                        <div className="font-bold text-xl text-gray-900">{flightData.tail_number}</div>
+                        <div className="text-sm text-gray-600">
+                          {flightData.aircraft_info ? `${flightData.aircraft_info.type} ${flightData.aircraft_info.model}` : 'Aircraft'}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5" style={{ backgroundColor: '#c2f0c2', color: 'black' }}>
+                          <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#33cc33' }}></span>
+                          LIVE
                         </span>
-                      )}
+                        {latestPosition.flight?.trim() && (
+                          <span className="text-xs font-mono px-2 py-1 rounded font-semibold" style={{ backgroundColor: '#d5d5dd', color: '#333' }}>
+                            {latestPosition.flight.trim()}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
                   {/* Flight data grid */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Altitude</div>
-                        <div className="text-sm font-semibold">{Number(latestPosition.altitude).toLocaleString()} ft</div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/>
+                          </svg>
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">ALTITUDE</div>
+                            <div className="text-sm font-bold text-gray-900">
+                              {latestPosition.altitude === "ground" ? "Ground" : `${Number(latestPosition.altitude).toLocaleString()} ft`}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                          </svg>
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">SPEED</div>
+                            <div className="text-sm font-bold text-gray-900">{latestPosition.ground_speed} kts</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">HEADING</div>
+                            <div className="text-sm font-bold text-gray-900">{latestPosition.heading}°</div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Speed</div>
-                        <div className="text-sm font-semibold">{latestPosition.ground_speed} kts</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Heading</div>
-                        <div className="text-sm font-semibold">{latestPosition.heading}°</div>
+                      
+                      <div className="space-y-3">
+                        {latestPosition.squawk && (
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                            <div>
+                              <div className="text-xs text-gray-500 font-medium">SQUAWK</div>
+                              <div className="text-sm font-bold text-gray-900">{latestPosition.squawk}</div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/>
+                          </svg>
+                          <div>
+                            <div className="text-xs text-gray-500 font-medium">VERTICAL RATE</div>
+                            <div className="text-sm font-bold text-gray-900">
+                              <span className="text-lg mr-1">
+                                {latestPosition.vertical_rate > 0 ? '↗' : latestPosition.vertical_rate < 0 ? '↘' : '→'}
+                              </span>
+                              {Math.abs(latestPosition.vertical_rate)} ft/min
+                            </div>
+                          </div>
+                        </div>
+                        
+
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      {latestPosition.squawk && (
-                        <div>
-                          <div className="text-xs text-muted-foreground uppercase tracking-wide">Squawk</div>
-                          <div className="text-sm font-semibold">{latestPosition.squawk}</div>
-                        </div>
-                      )}
-                      <div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Vertical Rate</div>
-                        <div className="text-sm font-semibold">
-                          {latestPosition.vertical_rate > 0 ? '↗' : latestPosition.vertical_rate < 0 ? '↘' : '→'} {Math.abs(latestPosition.vertical_rate)} ft/min
-                        </div>
-                      </div>
+                  </div>
+                  
+                  {/* Footer with last update */}
+                  <div className="px-4 py-2 border-t bg-gray-50">
+                    <div className="text-xs text-gray-500 text-center">
+                      Last updated: {new Date(latestPosition.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
                 </div>
@@ -1075,7 +1192,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
               <div class="flex items-center gap-2 mb-4">
                 <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
                 <span class="font-bold">${flight.plane_reg}</span>
-                <span class="ml-auto bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">In Flight</span>
+                <span class="ml-auto px-2 py-0.5 rounded-full text-xs" style="background-color: #c2f0c2; color: black;">In Flight</span>
               </div>
               <div class="space-y-2">
                 <div><span class="font-medium">Aircraft:</span> undefined (${flight.plane_reg})</div>
@@ -1172,9 +1289,34 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div>
           <CardTitle>Active Flight Tracking</CardTitle>
-          <CardDescription>Real-time location of aircraft currently in flight</CardDescription>
+          <CardDescription>Live aircraft tracking with aviation charts and enhanced features</CardDescription>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              // Zoom to fit all aircraft
+              const activeAircraft = trackingData?.filter((aircraft: any) => 
+                aircraft.tracking && aircraft.tracking.length > 0
+              ) || []
+              
+              if (activeAircraft.length > 0 && mapRef.current) {
+                if (activeAircraft.length === 1) {
+                  const position = activeAircraft[0].tracking[activeAircraft[0].tracking.length - 1]
+                  mapRef.current.flyTo([position.latitude, position.longitude], 14, { duration: 1.5 })
+                } else {
+                  const bounds = L.latLngBounds(activeAircraft.map((aircraft: any) => {
+                    const pos = aircraft.tracking[aircraft.tracking.length - 1]
+                    return [pos.latitude, pos.longitude]
+                  }))
+                  mapRef.current.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 })
+                }
+              }
+            }}
+          >
+            📍 Focus Aircraft
+          </Button>
           <Button 
             variant="outline" 
             size="sm" 
@@ -1183,13 +1325,14 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
               fetchTrackingUpdates()
             }}
           >
-            Refresh Aircraft
+            🔄 Refresh
           </Button>
           <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select map type" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="aviation">Aviation Chart</SelectItem>
               <SelectItem value="terrain">Terrain Map</SelectItem>
               <SelectItem value="street">Street Map</SelectItem>
               <SelectItem value="satellite">Satellite</SelectItem>
@@ -1217,27 +1360,40 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
               <TileLayer {...currentLayer as any} />
               <MapCenterControl center={mapCenter} />
               <MapLayerControl activeLayer={activeMapLayer} onChange={setActiveMapLayer} />
-              {/* Compact altitude legend in bottom left */}
-              <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-md px-2 py-1 shadow-sm border z-[1000]">
-                <div className="text-[10px] font-medium text-gray-600 mb-1">ALTITUDE</div>
-                <div className="flex items-center gap-[1px]">
-                  <div className="w-6 h-3 bg-[#FF4444] rounded-l-sm flex items-center justify-center">
-                    <span className="text-[8px] text-white font-medium">0</span>
+              {/* Enhanced legend in bottom left */}
+              <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border z-[1000] min-w-[200px]">
+                <div className="text-[10px] font-bold mb-2" style={{ color: '#73738c' }}>MAP LEGEND</div>
+                
+                {/* Altitude colors */}
+                <div className="mb-3">
+                  <div className="text-[9px] font-medium mb-1" style={{ color: '#73738c' }}>AIRCRAFT ALTITUDE</div>
+                  <div className="flex items-center gap-[1px]">
+                    <div className="w-6 h-3 bg-[#f90606] rounded-l-sm flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">0</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#ff9900] flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">1K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#f2f20d] flex items-center justify-center">
+                      <span className="text-[8px] text-black font-medium">3K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#33cc33] flex items-center justify-center">
+                      <span className="text-[8px] text-black font-medium">5K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#3366ff] flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">10K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#cc00ff] rounded-r-sm flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">20K+</span>
+                    </div>
                   </div>
-                  <div className="w-6 h-3 bg-[#FF8800] flex items-center justify-center">
-                    <span className="text-[8px] text-white font-medium">1K</span>
-                  </div>
-                  <div className="w-6 h-3 bg-[#FFDD00] flex items-center justify-center">
-                    <span className="text-[8px] text-black font-medium">3K</span>
-                  </div>
-                  <div className="w-6 h-3 bg-[#44FF44] flex items-center justify-center">
-                    <span className="text-[8px] text-black font-medium">5K</span>
-                  </div>
-                  <div className="w-6 h-3 bg-[#0088FF] flex items-center justify-center">
-                    <span className="text-[8px] text-white font-medium">10K</span>
-                  </div>
-                  <div className="w-6 h-3 bg-[#8844FF] rounded-r-sm flex items-center justify-center">
-                    <span className="text-[8px] text-white font-medium">20K+</span>
+                </div>
+                
+                {/* Other legend items */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-[9px]">
+                    <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: '#3366ff', backgroundColor: '#b3c6ff', opacity: 0.5 }}></div>
+                    <span style={{ color: '#73738c' }}>Flight School</span>
                   </div>
                 </div>
               </div>
@@ -1257,7 +1413,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
 
             if (activeAircraft.length === 0) {
               return (
-                <div className="col-span-full flex flex-col items-center justify-center py-4 px-8 text-center border rounded-md bg-muted/50">
+                <div className="col-span-full flex flex-col items-center justify-center py-4 px-8 text-center border rounded-md" style={{ backgroundColor: '#d5d5dd' }}>
                   <Plane className="h-8 w-8 text-muted-foreground mb-2" strokeWidth={1.5} />
                   <h3 className="text-lg font-semibold mb-1">No Active Aircraft</h3>
                   <p className="text-sm text-muted-foreground">
@@ -1273,7 +1429,8 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
               return (
                 <Card
                   key={aircraft._id}
-                  className="cursor-pointer hover:shadow-md transition-all duration-200 border-l-4 border-l-green-500"
+                  className="cursor-pointer hover:shadow-md transition-all duration-200 border-l-4" 
+                  style={{ borderLeftColor: '#33cc33' }}
                   onClick={() => {
                     // Center map on this aircraft
                     if (mapRef.current) {
@@ -1287,7 +1444,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: '#d5d5dd' }}>
                           <Plane className="h-6 w-6 text-primary" strokeWidth={2} />
                         </div>
                         <div className="space-y-1">
@@ -1296,7 +1453,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
                             {aircraft.aircraft_info ? `${aircraft.aircraft_info.type} ${aircraft.aircraft_info.model}` : 'Aircraft'}
                           </div>
                           {latestPosition.flight?.trim() && (
-                            <div className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                            <div className="text-xs font-mono px-2 py-1 rounded" style={{ backgroundColor: '#d5d5dd' }}>
                               {latestPosition.flight.trim()}
                             </div>
                           )}
@@ -1311,7 +1468,7 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
                         </Badge>
                         <div className="text-right space-y-1">
                           <div className="text-sm font-medium">
-                            {Number(latestPosition.altitude).toLocaleString()} ft
+                            {latestPosition.altitude === "ground" ? "Ground" : `${Number(latestPosition.altitude).toLocaleString()} ft`}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {latestPosition.ground_speed} kts

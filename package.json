@@ -6,7 +6,8 @@
         "dev": "cross-env PORT=3001 next dev",
         "build": "next build",
         "start": "cross-env PORT=3001 next start",
-        "lint": "next lint"
+        "lint": "next lint",
+        "clean-airports": "node scripts/clean-airports.js"
     },
     "dependencies": {
         "@hookform/resolvers": "^3.9.1",

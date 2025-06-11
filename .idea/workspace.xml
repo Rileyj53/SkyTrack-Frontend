@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c68b73f0-cb72-4a1c-96ee-68f0453d4880" name="Changes" comment="" />
+    <list default="true" id="c68b73f0-cb72-4a1c-96ee-68f0453d4880" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/components/flight-log-overview.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/flight-log-overview.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/flight-tracking-map.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/flight-tracking-map.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/student-progress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/student-progress.tsx" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -16,9 +20,9 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 8
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8
+}</component>
   <component name="ProjectId" id="2vycmghe5Ht8O5d4hDkjHJCOg0g" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -29,13 +33,13 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "non-prod",
-    "last_opened_file_path": "/Users/rileyjacobson/Documents/GitHub/SkyTrack-Frontend",
+    "last_opened_file_path": "/Users/rileyjacobson/GitHub/SkyTrack-Frontend",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "ts.external.directory.path": "/Users/rileyjacobson/Applications/WebStorm.app/Contents/plugins/javascript-impl/jsLanguageServicesImpl/external",
+    "ts.external.directory.path": "/Users/rileyjacobson/GitHub/SkyTrack-Frontend/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -43,6 +47,13 @@
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
     </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11" />
+      </set>
+    </attachedChunks>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
@@ -53,6 +64,7 @@
       <option name="presentableId" value="Default" />
       <updated>1745120918656</updated>
       <workItem from="1745120919945" duration="2675000" />
+      <workItem from="1749615721964" duration="383000" />
     </task>
     <servers />
   </component>

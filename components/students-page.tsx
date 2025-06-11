@@ -477,15 +477,16 @@ export function StudentsPage() {
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
       case "Active":
-        return { backgroundColor: '#33cc33', color: 'white', border: 'none' }
-      case "On Hold":
-        return { backgroundColor: '#ff9900', color: 'white', border: 'none' }
+        return { backgroundColor: '#c2f0c2', color: 'black', border: '1px solid #99e699' }
       case "Graduated":
-        return { backgroundColor: '#3366ff', color: 'white', border: 'none' }
+        return { backgroundColor: '#b3c6ff', color: 'black', border: '1px solid #809fff' }
+      case "On Hold":
+        return { backgroundColor: '#f0b3ff', color: 'black', border: '1px solid #e580ff' }
       case "Withdrawn":
-        return { backgroundColor: '#f90606', color: 'white', border: 'none' }
+      case "Discontinued":
+        return { backgroundColor: '#fc9c9c', color: 'black', border: '1px solid #fb6a6a' }
       default:
-        return { backgroundColor: '#73738c', color: 'white', border: 'none' }
+        return { backgroundColor: '#fbfbb6', color: 'black', border: '1px solid #f9f986' }
     }
   }
 

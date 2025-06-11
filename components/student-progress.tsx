@@ -408,16 +408,24 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
                 {fullView && <TableCell>{calculateFlightHours(student)} hrs</TableCell>}
                 {fullView && <TableCell>{student.nextMilestone}</TableCell>}
                 <TableCell>
-                  <Badge 
-                    variant="outline" 
-                    className={`${
-                      student.status === "Active" 
-                        ? "bg-green-100 text-green-800" 
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
+                  <div 
+                    className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors border"
+                    style={{
+                      backgroundColor: student.status === "Active" ? "#c2f0c2" 
+                        : student.status === "Graduated" ? "#b3c6ff"
+                        : student.status === "On Hold" ? "#f0b3ff" 
+                        : student.status === "Discontinued" ? "#fc9c9c"
+                        : "#fbfbb6",
+                      borderColor: student.status === "Active" ? "#99e699"
+                        : student.status === "Graduated" ? "#809fff"
+                        : student.status === "On Hold" ? "#e580ff"
+                        : student.status === "Discontinued" ? "#fb6a6a" 
+                        : "#f9f986",
+                      color: "black"
+                    }}
                   >
                     {student.status}
-                  </Badge>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
