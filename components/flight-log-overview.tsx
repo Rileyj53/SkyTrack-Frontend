@@ -371,7 +371,8 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
         <CardDescription>Overview of upcoming flights</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
+        <div className="overflow-x-auto">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Time</TableHead>
@@ -431,16 +432,32 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <Plane className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} />
-                    <p className="text-lg font-medium text-muted-foreground">No flights scheduled today</p>
+                <TableCell colSpan={7} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center gap-4 py-6">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/20">
+                      <Plane className="h-8 w-8 text-blue-500 dark:text-blue-400" strokeWidth={1.5} />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No flights scheduled today</h3>
+                      <p className="text-sm text-muted-foreground max-w-sm">
+                        All aircraft are grounded today. Check back tomorrow for upcoming flight schedules.
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleViewAllFlights}
+                      className="mt-2"
+                    >
+                      View All Flights
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        </div>
         {displayedFlights.length > 0 && (
           <div className="mt-4 flex justify-end">
             <Button variant="outline" onClick={handleViewAllFlights}>

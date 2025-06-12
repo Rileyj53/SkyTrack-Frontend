@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { Plus } from "lucide-react"
+import { Plus, Users } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -294,8 +294,32 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
       <Card className={className}>
         <CardHeader>
           <CardTitle>Student Progress</CardTitle>
-          <CardDescription className="text-red-500">Error: {error}</CardDescription>
+          <CardDescription>Unable to load student data</CardDescription>
         </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center gap-4 py-8">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-50 dark:bg-red-950/20">
+              <svg className="h-8 w-8 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="space-y-2 text-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Failed to load students</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                There was an error loading student data. Please try refreshing the page.
+              </p>
+              <p className="text-xs text-red-500 dark:text-red-400 mt-2">{error}</p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => window.location.reload()}
+              className="mt-2"
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </CardContent>
       </Card>
     )
   }
@@ -375,7 +399,8 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
             className="max-w-sm"
           />
         </div>
-        <Table>
+        <div className="overflow-x-auto">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Student</TableHead>
@@ -387,50 +412,85 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayedStudents.map((student) => (
-              <TableRow 
-                key={student._id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => router.push(`/students/${student._id}`)}
-              >
-                <TableCell className="font-medium">
-                  {student.user_id 
-                    ? `${student.user_id.first_name} ${student.user_id.last_name}`
-                    : student.contact_email}
-                </TableCell>
-                <TableCell>{student.program}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Progress value={calculateProgress(student)} className="w-[60px]" />
-                    <span className="text-xs">{calculateProgress(student)}%</span>
-                  </div>
-                </TableCell>
-                {fullView && <TableCell>{calculateFlightHours(student)} hrs</TableCell>}
-                {fullView && <TableCell>{student.nextMilestone}</TableCell>}
-                <TableCell>
-                  <div 
-                    className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors border"
-                    style={{
-                      backgroundColor: student.status === "Active" ? "#c2f0c2" 
-                        : student.status === "Graduated" ? "#b3c6ff"
-                        : student.status === "On Hold" ? "#f0b3ff" 
-                        : student.status === "Discontinued" ? "#fc9c9c"
-                        : "#fbfbb6",
-                      borderColor: student.status === "Active" ? "#99e699"
-                        : student.status === "Graduated" ? "#809fff"
-                        : student.status === "On Hold" ? "#e580ff"
-                        : student.status === "Discontinued" ? "#fb6a6a" 
-                        : "#f9f986",
-                      color: "black"
-                    }}
-                  >
-                    {student.status}
+            {displayedStudents.length > 0 ? (
+              displayedStudents.map((student) => (
+                <TableRow 
+                  key={student._id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => router.push(`/students/${student._id}`)}
+                >
+                  <TableCell className="font-medium">
+                    {student.user_id 
+                      ? `${student.user_id.first_name} ${student.user_id.last_name}`
+                      : student.contact_email}
+                  </TableCell>
+                  <TableCell>{student.program}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Progress value={calculateProgress(student)} className="w-[60px]" />
+                      <span className="text-xs">{calculateProgress(student)}%</span>
+                    </div>
+                  </TableCell>
+                  {fullView && <TableCell>{calculateFlightHours(student)} hrs</TableCell>}
+                  {fullView && <TableCell>{student.nextMilestone}</TableCell>}
+                  <TableCell>
+                    <div 
+                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors border"
+                      style={{
+                        backgroundColor: student.status === "Active" ? "#c2f0c2" 
+                          : student.status === "Graduated" ? "#b3c6ff"
+                          : student.status === "On Hold" ? "#f0b3ff" 
+                          : student.status === "Discontinued" ? "#fc9c9c"
+                          : "#fbfbb6",
+                        borderColor: student.status === "Active" ? "#99e699"
+                          : student.status === "Graduated" ? "#809fff"
+                          : student.status === "On Hold" ? "#e580ff"
+                          : student.status === "Discontinued" ? "#fb6a6a" 
+                          : "#f9f986",
+                        color: "black"
+                      }}
+                    >
+                      {student.status}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={fullView ? 6 : 4} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center gap-4 py-6">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-50 dark:bg-green-950/20">
+                      <Users className="h-8 w-8 text-green-500 dark:text-green-400" strokeWidth={1.5} />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {searchQuery ? 'No students found' : 'No students enrolled'}
+                      </h3>
+                      <p className="text-sm text-muted-foreground max-w-sm">
+                        {searchQuery 
+                          ? `No students match "${searchQuery}". Try adjusting your search terms.`
+                          : 'Get started by enrolling your first student in a training program.'
+                        }
+                      </p>
+                    </div>
+                    {!searchQuery && userRole === 'school_admin' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setIsAddingStudent(true)}
+                        className="mt-2"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Student
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
+        </div>
         {!fullView && (
           <div className="mt-4 flex justify-end">
             <Button variant="outline" size="sm" asChild>

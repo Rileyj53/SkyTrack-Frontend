@@ -172,9 +172,10 @@ function MapLayerControl({ activeLayer, onChange }: { activeLayer: string; onCha
 
 interface FlightTrackingMapProps {
   className?: string
+  dashboard?: boolean
 }
 
-export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
+export function FlightTrackingMap({ className, dashboard = false }: FlightTrackingMapProps) {
   const [mapCenter, setMapCenter] = useState<[number, number]>(() => {
     // Try to get school location from localStorage first
     const savedSchoolLocation = localStorage.getItem('schoolLocation')
@@ -1401,6 +1402,103 @@ export function FlightTrackingMap({ className }: FlightTrackingMapProps) {
 
   if (error) {
     return <div className="text-red-500 p-4">{error}</div>
+  }
+
+  if (dashboard) {
+    // Dashboard version - simplified layout
+    return (
+      <div className={`h-full flex flex-col ${className}`}>
+        <div className="flex flex-row items-center justify-between pb-2 px-2">
+          <div>
+            <h3 className="text-lg font-semibold">Active Flight Tracking</h3>
+            <p className="text-sm text-muted-foreground">Live aircraft tracking</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                console.log('Manual refresh triggered')
+                fetchTrackingUpdates()
+              }}
+            >
+              Refresh
+            </Button>
+            <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Map type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="terrain">Terrain</SelectItem>
+                <SelectItem value="street">Street</SelectItem>
+                <SelectItem value="satellite">Satellite</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex-1 w-full rounded-md overflow-hidden border relative">
+          {typeof window !== "undefined" && (
+            <MapContainer
+              center={mapCenter}
+              zoom={mapZoom}
+              style={{ 
+                height: "100%", 
+                width: "100%", 
+                zIndex: 0,
+                filter: "brightness(0.85) contrast(1.1) saturate(0.9)"
+              }}
+              scrollWheelZoom={true}
+              minZoom={5}
+              maxZoom={currentLayer.maxZoom}
+              ref={mapRef}
+            >
+              <TileLayer {...currentLayer as any} />
+              <MapCenterControl center={mapCenter} />
+              <MapLayerControl activeLayer={activeMapLayer} onChange={setActiveMapLayer} />
+              {/* Enhanced legend in bottom left */}
+              <div className="absolute bottom-4 left-4 bg-white/95 dark:bg-[#35353f]/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-200 dark:border-gray-600 z-[1000] min-w-[200px]">
+                <div className="text-[10px] font-bold mb-2 text-gray-600 dark:text-gray-300">MAP LEGEND</div>
+                
+                {/* Altitude colors */}
+                <div className="mb-3">
+                  <div className="text-[9px] font-medium mb-1 text-gray-600 dark:text-gray-300">AIRCRAFT ALTITUDE</div>
+                  <div className="flex items-center gap-[1px]">
+                    <div className="w-6 h-3 bg-[#f90606] rounded-l-sm flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">0</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#ff9900] flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">1K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#f2f20d] flex items-center justify-center">
+                      <span className="text-[8px] text-black font-medium">3K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#33cc33] flex items-center justify-center">
+                      <span className="text-[8px] text-black font-medium">5K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#3366ff] flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">10K</span>
+                    </div>
+                    <div className="w-6 h-3 bg-[#cc00ff] rounded-r-sm flex items-center justify-center">
+                      <span className="text-[8px] text-white font-medium">20K+</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Other legend items */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-[9px]">
+                    <div className="w-3 h-3 rounded-full border-2 border-blue-500 bg-blue-200 dark:bg-blue-400 opacity-50"></div>
+                    <span className="text-gray-600 dark:text-gray-300">Flight School</span>
+                  </div>
+                </div>
+              </div>
+              <AircraftIconStyles />
+              {renderMapMarkers()}
+            </MapContainer>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (
