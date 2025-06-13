@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 
 // Import Leaflet CSS
 import "leaflet/dist/leaflet.css"
@@ -1282,121 +1283,16 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
   }, [router])
 
   if (isLoading) {
-    const completedSteps = [
-      !loadingState.school,
-      !loadingState.tracking,
-      !loadingState.map
-    ].filter(Boolean).length
-    const totalSteps = 3
-    const progress = (completedSteps / totalSteps) * 100
-
+    let progress = 70 // Fixed percentage for demo/loading
     return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle>Active Flight Tracking</CardTitle>
-          <CardDescription>Live aircraft tracking with aviation charts and enhanced features</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Loading skeleton with progress */}
-          <div className="space-y-4">
-            {/* Header skeleton */}
-            <div className="flex justify-between items-center">
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
-              </div>
-              <div className="flex gap-2">
-                <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-            </div>
-            
-            {/* Map skeleton */}
-            <div className="h-[400px] w-full rounded-md overflow-hidden border relative bg-gray-50 dark:bg-gray-800">
-              {/* Map loading overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-800/80 z-10">
-                <div className="flex flex-col items-center gap-4 max-w-sm text-center">
-                  {/* Progress circle */}
-                  <div className="relative w-16 h-16">
-                    <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
-                      <circle cx="32" cy="32" r="28" strokeWidth="4" fill="none" className="stroke-gray-200 dark:stroke-gray-700"/>
-                      <circle 
-                        cx="32" 
-                        cy="32" 
-                        r="28" 
-                        strokeWidth="4" 
-                        fill="none" 
-                        className="stroke-blue-500"
-                        strokeLinecap="round"
-                        strokeDasharray={`${(progress / 100) * 175.929} 175.929`}
-                        style={{ transition: 'stroke-dasharray 0.5s ease' }}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-sm font-semibold text-blue-500">{Math.round(progress)}%</span>
-                    </div>
-                  </div>
-                  
-                  {/* Loading message */}
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                      {loadingState.message}
-                    </p>
-                    <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      <div className="flex items-center gap-1">
-                        <div className={`w-2 h-2 rounded-full ${!loadingState.school ? 'bg-green-500' : 'bg-gray-300 animate-pulse'}`}></div>
-                        <span>School Data</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className={`w-2 h-2 rounded-full ${!loadingState.tracking ? 'bg-green-500' : 'bg-gray-300 animate-pulse'}`}></div>
-                        <span>Flight Tracking</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className={`w-2 h-2 rounded-full ${!loadingState.map ? 'bg-green-500' : 'bg-gray-300 animate-pulse'}`}></div>
-                        <span>Map Tiles</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Background map skeleton pattern */}
-              <div className="absolute inset-0 opacity-20">
-                <div className="grid grid-cols-8 grid-rows-6 h-full w-full gap-1 p-2">
-                  {Array.from({ length: 48 }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="bg-gray-300 dark:bg-gray-600 rounded animate-pulse"
-                      style={{ animationDelay: `${i * 50}ms` }}
-                    ></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            {/* Aircraft cards skeleton */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="border rounded-lg p-4 animate-pulse">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-right">
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div className="flex flex-col items-center justify-center min-h-[350px] w-full flex-1 bg-background">
+        <div className="w-full max-w-md flex flex-col items-center gap-6">
+          <Progress value={progress} className="w-full h-4" />
+          <div className="text-base font-medium text-muted-foreground text-center">
+            {loadingState.message || 'Loading...'}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     )
   }
 

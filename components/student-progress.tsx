@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
 
 interface Student {
@@ -400,96 +399,84 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
           />
         </div>
         <div className="overflow-x-auto">
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Student</TableHead>
-              <TableHead>Program</TableHead>
-              <TableHead>Progress</TableHead>
-              {fullView && <TableHead>Flight Hours</TableHead>}
-              {fullView && <TableHead>Next Milestone</TableHead>}
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+          <div className="flex flex-col w-full">
+            {/* Header */}
+            <div className="flex font-semibold border-b px-4 py-2">
+              <div className="flex-[2]">Student</div>
+              <div className="flex-[1]">Progress</div>
+              {fullView && <div className="flex-[1]">Flight Hours</div>}
+              {fullView && <div className="flex-[1]">Next Milestone</div>}
+              <div className="flex-[1]">Status</div>
+            </div>
+            {/* Rows */}
             {displayedStudents.length > 0 ? (
               displayedStudents.map((student) => (
-                <TableRow 
+                <div
                   key={student._id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="flex items-center border-b px-4 py-2 cursor-pointer hover:bg-muted/50"
                   onClick={() => router.push(`/students/${student._id}`)}
                 >
-                  <TableCell className="font-medium">
-                    {student.user_id 
-                      ? `${student.user_id.first_name} ${student.user_id.last_name}`
-                      : student.contact_email}
-                  </TableCell>
-                  <TableCell>{student.program}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Progress value={calculateProgress(student)} className="w-[60px]" />
-                      <span className="text-xs">{calculateProgress(student)}%</span>
-                    </div>
-                  </TableCell>
-                  {fullView && <TableCell>{calculateFlightHours(student)} hrs</TableCell>}
-                  {fullView && <TableCell>{student.nextMilestone}</TableCell>}
-                  <TableCell>
-                    <div 
+                  <div className="flex-[2]">
+                    <div>{student.user_id ? `${student.user_id.first_name} ${student.user_id.last_name}` : student.contact_email}</div>
+                    <div className="text-xs text-muted-foreground">{student.program}</div>
+                  </div>
+                  <div className="flex-[1] flex items-center gap-2">
+                    <Progress value={calculateProgress(student)} className="w-[60px]" />
+                    <span className="text-xs">{calculateProgress(student)}%</span>
+                  </div>
+                  {fullView && <div className="flex-[1]">{calculateFlightHours(student)} hrs</div>}
+                  {fullView && <div className="flex-[1]">{student.nextMilestone}</div>}
+                  <div className="flex-[1]">
+                    <div
                       className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors border"
                       style={{
-                        backgroundColor: student.status === "Active" ? "#c2f0c2" 
+                        backgroundColor: student.status === "Active" ? "#c2f0c2"
                           : student.status === "Graduated" ? "#b3c6ff"
-                          : student.status === "On Hold" ? "#f0b3ff" 
+                          : student.status === "On Hold" ? "#f0b3ff"
                           : student.status === "Discontinued" ? "#fc9c9c"
                           : "#fbfbb6",
                         borderColor: student.status === "Active" ? "#99e699"
                           : student.status === "Graduated" ? "#809fff"
                           : student.status === "On Hold" ? "#e580ff"
-                          : student.status === "Discontinued" ? "#fb6a6a" 
+                          : student.status === "Discontinued" ? "#fb6a6a"
                           : "#f9f986",
                         color: "black"
                       }}
                     >
                       {student.status}
                     </div>
-                  </TableCell>
-                </TableRow>
+                  </div>
+                </div>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={fullView ? 6 : 4} className="h-32 text-center">
-                  <div className="flex flex-col items-center justify-center gap-4 py-6">
-                    <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-50 dark:bg-green-950/20">
-                      <Users className="h-8 w-8 text-green-500 dark:text-green-400" strokeWidth={1.5} />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {searchQuery ? 'No students found' : 'No students enrolled'}
-                      </h3>
-                      <p className="text-sm text-muted-foreground max-w-sm">
-                        {searchQuery 
-                          ? `No students match "${searchQuery}". Try adjusting your search terms.`
-                          : 'Get started by enrolling your first student in a training program.'
-                        }
-                      </p>
-                    </div>
-                    {!searchQuery && userRole === 'school_admin' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setIsAddingStudent(true)}
-                        className="mt-2"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Student
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
+              <div className="flex flex-col items-center justify-center gap-4 py-6">
+                <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-50 dark:bg-green-950/20">
+                  <Users className="h-8 w-8 text-green-500 dark:text-green-400" strokeWidth={1.5} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {searchQuery ? 'No students found' : 'No students enrolled'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    {searchQuery
+                      ? `No students match "${searchQuery}". Try adjusting your search terms.`
+                      : 'Get started by enrolling your first student in a training program.'}
+                  </p>
+                </div>
+                {!searchQuery && userRole === 'school_admin' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAddingStudent(true)}
+                    className="mt-2"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Student
+                  </Button>
+                )}
+              </div>
             )}
-          </TableBody>
-        </Table>
+          </div>
         </div>
         {!fullView && (
           <div className="mt-4 flex justify-end">

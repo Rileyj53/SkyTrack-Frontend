@@ -73,6 +73,39 @@ const statusColors: Record<string, string> = {
   pending: '#f2f20d',
 };
 
+const statusBadgeStyles: Record<string, React.CSSProperties> = {
+  active: {
+    background: '#c2f0c2',
+    border: '2px solid #33cc33',
+    color: '#111',
+    fontWeight: 500,
+  },
+  graduated: {
+    background: '#b3c6ff',
+    border: '2px solid #3366ff',
+    color: '#111',
+    fontWeight: 500,
+  },
+  'on hold': {
+    background: '#f0b3ff',
+    border: '2px solid #cc00ff',
+    color: '#111',
+    fontWeight: 500,
+  },
+  discontinued: {
+    background: '#fc9c9c',
+    border: '2px solid #f90606',
+    color: '#111',
+    fontWeight: 500,
+  },
+  pending: {
+    background: '#fbfbb6',
+    border: '2px solid #f2f20d',
+    color: '#111',
+    fontWeight: 500,
+  },
+};
+
 export function StudentProgress({ className, fullView = false }: StudentProgressProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -272,36 +305,39 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
   const generateSkeletonRows = useMemo(() => {
     return Array.from({ length: STUDENTS_PER_PAGE }, (_, index) => (
       <Table.Tr key={`skeleton-${index}`}>
-        <Table.Td>
-          <Group gap="sm">
-            <Skeleton className="h-[30px] w-[30px] rounded-full" />
-            <Skeleton className="h-[20px] w-[120px] rounded-full" />
+        <Table.Td style={{ width: '40%' }}>
+          <Group gap="xs">
+            <Skeleton className="h-[20px] w-[20px] rounded-full" />
+            <Skeleton className="h-[16px] w-[120px] rounded-full" />
           </Group>
         </Table.Td>
-        <Table.Td>
-          <Skeleton className="h-[20px] w-[100px] rounded-full" />
+        <Table.Td style={{ width: '35%', textAlign: 'center' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+            <Skeleton className="h-[8px] w-[70px] rounded-full" />
+            <Skeleton className="h-[14px] w-[30px] rounded-full" />
+          </Box>
         </Table.Td>
-        <Table.Td>
-          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Skeleton className="h-[8px] w-[60px] rounded-full" />
+        <Table.Td style={{ width: '120px', maxWidth: '120px' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Skeleton className="h-[8px] w-[50px] rounded-full" />
             <Skeleton className="h-[16px] w-[30px] rounded-full" />
           </Box>
         </Table.Td>
         {fullView && (
-          <Table.Td>
+          <Table.Td style={{ width: '100px', minWidth: '80px', flexShrink: 0 }}>
             <Skeleton className="h-[20px] w-[60px] rounded-full" />
           </Table.Td>
         )}
         {fullView && (
-          <Table.Td>
+          <Table.Td style={{ width: '150px', minWidth: '100px', flexShrink: 1 }}>
             <Skeleton className="h-[20px] w-[80px] rounded-full" />
           </Table.Td>
         )}
-        <Table.Td>
-          <Skeleton className="h-[24px] w-[70px] rounded-full" />
+        <Table.Td style={{ width: '25%', textAlign: 'center' }}>
+          <Skeleton className="h-[20px] w-[60px] rounded-full" />
         </Table.Td>
         {fullView && (
-          <Table.Td>
+          <Table.Td style={{ width: '80px', minWidth: '70px', flexShrink: 0 }}>
             <Group gap={0} justify="flex-end">
               <Skeleton className="h-[32px] w-[32px] rounded-full" />
               <Skeleton className="h-[32px] w-[32px] rounded-full ml-1" />
@@ -315,42 +351,48 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
   const studentRows = useMemo(() => {
     return students.map((student) => (
       <Table.Tr key={student._id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/students/${student._id}`)}>
-        <Table.Td>
-          <Group gap="sm">
-            <Avatar size={30} radius={30} color="blue">
+        <Table.Td style={{ width: '40%' }}>
+          <Group gap="xs">
+            <Avatar size={20} radius={20} color="blue">
               {student.user_id ? `${student.user_id.first_name?.[0] || ''}${student.user_id.last_name?.[0] || ''}` : student.contact_email?.[0]?.toUpperCase() || '?'}
             </Avatar>
-            <Text fz="sm" fw={500}>
-              {student.user_id ? `${student.user_id.first_name} ${student.user_id.last_name}` : student.contact_email}
-            </Text>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <Text fz="xs" fw={500} truncate>
+                {student.user_id ? `${student.user_id.first_name} ${student.user_id.last_name}` : student.contact_email}
+              </Text>
+              <Text c="dimmed" fz="xs" truncate>
+                {student.program}
+              </Text>
+            </div>
           </Group>
         </Table.Td>
-        <Table.Td>
-          <Text fz="sm">{student.program}</Text>
-        </Table.Td>
-        <Table.Td>
-          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Progress value={calculateProgress(student)} className="w-[60px]" />
-            <Text fz="xs">{calculateProgress(student)}%</Text>
+        <Table.Td style={{ width: '35%', textAlign: 'center' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+            <Progress value={calculateProgress(student)} className="w-[70px]" />
+            <Text fz="xs" style={{ minWidth: '30px' }}>{calculateProgress(student)}%</Text>
           </Box>
         </Table.Td>
         {fullView && (
-          <Table.Td>
+          <Table.Td style={{ width: '100px', minWidth: '80px', flexShrink: 0 }}>
             <Text fz="sm">{calculateFlightHours(student)} hrs</Text>
           </Table.Td>
         )}
         {fullView && (
-          <Table.Td>
-            <Text fz="sm">{student.nextMilestone}</Text>
+          <Table.Td style={{ width: '150px', minWidth: '100px', flexShrink: 1 }}>
+            <Text fz="sm" truncate>{student.nextMilestone}</Text>
           </Table.Td>
         )}
-        <Table.Td>
-          <Badge color={statusColors[student.status.toLowerCase()] || statusColors.pending} variant="light">
+        <Table.Td style={{ width: '25%', textAlign: 'center' }}>
+          <Badge
+            style={statusBadgeStyles[student.status.toLowerCase()] || statusBadgeStyles['pending']}
+            variant="outline"
+            size="sm"
+          >
             {student.status}
           </Badge>
         </Table.Td>
         {fullView && (
-          <Table.Td>
+          <Table.Td style={{ width: '80px', minWidth: '70px', flexShrink: 0 }}>
             <Group gap={0} justify="flex-end">
               <ActionIcon variant="subtle" color="gray">
                 <Pencil size={16} strokeWidth={1.5} />
@@ -485,28 +527,129 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         <CardDescription>{fullView ? 'Complete student progress tracking' : 'Overview of student training progress'}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Input placeholder="Search students..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="max-w-sm" />
+          {!fullView && (
+            <Button variant="outline" size="sm" asChild className="w-full sm:w-auto mt-2 sm:mt-0">
+              <Link href="/students">View All Students</Link>
+            </Button>
+          )}
         </div>
 
-        <Table.ScrollContainer minWidth={800}>
-          <Table verticalSpacing="sm">
+        <Table.ScrollContainer minWidth={400}>
+          <Table verticalSpacing="sm" style={{ tableLayout: 'fixed', width: '100%' }}>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Student</Table.Th>
-                <Table.Th>Program</Table.Th>
-                <Table.Th>Progress</Table.Th>
-                {fullView && <Table.Th>Flight Hours</Table.Th>}
-                {fullView && <Table.Th>Next Milestone</Table.Th>}
-                <Table.Th>Status</Table.Th>
-                {fullView && <Table.Th />}
+                <Table.Th style={{ width: '40%' }}>Student</Table.Th>
+                <Table.Th style={{ width: '35%', textAlign: 'center' }}>Progress</Table.Th>
+                {fullView && <Table.Th style={{ width: '100px', textAlign: 'center' }}>Flight Hours</Table.Th>}
+                {fullView && <Table.Th style={{ width: '150px', textAlign: 'center' }}>Next Milestone</Table.Th>}
+                <Table.Th style={{ width: '25%', textAlign: 'center' }}>Status</Table.Th>
+                {fullView && <Table.Th style={{ width: '80px' }} />}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {loading ? (
                 generateSkeletonRows
               ) : students.length > 0 ? (
-                studentRows
+                <>
+                  {students.map((student) => (
+                    <Table.Tr key={student._id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/students/${student._id}`)}>
+                      <Table.Td style={{ width: '40%' }}>
+                        <Group gap="xs">
+                          <Avatar size={20} radius={20} color="blue">
+                            {student.user_id ? `${student.user_id.first_name?.[0] || ''}${student.user_id.last_name?.[0] || ''}` : student.contact_email?.[0]?.toUpperCase() || '?'}
+                          </Avatar>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <Text fz="xs" fw={500} truncate>
+                              {student.user_id ? `${student.user_id.first_name} ${student.user_id.last_name}` : student.contact_email}
+                            </Text>
+                            <Text c="dimmed" fz="xs" truncate>
+                              {student.program}
+                            </Text>
+                          </div>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td style={{ width: '35%', textAlign: 'center' }}>
+                        <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                          <Progress value={calculateProgress(student)} className="w-[70px]" />
+                          <Text fz="xs" style={{ minWidth: '30px' }}>{calculateProgress(student)}%</Text>
+                        </Box>
+                      </Table.Td>
+                      {fullView && (
+                        <Table.Td style={{ width: '100px', minWidth: '80px', flexShrink: 0 }}>
+                          <Text fz="sm">{calculateFlightHours(student)} hrs</Text>
+                        </Table.Td>
+                      )}
+                      {fullView && (
+                        <Table.Td style={{ width: '150px', minWidth: '100px', flexShrink: 1 }}>
+                          <Text fz="sm" truncate>{student.nextMilestone}</Text>
+                        </Table.Td>
+                      )}
+                      <Table.Td style={{ width: '25%', textAlign: 'center' }}>
+                        <Badge
+                          style={statusBadgeStyles[student.status.toLowerCase()] || statusBadgeStyles['pending']}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {student.status}
+                        </Badge>
+                      </Table.Td>
+                      {fullView && (
+                        <Table.Td style={{ width: '80px', minWidth: '70px', flexShrink: 0 }}>
+                          <Group gap={0} justify="flex-end">
+                            <ActionIcon variant="subtle" color="gray">
+                              <Pencil size={16} strokeWidth={1.5} />
+                            </ActionIcon>
+                            <ActionIcon variant="subtle" color="red">
+                              <Trash2 size={16} strokeWidth={1.5} />
+                            </ActionIcon>
+                          </Group>
+                        </Table.Td>
+                      )}
+                    </Table.Tr>
+                  ))}
+                  {Array.from({ length: STUDENTS_PER_PAGE - students.length }, (_, index) => (
+                    <Table.Tr key={`empty-${index}`}>
+                      <Table.Td style={{ width: '40%', height: '60px' }}>
+                        <Group gap="xs">
+                          <Skeleton className="h-[20px] w-[20px] rounded-full" />
+                          <div>
+                            <Skeleton className="h-[14px] w-[120px] rounded-full mb-1" />
+                            <Skeleton className="h-[12px] w-[90px] rounded-full" />
+                          </div>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td style={{ width: '35%', textAlign: 'center', height: '60px' }}>
+                        <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                          <Skeleton className="h-[8px] w-[70px] rounded-full" />
+                          <Skeleton className="h-[14px] w-[30px] rounded-full" />
+                        </Box>
+                      </Table.Td>
+                      {fullView && (
+                        <Table.Td style={{ width: '100px', minWidth: '80px', flexShrink: 0, height: '60px' }}>
+                          <Skeleton className="h-[16px] w-[60px] rounded-full" />
+                        </Table.Td>
+                      )}
+                      {fullView && (
+                        <Table.Td style={{ width: '150px', minWidth: '100px', flexShrink: 1, height: '60px' }}>
+                          <Skeleton className="h-[16px] w-[80px] rounded-full" />
+                        </Table.Td>
+                      )}
+                      <Table.Td style={{ width: '25%', textAlign: 'center', height: '60px' }}>
+                        <Skeleton className="h-[20px] w-[60px] rounded-full" />
+                      </Table.Td>
+                      {fullView && (
+                        <Table.Td style={{ width: '80px', minWidth: '70px', flexShrink: 0, height: '60px' }}>
+                          <Group gap={0} justify="flex-end">
+                            <Skeleton className="h-[24px] w-[24px] rounded-full" />
+                            <Skeleton className="h-[24px] w-[24px] rounded-full ml-1" />
+                          </Group>
+                        </Table.Td>
+                      )}
+                    </Table.Tr>
+                  ))}
+                </>
               ) : (
                 <Table.Tr>
                   <Table.Td colSpan={fullView ? 7 : 4}>
@@ -532,7 +675,7 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
 
         {pagination.totalPages > 1 && (
           <div className="mt-4 flex items-center relative">
-            <div className="flex-grow flex justify-center">
+            <div className="flex-[2] flex justify-center min-w-0">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -563,13 +706,6 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
                 </PaginationContent>
               </Pagination>
             </div>
-            {!fullView && (
-              <div className="absolute right-0">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/students">View All Students</Link>
-                </Button>
-              </div>
-            )}
           </div>
         )}
 
