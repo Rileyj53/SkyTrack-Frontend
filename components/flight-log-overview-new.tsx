@@ -54,9 +54,17 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   const [isStartFlightModalOpen, setIsStartFlightModalOpen] = useState(false)
   const [isEndFlightModalOpen, setIsEndFlightModalOpen] = useState(false)
   const [isUpdatingFlight, setIsUpdatingFlight] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const FLIGHTS_PER_PAGE = 5
 
+  // Ensure we're on the client side before rendering time-sensitive content
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
   const formatTime = (time: string) => {
+    if (!isClient) return time // Return original time during SSR
+    
     try {
       const [hours, minutes] = time.split(':').map(Number)
       const date = new Date()
@@ -72,6 +80,8 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   }
 
   const formatDate = (dateString: string) => {
+    if (!isClient) return dateString // Return original date during SSR
+    
     try {
       const date = new Date(dateString)
       return date.toLocaleDateString('en-US', {
@@ -158,14 +168,9 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
           
           return {
             _id: schedule._id,
-            date: utcDateTime ? utcDateTime.toLocaleDateString('en-CA') : '', // YYYY-MM-DD format in local time
+            date: utcDateTime ? utcDateTime.toISOString().split('T')[0] : '', // Store as ISO date string
             start_time: utcDateTime ? 
-              utcDateTime.toLocaleTimeString('en-US', { 
-                hour12: false, 
-                hour: '2-digit', 
-                minute: '2-digit',
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-              }) : '',
+              utcDateTime.toISOString().split('T')[1].substring(0, 5) : '', // Store as HH:MM format
             plane_reg: schedule.plane_id?.registration || 'N/A',
             plane_id: schedule.plane_id?._id || '',
             student_name: schedule.student_id ? 

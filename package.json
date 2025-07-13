@@ -10,6 +10,7 @@
         "clean-airports": "node scripts/clean-airports.js"
     },
     "dependencies": {
+        "@hello-pangea/dnd": "^18.0.1",
         "@hookform/resolvers": "^3.9.1",
         "@mantine/core": "^8.1.0",
         "@mantine/hooks": "^8.1.0",
