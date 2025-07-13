@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -163,9 +164,12 @@ export function SettingsInstructors() {
 
       const data = await response.json()
       
-      if (Array.isArray(data)) {
+      // Access the instructors data from the nested data.instructors property
+      const instructorsData = data.data?.instructors || []
+      
+      if (Array.isArray(instructorsData)) {
         // Transform the API data to match our component's expected format
-        const transformedInstructors = data.map((instructor) => ({
+        const transformedInstructors = instructorsData.map((instructor) => ({
           id: instructor._id,
           name: `${instructor.user_id.first_name} ${instructor.user_id.last_name}`,
           email: instructor.user_id.email,
@@ -584,9 +588,7 @@ export function SettingsInstructors() {
     }
   }
 
-  if (loading) {
-    return <div>Loading...</div>
-  }
+
 
   return (
     <Card>
@@ -924,13 +926,49 @@ export function SettingsInstructors() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, idx) => (
+                <TableRow key={idx}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-5 rounded-full" />
+                      <Skeleton className="h-4 w-32 rounded" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-48 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      <Skeleton className="h-6 w-12 rounded-full" />
+                      <Skeleton className="h-6 w-12 rounded-full" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-12 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-8 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-12 rounded" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Skeleton className="h-8 w-8 rounded" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredInstructors.length > 0 ? (
               filteredInstructors.map((instructor) => (
                 <TableRow key={instructor.id}>

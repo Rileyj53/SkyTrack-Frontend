@@ -174,7 +174,7 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         }
 
         const data = await response.json()
-        setStudents(data.students || []) // Extract the students array from the response
+        setStudents(data.data?.students || data.students || []) // Extract the students array from the response
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
@@ -260,7 +260,7 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         }
 
         const data = await response.json()
-        setStudents(data.students || [])
+        setStudents(data.data?.students || data.students || [])
       }
 
       await fetchStudents()

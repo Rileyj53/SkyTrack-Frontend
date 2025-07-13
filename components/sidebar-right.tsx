@@ -122,7 +122,7 @@ function UsersTable() {
 
         const data = await response.json();
         console.log('Students data received:', data);
-        setStudents(data.students || []);
+        setStudents(data.data?.students || data.students || []);
       } catch (error) {
         console.error("Error fetching students:", error);
         setError(error instanceof Error ? error.message : "Failed to fetch students");

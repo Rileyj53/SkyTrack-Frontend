@@ -74,11 +74,8 @@ interface Plane {
   id: string
   registration: string
   type: string
-  model: string
-  year: number
+  aircraftModel?: string
   status: string
-  location: string
-  notes: string
 }
 
 interface NewFlightDialogProps {
@@ -110,6 +107,9 @@ export function NewFlightDialog({
   const [flightType, setFlightType] = useState("")
   const [notes, setNotes] = useState("")
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [isPlanePopoverOpen, setIsPlanePopoverOpen] = useState(false)
+  const [isStudentPopoverOpen, setIsStudentPopoverOpen] = useState(false)
+  const [isInstructorPopoverOpen, setIsInstructorPopoverOpen] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -146,7 +146,16 @@ export function NewFlightDialog({
       }
 
       const data = await response.json()
-      setPlanes(Array.isArray(data.planes) ? data.planes : [])
+      // Handle the new nested data structure - EXACT COPY from working schedule-dialog.tsx
+      if (data.data && Array.isArray(data.data.planes)) {
+        setPlanes(data.data.planes)
+      } else if (data.data && Array.isArray(data.data)) {
+        setPlanes(data.data)
+      } else if (Array.isArray(data.planes)) {
+        setPlanes(data.planes) // Fallback for old structure
+      } else {
+        setPlanes([])
+      }
     } catch (error) {
       console.error("Error fetching planes:", error)
       toast.error("Failed to load planes")
@@ -258,11 +267,12 @@ export function NewFlightDialog({
                   <User className="h-4 w-4 text-blue-600" />
                   <Label className="text-sm font-semibold">Student</Label>
                 </div>
-                <Popover>
+                <Popover open={isStudentPopoverOpen} onOpenChange={setIsStudentPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
+                      aria-expanded={isStudentPopoverOpen}
                       className="w-full justify-between text-sm font-normal"
                     >
                       <span className="truncate">
@@ -288,8 +298,11 @@ export function NewFlightDialog({
                               .map((student) => (
                                 <CommandItem
                                   key={`student-${student._id}`}
-                                  value={`${student.user_id.first_name} ${student.user_id.last_name}`}
-                                  onSelect={() => setSelectedStudentId(student._id)}
+                                  value={student.user_id.first_name}
+                                  onSelect={() => {
+                                    setSelectedStudentId(student._id)
+                                    setIsStudentPopoverOpen(false)
+                                  }}
                                 >
                                   <Check
                                     className={cn(
@@ -319,11 +332,12 @@ export function NewFlightDialog({
                   <UserCheck className="h-4 w-4 text-green-600" />
                   <Label className="text-sm font-semibold">Instructor</Label>
                 </div>
-                <Popover>
+                <Popover open={isInstructorPopoverOpen} onOpenChange={setIsInstructorPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
+                      aria-expanded={isInstructorPopoverOpen}
                       className="w-full justify-between text-sm font-normal"
                     >
                       <span className="truncate">
@@ -349,8 +363,11 @@ export function NewFlightDialog({
                               .map((instructor) => (
                                 <CommandItem
                                   key={`instructor-${instructor._id}`}
-                                  value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
-                                  onSelect={() => setSelectedInstructorId(instructor._id)}
+                                  value={instructor.user_id.first_name}
+                                  onSelect={() => {
+                                    setSelectedInstructorId(instructor._id)
+                                    setIsInstructorPopoverOpen(false)
+                                  }}
                                 >
                                   <Check
                                     className={cn(
@@ -380,11 +397,12 @@ export function NewFlightDialog({
                   <Plane className="h-4 w-4 text-purple-600" />
                   <Label className="text-sm font-semibold">Aircraft</Label>
                 </div>
-                <Popover>
+                <Popover open={isPlanePopoverOpen} onOpenChange={setIsPlanePopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
+                      aria-expanded={isPlanePopoverOpen}
                       className="w-full justify-between text-sm font-normal"
                     >
                       <span className="truncate">
@@ -392,7 +410,8 @@ export function NewFlightDialog({
                           planes.find(p => p.id === selectedPlaneId) ? 
                             (() => {
                               const plane = planes.find(p => p.id === selectedPlaneId)
-                              return `${plane?.registration} - ${plane?.type} ${plane?.model}`
+                              const model = plane?.aircraftModel || ''
+                              return `${plane?.registration} - ${plane?.type} ${model}`.trim()
                             })()
                             : "Select aircraft"
                           : "Select aircraft"
@@ -413,24 +432,30 @@ export function NewFlightDialog({
                               Loading planes...
                             </div>
                           ) : planes && planes.length > 0 ? (
-                            planes.map((plane) => {
-                              const displayText = `${plane.registration} - ${plane.type} ${plane.model}`
-                              return (
-                                <CommandItem
-                                  key={`plane-${plane.id}`}
-                                  value={displayText}
-                                  onSelect={() => setSelectedPlaneId(plane.id)}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedPlaneId === plane.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {displayText}
-                                </CommandItem>
-                              )
-                            })
+                                                        planes
+                              .filter((plane) => plane.id && plane.registration) // Filter out invalid planes
+                              .map((plane) => {
+                                const model = plane.aircraftModel || ''
+                                const displayText = `${plane.registration} - ${plane.type} ${model}`.trim()
+                                return (
+                                  <CommandItem
+                                    key={`plane-${plane.id}`}
+                                    value={plane.registration}
+                                    onSelect={() => {
+                                      setSelectedPlaneId(plane.id)
+                                      setIsPlanePopoverOpen(false)
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedPlaneId === plane.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {displayText}
+                                  </CommandItem>
+                                )
+                              })
                           ) : (
                             <CommandItem value="no-planes" disabled>
                               No aircraft available

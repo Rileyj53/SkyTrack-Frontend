@@ -23,6 +23,7 @@ const config: Config = {
         sm: '640px',
         md: '768px',
         lg: '1024px',
+		lgx: '1150px',
         xl: '1280px',
         '2xl': '1800px',
         '3xl': '2100px',
@@ -109,6 +110,7 @@ const config: Config = {
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		},
       screens: {
+        'lgx': '1150px',
         '3xl': '2100px',
       },
   	}

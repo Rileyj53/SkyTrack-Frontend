@@ -119,27 +119,36 @@ const AircraftIconStyles = () => {
       .aircraft-icon svg {
         background: transparent !important;
       }
+      
+      /* Override Leaflet popup default styling to remove white border */
+      .leaflet-popup-content-wrapper {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+      }
+      
+      .leaflet-popup-content {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      
+      .leaflet-popup-tip {
+        background: #0A0A0A !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
     `}
     </style>
   )
 }
 
-// Map layer options
+// Map layer options with completely free providers
 const mapLayers = {
-  terrain: {
-    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
-    maxZoom: 17,
-  },
   street: {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  },
-  satellite: {
-    // Using a different satellite provider that doesn't require subdomains
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
     maxZoom: 19,
   },
 }
@@ -170,6 +179,8 @@ function MapLayerControl({ activeLayer, onChange }: { activeLayer: string; onCha
 
   return null
 }
+
+
 
 interface FlightTrackingMapProps {
   className?: string
@@ -437,9 +448,9 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
         throw new Error(`Failed to fetch school data: ${response.status}`)
       }
 
-      const data = await response.json()
-      console.log('Received school data:', data.school)
-      const school = data.school
+      const responseData = await response.json()
+      console.log('Received school data:', responseData.data)
+      const school = responseData.data
       
       // Prioritize airport location over street address
       let schoolCoordinates = null
@@ -658,11 +669,11 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
         throw new Error(`Failed to fetch plane data: ${planeResponse.status}`)
       }
 
-      const planeData = await planeResponse.json()
-      console.log('Plane data received:', planeData)
+      const planeResponseData = await planeResponse.json()
+      console.log('Plane data received:', planeResponseData)
       
       // Access the values from the nested plane object
-      const plane = planeData.plane
+      const plane = planeResponseData.data.plane
       setPlaneData(plane)
       setSelectedFlight(flight)
       setTachTime(plane?.tach_time?.toString() ?? '0.0')
@@ -809,11 +820,14 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
         throw new Error(`Failed to fetch tracking updates: ${response.status}`)
       }
 
-      const data = await response.json()
-      console.log('Aircraft tracking response:', data)
+      const responseData = await response.json()
+      console.log('Aircraft tracking response:', responseData)
+      
+      // Extract data from the new response structure
+      const data = responseData.data
       
       // Transform the new response format to match existing tracking data structure
-      if (data.active_aircraft && Array.isArray(data.active_aircraft)) {
+      if (data?.active_aircraft && Array.isArray(data.active_aircraft)) {
         const transformedData = data.active_aircraft
           .filter((aircraft: any) => aircraft.tracking_data?.ac?.[0]) // Only include aircraft with valid tracking data
           .map((aircraft: any) => {
@@ -965,7 +979,9 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
         throw new Error(`Failed to fetch plane info: ${response.status}`)
       }
 
-      const data = await response.json()
+      const responseData = await response.json()
+      // Extract data from the new response structure
+      const data = responseData.data
       // Cache the result
       setPlaneInfoCache(prev => ({ ...prev, [planeId]: data.plane }))
       return data.plane
@@ -1066,28 +1082,28 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
               }}
             >
               <Popup>
-                <div className="p-0 min-w-[320px] rounded-lg shadow-lg overflow-hidden bg-white dark:bg-[#35353f]">
+                <div className="p-0 min-w-[320px] rounded-lg shadow-xl overflow-hidden" style={{ backgroundColor: '#0A0A0A', border: 'none' }}>
                   {/* Header with aircraft info and status */}
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-[#35353f]">
+                  <div className="p-4 pr-12 border-b" style={{ backgroundColor: '#252525', borderColor: '#333333' }}>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-gray-200 dark:bg-gray-600">
-                        <svg className="h-5 w-5 text-gray-800 dark:text-gray-200" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <div className="p-2 rounded-lg" style={{ backgroundColor: '#0A0A0A' }}>
+                        <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <div className="font-bold text-xl text-gray-900 dark:text-gray-100">{flightData.tail_number}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                        <div className="font-bold text-xl text-white">{flightData.tail_number}</div>
+                        <div className="text-sm text-gray-300">
                           {flightData.aircraft_info ? `${flightData.aircraft_info.type} ${flightData.aircraft_info.model}` : 'Aircraft'}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                          <span className="w-2 h-2 rounded-full animate-pulse bg-green-500"></span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1 bg-green-600/20 text-green-400 border border-green-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-green-400"></span>
                           LIVE
                         </span>
                         {latestPosition.flight?.trim() && (
-                          <span className="text-xs font-mono px-2 py-1 rounded font-semibold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                          <span className="text-xs font-mono px-2 py-1 rounded font-semibold text-gray-300 border border-gray-600" style={{ backgroundColor: '#0A0A0A' }}>
                             {latestPosition.flight.trim()}
                           </span>
                         )}
@@ -1100,34 +1116,34 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/>
                           </svg>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">ALTITUDE</div>
-                            <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                            <div className="text-xs text-gray-400 font-medium">ALTITUDE</div>
+                            <div className="text-sm font-bold text-white">
                               {latestPosition.altitude === "ground" ? "Ground" : `${Number(latestPosition.altitude).toLocaleString()} ft`}
                             </div>
                           </div>
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                           </svg>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">SPEED</div>
-                            <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{latestPosition.ground_speed} kts</div>
+                            <div className="text-xs text-gray-400 font-medium">SPEED</div>
+                            <div className="text-sm font-bold text-white">{latestPosition.ground_speed} kts</div>
                           </div>
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                           </svg>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">HEADING</div>
-                            <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{latestPosition.heading}°</div>
+                            <div className="text-xs text-gray-400 font-medium">HEADING</div>
+                            <div className="text-sm font-bold text-white">{latestPosition.heading}°</div>
                           </div>
                         </div>
                       </div>
@@ -1135,23 +1151,23 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                       <div className="space-y-3">
                         {latestPosition.squawk && (
                           <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                             </svg>
                             <div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">SQUAWK</div>
-                              <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{latestPosition.squawk}</div>
+                              <div className="text-xs text-gray-400 font-medium">SQUAWK</div>
+                              <div className="text-sm font-bold text-white">{latestPosition.squawk}</div>
                             </div>
                           </div>
                         )}
                         
                         <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/>
                           </svg>
                           <div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">VERTICAL RATE</div>
-                            <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                            <div className="text-xs text-gray-400 font-medium">VERTICAL RATE</div>
+                            <div className="text-sm font-bold text-white">
                               <span className="text-lg mr-1">
                                 {latestPosition.vertical_rate > 0 ? '↗' : latestPosition.vertical_rate < 0 ? '↘' : '→'}
                               </span>
@@ -1166,8 +1182,8 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                   </div>
                   
                   {/* Footer with last update */}
-                  <div className="px-4 py-2 border-t bg-gray-50 dark:bg-[#35353f] border-gray-200 dark:border-gray-600">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  <div className="px-4 py-2 border-t" style={{ backgroundColor: '#252525', borderColor: '#333333' }}>
+                    <div className="text-xs text-gray-400 text-center">
                       Last updated: {new Date(latestPosition.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
@@ -1262,16 +1278,27 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
         })
 
         if (!response.ok) {
-          throw new Error("Not authenticated")
+          const errorText = await response.text()
+          console.error('Auth response not ok:', response.status, response.statusText, errorText)
+          throw new Error(`Not authenticated: ${response.status} ${response.statusText}`)
         }
 
-        const data = await response.json()
-        console.log('User data received:', JSON.stringify(data, null, 2))
+        const responseData = await response.json()
+        console.log('User data received:', JSON.stringify(responseData, null, 2))
+        
+        // Extract user data from the new response structure
+        const data = responseData.data
         
         // Store the school ID in localStorage for other components to use
-        if (data.user && data.user.school_id) {
+        if (data?.user && data.user.school_id) {
           localStorage.setItem("schoolId", data.user.school_id)
           console.log('Stored school ID in localStorage:', data.user.school_id)
+        } else if (data?.user && data.user.schoolId) {
+          // Handle alternative property name
+          localStorage.setItem("schoolId", data.user.schoolId)
+          console.log('Stored school ID in localStorage:', data.user.schoolId)
+        } else {
+          console.warn('No school_id found in user data:', data)
         }
       } catch (error) {
         console.error("Auth check failed:", error)
@@ -1306,8 +1333,7 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
       <div className={`h-full flex flex-col ${className}`}>
         <div className="flex flex-row items-center justify-between pb-2 px-2">
           <div>
-            <h3 className="text-lg font-semibold">Active Flight Tracking</h3>
-            <p className="text-sm text-muted-foreground">Live aircraft tracking</p>
+            <h3 className="text-lg font-semibold">Live Flight Tracking</h3>
           </div>
           <div className="flex items-center gap-2">
             <Button 
@@ -1325,9 +1351,7 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                 <SelectValue placeholder="Map type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="terrain">Terrain</SelectItem>
                 <SelectItem value="street">Street</SelectItem>
-                <SelectItem value="satellite">Satellite</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1420,9 +1444,7 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
               <SelectValue placeholder="Select map type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="terrain">Terrain Map</SelectItem>
               <SelectItem value="street">Street Map</SelectItem>
-              <SelectItem value="satellite">Satellite</SelectItem>
             </SelectContent>
           </Select>
         </div>

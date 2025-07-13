@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Lock, Mail, Shield } from "lucide-react"
+import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,10 +40,10 @@ export default function LoginPage() {
         credentials: 'include'  // Important: include credentials to receive cookies
       })
 
-      const data = await response.json()
+      const responseData = await response.json()
 
       // Check if MFA is required first (even with 401 status)
-      if (data.requiresMFA) {
+      if (responseData.data?.requiresMFA) {
         console.log('MFA verification required')
         setRequiresMFA(true)
         setIsLoading(false)
@@ -51,14 +52,14 @@ export default function LoginPage() {
 
       if (!response.ok) {
         // Handle API error response
-        if (data.error && data.error.message) {
-          throw new Error(data.error.message)
+        if (responseData.error && responseData.error.message) {
+          throw new Error(responseData.error.message)
         }
         throw new Error("Login failed")
       }
 
       // Handle successful login
-      await handleSuccessfulLogin(data)
+      await handleSuccessfulLogin(responseData)
     } catch (err) {
       console.error('Login error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred during login')
@@ -88,18 +89,18 @@ export default function LoginPage() {
         credentials: 'include'
       })
 
-      const data = await response.json()
+      const responseData = await response.json()
 
       if (!response.ok) {
         // Handle API error response
-        if (data.error && data.error.message) {
-          throw new Error(data.error.message)
+        if (responseData.error && responseData.error.message) {
+          throw new Error(responseData.error.message)
         }
         throw new Error("MFA verification failed")
       }
 
       // Handle successful login
-      await handleSuccessfulLogin(data)
+      await handleSuccessfulLogin(responseData)
     } catch (err) {
       console.error('MFA verification error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred during MFA verification')
@@ -107,9 +108,12 @@ export default function LoginPage() {
     }
   }
 
-  const handleSuccessfulLogin = async (data: any) => {
+  const handleSuccessfulLogin = async (responseData: any) => {
+    // Extract data from the new response structure
+    const data = responseData.data
+    
     // Handle successful login
-    if (!data.token) {
+    if (!data?.token) {
       throw new Error("Invalid response from server")
     }
 
@@ -140,21 +144,25 @@ export default function LoginPage() {
     ].join('; ')
     document.cookie = cookieOptions
 
-    // Decode the JWT token to get the payload
-    const base64Url = data.token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    }).join(''))
-    const payload = JSON.parse(jsonPayload)
-    console.log('Decoded token payload:', { role: payload.role })
+    // Get user role from the user object in the response
+    const userRole = data.user?.role
+    if (!userRole) {
+      throw new Error("User role not found in response")
+    }
+
+    console.log('User role from response:', userRole)
 
     // Store the user role in localStorage
-    localStorage.setItem("role", payload.role)
-    console.log("Stored user role in localStorage:", payload.role)
+    localStorage.setItem("role", userRole)
+    console.log("Stored user role in localStorage:", userRole)
+
+    // Store additional user info if available
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user))
+    }
 
     // Redirect based on role
-    switch (payload.role) {
+    switch (userRole) {
       case 'student':
         console.log('Redirecting to student dashboard')
         router.push('/student')
@@ -169,7 +177,7 @@ export default function LoginPage() {
         router.push('/dashboard')
         break
       default:
-        console.error('Invalid role:', payload.role)
+        console.error('Invalid role:', userRole)
         throw new Error('Invalid role')
     }
   }
@@ -182,7 +190,24 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
-      <Card className="w-full max-w-md border-none shadow-lg dark:shadow-none dark:border dark:border-border bg-card">
+      <div className="w-full max-w-md space-y-8">
+        {/* Albatross Logo and Brand */}
+        <div className="text-center">
+          <div className="flex justify-center mb-2">
+            <Image
+              src="/Albatross.png"
+              alt="Albatross Logo"
+              width={80}
+              height={80}
+              className="brightness-0 dark:brightness-0 dark:invert"
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground">
+            Albatross
+          </h1>
+        </div>
+
+        <Card className="border-none shadow-lg dark:shadow-none dark:border dark:border-border bg-card">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
             {requiresMFA ? "Two-Factor Authentication" : "Welcome Back"}
@@ -309,6 +334,7 @@ export default function LoginPage() {
           </form>
         )}
       </Card>
+      </div>
     </div>
   )
 } 

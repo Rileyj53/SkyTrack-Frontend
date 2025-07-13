@@ -4,11 +4,8 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { DashboardShell } from "@/components/dashboard-shell"
-import { MainNav } from "@/components/main-nav"
+import { MainNav } from "@/components/main-nav-new"
 import { StudentDetailProgress } from "@/components/student-detail-progress"
-import { UserNav } from "@/components/user-nav"
 
 interface StudentDetailPageProps {
   studentId: string
@@ -16,12 +13,11 @@ interface StudentDetailPageProps {
 
 export function StudentDetailPage({ studentId }: StudentDetailPageProps) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader>
+    <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+      <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <MainNav />
-        <UserNav />
-      </DashboardHeader>
-      <DashboardShell>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         <div className="flex flex-col space-y-6">
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" asChild>
@@ -34,7 +30,7 @@ export function StudentDetailPage({ studentId }: StudentDetailPageProps) {
 
           <StudentDetailProgress studentId={studentId} />
         </div>
-      </DashboardShell>
+      </div>
     </div>
   )
 }

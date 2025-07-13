@@ -107,7 +107,9 @@ export function SettingsGeneral() {
       }
 
       const data = await response.json()
-      setSchool(data.school)
+      // Handle new API format where school data is directly in data.data
+      const schoolData = data.data || data.school
+      setSchool(schoolData)
     } catch (error) {
       console.error("Error fetching school data:", error)
       toast.error("Failed to load school data")

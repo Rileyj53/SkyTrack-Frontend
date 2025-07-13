@@ -86,13 +86,14 @@ export function useStudentData(studentsPerPage: number) {
       }
 
       const data = await response.json()
-      setStudents(data.students || [])
+      setStudents(data.data?.students || data.students || [])
       
-      if (data.pagination) {
-        setPagination(data.pagination)
-        setCurrentPage(data.pagination.currentPage)
-      } else {
-        const totalStudents = data.students?.length || 0
+              if (data.data?.pagination || data.pagination) {
+          const pagination = data.data?.pagination || data.pagination
+          setPagination(pagination)
+          setCurrentPage(pagination.currentPage)
+        } else {
+          const totalStudents = data.data?.students?.length || data.students?.length || 0
         setPagination({
           currentPage: page,
           totalPages: Math.ceil(totalStudents / studentsPerPage),

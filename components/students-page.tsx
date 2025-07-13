@@ -4,13 +4,13 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Search, Filter, Download, Eye } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import { Table, Group, Avatar, Text, Badge, ActionIcon, Box } from '@mantine/core';
+
+import { Badge as UIBadge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { DashboardShell } from "@/components/dashboard-shell"
 import { Input } from "@/components/ui/input"
-import { MainNav } from "@/components/main-nav"
+import { MainNav } from "@/components/main-nav-new"
 import { Progress } from "@/components/ui/progress"
 import { 
   Select, 
@@ -20,14 +20,6 @@ import {
   SelectValue 
 } from "@/components/ui/select"
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
-import { 
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,7 +28,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { UserNav } from "@/components/user-nav"
 import { Loading } from "@/components/ui/loading"
 import { toast } from "sonner"
 
@@ -123,6 +114,47 @@ interface Program {
   updated_at: string
 }
 
+const statusColors: Record<string, string> = {
+  active: '#33cc33',
+  graduated: '#3366ff',
+  'on hold': '#cc00ff',
+  discontinued: '#f90606',
+  pending: '#f2f20d',
+};
+
+const statusBadgeStyles: Record<string, React.CSSProperties> = {
+  active: {
+    background: '#c2f0c2',
+    border: '2px solid #33cc33',
+    color: '#111',
+    fontWeight: 500,
+  },
+  graduated: {
+    background: '#b3c6ff',
+    border: '2px solid #3366ff',
+    color: '#111',
+    fontWeight: 500,
+  },
+  'on hold': {
+    background: '#f0b3ff',
+    border: '2px solid #cc00ff',
+    color: '#111',
+    fontWeight: 500,
+  },
+  discontinued: {
+    background: '#fc9c9c',
+    border: '2px solid #f90606',
+    color: '#111',
+    fontWeight: 500,
+  },
+  pending: {
+    background: '#fbfbb6',
+    border: '2px solid #f2f20d',
+    color: '#111',
+    fontWeight: 500,
+  },
+};
+
 export function StudentsPage() {
   const router = useRouter()
   const [students, setStudents] = useState<Student[]>([])
@@ -206,7 +238,9 @@ export function StudentsPage() {
         const data = await response.json()
         
         // Store the school ID in localStorage for other components to use
-        if (data.user && data.user.school_id) {
+        if (data.data?.user && data.data.user.school_id) {
+          localStorage.setItem("schoolId", data.data.user.school_id)
+        } else if (data.user && data.user.school_id) {
           localStorage.setItem("schoolId", data.user.school_id)
         }
 
@@ -304,7 +338,7 @@ export function StudentsPage() {
       }
 
       const data = await response.json()
-      setStudents(data.students || [])
+      setStudents(data.data?.students || data.students || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch students')
       toast.error('Failed to fetch students')
@@ -347,7 +381,7 @@ export function StudentsPage() {
         console.log('Programs API response data:', data)
         
         // Handle different possible response structures
-        const programsArray = Array.isArray(data) ? data : (data.programs || [])
+        const programsArray = Array.isArray(data) ? data : (data.data?.programs || data.programs || [])
         console.log('Extracted programs array:', programsArray)
         
         // Only update programs if we got valid data from API
@@ -459,36 +493,7 @@ export function StudentsPage() {
     return matchesSearch && matchesStatus && matchesProgram && matchesStage
   })
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "default"
-      case "On Hold":
-        return "secondary"
-      case "Graduated":
-        return "outline"
-      case "Withdrawn":
-        return "destructive"
-      default:
-        return "secondary"
-    }
-  }
 
-  const getStatusBadgeStyle = (status: string) => {
-    switch (status) {
-      case "Active":
-        return { backgroundColor: '#c2f0c2', color: 'black', border: '1px solid #99e699' }
-      case "Graduated":
-        return { backgroundColor: '#b3c6ff', color: 'black', border: '1px solid #809fff' }
-      case "On Hold":
-        return { backgroundColor: '#f0b3ff', color: 'black', border: '1px solid #e580ff' }
-      case "Withdrawn":
-      case "Discontinued":
-        return { backgroundColor: '#fc9c9c', color: 'black', border: '1px solid #fb6a6a' }
-      default:
-        return { backgroundColor: '#fbfbb6', color: 'black', border: '1px solid #f9f986' }
-    }
-  }
 
   const uniqueStatuses = [...new Set(students.map(s => s.status))]
   const uniquePrograms = [...new Set(students.map(s => s.program))]
@@ -496,26 +501,24 @@ export function StudentsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <DashboardHeader>
+      <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+        <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <MainNav />
-          <UserNav />
-        </DashboardHeader>
-        <DashboardShell>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
           <Loading />
-        </DashboardShell>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <DashboardHeader>
+      <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+        <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <MainNav />
-          <UserNav />
-        </DashboardHeader>
-        <DashboardShell>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
           <div className="flex flex-col space-y-4">
             <h1 className="text-2xl font-bold tracking-tight">Students</h1>
             <Card>
@@ -524,18 +527,17 @@ export function StudentsPage() {
               </CardContent>
             </Card>
           </div>
-        </DashboardShell>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader>
+    <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+      <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <MainNav />
-        <UserNav />
-      </DashboardHeader>
-      <DashboardShell>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         <div className="flex flex-col space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -655,8 +657,8 @@ export function StudentsPage() {
             </Card>
           </div>
 
-          <Card style={{ borderTopColor: '#d5d5dd' }} className="border-t-4 dark:border-t-slate-600">
-            <CardHeader className="bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-background">
+          <Card>
+            <CardHeader>
               <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                 <div className="flex flex-1 items-center space-x-2">
                   <div className="relative">
@@ -708,82 +710,114 @@ export function StudentsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border border-slate-200 dark:border-slate-700">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50/50 dark:bg-slate-800/50">
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Student</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">License #</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Program</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Stage</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Progress</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Flight Hours</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Next Milestone</TableHead>
-                      <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <Table.ScrollContainer minWidth={800}>
+                <Table verticalSpacing="sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th style={{ width: '20%' }}>Student</Table.Th>
+                      <Table.Th style={{ width: '10%' }}>License #</Table.Th>
+                      <Table.Th style={{ width: '15%' }}>Program</Table.Th>
+                      <Table.Th style={{ width: '10%' }}>Stage</Table.Th>
+                      <Table.Th style={{ width: '15%', textAlign: 'center' }}>Progress</Table.Th>
+                      <Table.Th style={{ width: '10%', textAlign: 'center' }}>Flight Hours</Table.Th>
+                      <Table.Th style={{ width: '15%' }}>Next Milestone</Table.Th>
+                      <Table.Th style={{ width: '10%', textAlign: 'center' }}>Status</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
                     {filteredStudents.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center">
-                          No students found.
-                        </TableCell>
-                      </TableRow>
+                      <Table.Tr>
+                        <Table.Td colSpan={8}>
+                          <div className="flex flex-col items-center justify-center gap-4 py-8">
+                            <div className="space-y-2 text-center">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                {searchQuery ? 'No students found' : 'No students enrolled'}
+                              </h3>
+                              <p className="text-sm text-muted-foreground max-w-sm">
+                                {searchQuery
+                                  ? `No students match "${searchQuery}". Try adjusting your search terms.`
+                                  : 'Get started by enrolling your first student in a training program.'}
+                              </p>
+                            </div>
+                          </div>
+                        </Table.Td>
+                      </Table.Tr>
                     ) : (
                       filteredStudents.map((student) => (
-                        <TableRow 
+                        <Table.Tr 
                           key={student._id}
-                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          style={{ cursor: 'pointer' }}
                           onClick={() => router.push(`/students/${student._id}`)}
                         >
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <div className="font-medium">
+                          <Table.Td style={{ width: '20%' }}>
+                            <Group gap="xs">
+                              <Avatar size={32} radius={32} color="blue">
                                 {student.user_id 
-                                  ? `${student.user_id.first_name} ${student.user_id.last_name}`
-                                  : 'Unknown'}
+                                  ? `${student.user_id.first_name?.[0] || ''}${student.user_id.last_name?.[0] || ''}`
+                                  : student.contact_email?.[0]?.toUpperCase() || '?'}
+                              </Avatar>
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <Text fz="sm" fw={500} truncate>
+                                  {student.user_id 
+                                    ? `${student.user_id.first_name} ${student.user_id.last_name}`
+                                    : student.contact_email}
+                                </Text>
+                                <Text c="dimmed" fz="xs" truncate>
+                                  {student.user_id?.email || student.contact_email}
+                                </Text>
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                {student.user_id?.email || student.contact_email}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {student.license_number || 'N/A'}
-                          </TableCell>
-                          <TableCell>{student.program}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{getCurrentStage(student)}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
+                            </Group>
+                          </Table.Td>
+                          <Table.Td style={{ width: '10%' }}>
+                            <Text fz="sm" style={{ fontFamily: 'monospace' }}>
+                              {student.license_number || 'N/A'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: '15%' }}>
+                            <Text fz="sm" truncate>
+                              {student.program}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: '10%' }}>
+                            <UIBadge variant="outline">{getCurrentStage(student)}</UIBadge>
+                          </Table.Td>
+                          <Table.Td style={{ width: '15%', textAlign: 'center' }}>
+                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                               <Progress value={calculateProgress(student)} className="w-[60px]" />
-                              <span className="text-xs text-muted-foreground">
+                              <Text fz="xs" style={{ minWidth: '30px' }}>
                                 {calculateProgress(student)}%
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono">
-                            {calculateFlightHours(student).toFixed(1)}
-                          </TableCell>
-                          <TableCell className="max-w-[150px] truncate">
-                            {student.nextMilestone}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={getStatusBadgeVariant(student.status)} style={getStatusBadgeStyle(student.status)}>
+                              </Text>
+                            </Box>
+                          </Table.Td>
+                          <Table.Td style={{ width: '10%', textAlign: 'center' }}>
+                            <Text fz="sm" style={{ fontFamily: 'monospace' }}>
+                              {calculateFlightHours(student).toFixed(1)} hrs
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: '15%' }}>
+                            <Text fz="sm" truncate>
+                              {student.nextMilestone}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: '10%', textAlign: 'center' }}>
+                            <Badge
+                              style={statusBadgeStyles[student.status.toLowerCase()] || statusBadgeStyles['pending']}
+                              variant="outline"
+                              size="sm"
+                            >
                               {student.status}
                             </Badge>
-                          </TableCell>
-                        </TableRow>
+                          </Table.Td>
+                        </Table.Tr>
                       ))
                     )}
-                  </TableBody>
+                  </Table.Tbody>
                 </Table>
-              </div>
+              </Table.ScrollContainer>
             </CardContent>
           </Card>
         </div>
-      </DashboardShell>
+      </div>
     </div>
   )
 }

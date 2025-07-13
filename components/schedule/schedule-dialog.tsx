@@ -87,6 +87,7 @@ interface Schedule {
     registration: string
     type?: string
     model?: string
+    aircraftModel?: string
   }
   instructor_id: {
     _id: string
@@ -94,14 +95,14 @@ interface Schedule {
       first_name: string
       last_name: string
     }
-  }
+  } | null
   student_id: {
     _id: string
     user_id: {
       first_name: string
       last_name: string
     }
-  }
+  } | null
   scheduled_start_time: string
   scheduled_end_time: string
   scheduled_duration: number
@@ -138,6 +139,7 @@ export function ScheduleDialog({
   const [isLoadingData, setIsLoadingData] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [conflictError, setConflictError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const [planes, setPlanes] = useState<Plane[]>([])
   const [selectedPlaneId, setSelectedPlaneId] = useState("")
   const [flightType, setFlightType] = useState("")
@@ -188,7 +190,7 @@ export function ScheduleDialog({
       setSelectedPlaneId(schedule.plane_id._id || schedule.plane_id.id)
       setFlightType(schedule.flight_type)
       setNotes(schedule.notes || "")
-      setSelectedInstructorId(schedule.instructor_id._id)
+      setSelectedInstructorId(schedule.instructor_id?._id || "")
     }
   }, [schedule])
 
@@ -197,6 +199,7 @@ export function ScheduleDialog({
     if (!open && isEditing) {
       setIsEditing(false)
       setConflictError(null) // Clear conflict errors when dialog closes
+      setErrorCode(null)
     }
   }, [open, isEditing])
 
@@ -204,6 +207,7 @@ export function ScheduleDialog({
   useEffect(() => {
     if (isEditing) {
       setConflictError(null)
+      setErrorCode(null)
     }
   }, [isEditing])
 
@@ -236,7 +240,16 @@ export function ScheduleDialog({
       }
 
       const data = await response.json()
-      setPlanes(Array.isArray(data.planes) ? data.planes : [])
+      // Handle the new nested data structure
+      if (data.data && Array.isArray(data.data.planes)) {
+        setPlanes(data.data.planes)
+      } else if (data.data && Array.isArray(data.data)) {
+        setPlanes(data.data)
+      } else if (Array.isArray(data.planes)) {
+        setPlanes(data.planes) // Fallback for old structure
+      } else {
+        setPlanes([])
+      }
     } catch (error) {
       console.error("Error fetching planes:", error)
       toast.error("Failed to load planes")
@@ -275,11 +288,15 @@ export function ScheduleDialog({
       }
 
       const data = await response.json()
-      // Handle both possible response formats
-      if (Array.isArray(data)) {
-        setInstructors(data)
-      } else if (data.instructors && Array.isArray(data.instructors)) {
-        setInstructors(data.instructors)
+      // Handle the new nested data structure
+      if (data.data && Array.isArray(data.data.instructors)) {
+        setInstructors(data.data.instructors)
+      } else if (data.data && Array.isArray(data.data)) {
+        setInstructors(data.data)
+      } else if (Array.isArray(data.instructors)) {
+        setInstructors(data.instructors) // Fallback for old structure
+      } else if (Array.isArray(data)) {
+        setInstructors(data) // Fallback for old structure
       } else {
         setInstructors([])
       }
@@ -333,7 +350,7 @@ export function ScheduleDialog({
           body: JSON.stringify({
             plane_id: selectedPlaneId,
             instructor_id: selectedInstructorId,
-            student_id: schedule.student_id._id,
+            student_id: schedule.student_id?._id || null,
             scheduled_start_time: scheduledStartTime.toISOString(),
             scheduled_end_time: scheduledEndTime.toISOString(),
             flight_type: flightType,
@@ -348,12 +365,17 @@ export function ScheduleDialog({
         if (response.status === 409) {
           // Handle scheduling conflict
           let conflictMessage = "Scheduling conflict detected."
+          let code = null
           try {
             const errorData = await response.json()
-            if (errorData.message) {
-              conflictMessage = errorData.message
-            } else if (errorData.error) {
+            // Handle new nested error structure
+            if (errorData.error?.message) {
+              conflictMessage = errorData.error.message
+              code = errorData.error.code || null
+            } else if (errorData.error && typeof errorData.error === 'string') {
               conflictMessage = errorData.error
+            } else if (errorData.message) {
+              conflictMessage = errorData.message
             } else if (errorData.details) {
               conflictMessage = errorData.details
             }
@@ -361,14 +383,17 @@ export function ScheduleDialog({
             console.error("Error parsing conflict response:", parseError)
           }
           setConflictError(conflictMessage)
-          toast.error("Scheduling conflict detected")
+          setErrorCode(code)
           return
         } else if (response.status === 400) {
           // Handle validation errors (like invalid time range)
           let validationMessage = "Invalid schedule data."
           try {
             const errorData = await response.json()
-            if (errorData.error) {
+            // Handle new nested error structure
+            if (errorData.error?.message) {
+              validationMessage = errorData.error.message
+            } else if (errorData.error && typeof errorData.error === 'string') {
               validationMessage = errorData.error
             } else if (errorData.message) {
               validationMessage = errorData.message
@@ -379,7 +404,6 @@ export function ScheduleDialog({
             console.error("Error parsing validation response:", parseError)
           }
           setConflictError(validationMessage)
-          toast.error("Invalid schedule data")
           return
         } else {
           throw new Error(`Failed to update schedule: ${response.status} ${response.statusText}`)
@@ -389,6 +413,7 @@ export function ScheduleDialog({
       toast.success("Schedule updated successfully")
       setIsEditing(false)
       setConflictError(null) // Clear any previous conflict errors
+      setErrorCode(null)
       onScheduleUpdate()
     } catch (error) {
       console.error("Error updating schedule:", error)
@@ -487,24 +512,22 @@ export function ScheduleDialog({
 
           {/* Error Alert */}
           {conflictError && (
-            <Alert variant="destructive" className="mx-6">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                <div className="font-medium mb-1">
-                  {conflictError.toLowerCase().includes('conflict') ? 'Scheduling Conflict' : 
-                   conflictError.toLowerCase().includes('end time') ? 'Invalid Time Range' : 
-                   'Schedule Error'}
-                </div>
-                <div className="text-xs opacity-90">
-                  {conflictError.toLowerCase().includes('end time') ? 
-                    'End time must be after start time' :
-                    conflictError.toLowerCase().includes('conflict') ?
-                      'A resource is already scheduled during this time' :
-                      conflictError
-                  }
-                </div>
-              </AlertDescription>
-            </Alert>
+            <div className="px-6">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="font-medium mb-1">
+                    {conflictError.toLowerCase().includes('conflict') ? 'Scheduling Conflict' : 
+                     conflictError.toLowerCase().includes('end time') || conflictError.toLowerCase().includes('time range') ? 'Invalid Time Range' : 
+                     conflictError.toLowerCase().includes('validation') ? 'Validation Error' :
+                     'Schedule Error'}
+                  </div>
+                  <div className="text-sm">
+                    {conflictError}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -522,72 +545,75 @@ export function ScheduleDialog({
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <UserCheck className="h-4 w-4 text-green-600" />
-                    <Label className="text-sm font-semibold">Instructor</Label>
-                  </div>
-                  {isEditing ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="w-full justify-between text-sm font-normal"
-                        >
-                          <span className="truncate">
-                            {selectedInstructorId ? 
-                              instructors.find(i => i._id === selectedInstructorId && i.user_id?.first_name && i.user_id?.last_name) ? 
-                                `${instructors.find(i => i._id === selectedInstructorId)?.user_id.first_name} ${instructors.find(i => i._id === selectedInstructorId)?.user_id.last_name}`
+              {/* Only show instructor card if there's an instructor assigned or in editing mode */}
+              {(isEditing || instructor) && (
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <UserCheck className="h-4 w-4 text-green-600" />
+                      <Label className="text-sm font-semibold">Instructor</Label>
+                    </div>
+                    {isEditing ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between text-sm font-normal"
+                          >
+                            <span className="truncate">
+                              {selectedInstructorId ? 
+                                instructors.find(i => i._id === selectedInstructorId && i.user_id?.first_name && i.user_id?.last_name) ? 
+                                  `${instructors.find(i => i._id === selectedInstructorId)?.user_id.first_name} ${instructors.find(i => i._id === selectedInstructorId)?.user_id.last_name}`
+                                  : "Select instructor"
                                 : "Select instructor"
-                              : "Select instructor"
-                            }
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search instructors..." className="h-9" />
-                          <CommandEmpty>No instructors found.</CommandEmpty>
-                          <CommandList>
-                            <CommandGroup>
-                              {instructors && instructors.length > 0 ? (
-                                instructors
-                                  .filter((inst) => inst.user_id?.first_name && inst.user_id?.last_name)
-                                  .map((inst) => (
-                                    <CommandItem
-                                      key={`instructor-${inst._id}`}
-                                      value={`${inst.user_id.first_name} ${inst.user_id.last_name}`}
-                                      onSelect={() => setSelectedInstructorId(inst._id)}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          selectedInstructorId === inst._id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {inst.user_id.first_name} {inst.user_id.last_name}
-                                    </CommandItem>
-                                  ))
-                              ) : (
-                                <CommandItem value="no-instructors" disabled>
-                                  {isLoadingData ? "Loading instructors..." : "No instructors available"}
-                                </CommandItem>
-                              )}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <p className="text-sm font-medium">
-                      {instructor ? `${instructor.user_id?.first_name || 'Unknown'} ${instructor.user_id?.last_name || 'Instructor'}` : 'Loading...'}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+                              }
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search instructors..." className="h-9" />
+                            <CommandEmpty>No instructors found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
+                                {instructors && instructors.length > 0 ? (
+                                  instructors
+                                    .filter((inst) => inst.user_id?.first_name && inst.user_id?.last_name)
+                                    .map((inst) => (
+                                      <CommandItem
+                                        key={`instructor-${inst._id}`}
+                                        value={`${inst.user_id.first_name} ${inst.user_id.last_name}`}
+                                        onSelect={() => setSelectedInstructorId(inst._id)}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedInstructorId === inst._id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {inst.user_id.first_name} {inst.user_id.last_name}
+                                      </CommandItem>
+                                    ))
+                                ) : (
+                                  <CommandItem value="no-instructors" disabled>
+                                    {isLoadingData ? "Loading instructors..." : "No instructors available"}
+                                  </CommandItem>
+                                )}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <p className="text-sm font-medium">
+                        {instructor.user_id?.first_name || 'Unknown'} {instructor.user_id?.last_name || 'Instructor'}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardContent className="p-4">
@@ -744,23 +770,7 @@ export function ScheduleDialog({
                     <Clock className="h-4 w-4 text-indigo-600" />
                     <Label className="text-sm font-semibold">Duration</Label>
                   </div>
-                  {isEditing ? (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        step="0.25"
-                        min="0.25"
-                        max="8"
-                        value={duration}
-                        className="w-24 bg-muted/50"
-                        readOnly
-                        disabled
-                      />
-                      <span className="text-xs text-muted-foreground">hours (calculated by backend)</span>
-                    </div>
-                  ) : (
-                    <p className="text-sm font-medium">{schedule.scheduled_duration} hours</p>
-                  )}
+                  <p className="text-sm font-medium">{schedule.scheduled_duration} hours</p>
                 </CardContent>
               </Card>
 

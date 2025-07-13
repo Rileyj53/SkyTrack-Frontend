@@ -422,16 +422,19 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
           const userData = await userResponse.json()
           console.log("User data from API:", userData)
           
+          // Handle both new and old API response format
+          const user = userData.data?.user || userData.user
+          
           // Set user state with complete data
           setUser({
-            role: userData.user.role,
-            _id: userData.user._id,
-            first_name: userData.user.first_name,
-            last_name: userData.user.last_name,
-            email: userData.user.email
+            role: user.role,
+            _id: user._id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email
           })
           
-          setIsSchoolAdmin(userData.user.role === "school_admin" || userData.user.role === "sys_admin")
+          setIsSchoolAdmin(user.role === "school_admin" || user.role === "sys_admin")
         } else {
           throw new Error("Failed to fetch user data")
         }
@@ -463,7 +466,8 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
         throw new Error('Failed to fetch student')
       }
 
-      const data = await response.json()
+      const response_data = await response.json()
+      const data = response_data.data || response_data // Handle both new and old format
       console.log("Fetched student data:", data)
       console.log("Requirements from API:", data.progress?.requirements)
       setStudent(data)
@@ -641,8 +645,8 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
         throw new Error(errorData.message || 'Failed to fetch ledger')
       }
 
-      const data = await response.json()
-      setLedger(data.ledger)
+      const response_data = await response.json()
+      setLedger(response_data.data?.ledger || response_data.ledger)
     } catch (error) {
       console.error('Error fetching ledger:', error)
       toast.error('Failed to load account information')
@@ -2032,13 +2036,38 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-slate-100 dark:bg-slate-800">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Overview</TabsTrigger>
-            <TabsTrigger value="requirements" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Hour Requirements</TabsTrigger>
-            <TabsTrigger value="milestones" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Milestones & Stages</TabsTrigger>
-            <TabsTrigger value="notes" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Notes</TabsTrigger>
+          <TabsList className="bg-background border-b border-border p-0 h-auto justify-start rounded-none">
+            <TabsTrigger 
+              value="overview" 
+              className="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="requirements" 
+              className="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground"
+            >
+              Hour Requirements
+            </TabsTrigger>
+            <TabsTrigger 
+              value="milestones" 
+              className="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground"
+            >
+              Milestones & Stages
+            </TabsTrigger>
+            <TabsTrigger 
+              value="notes" 
+              className="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground"
+            >
+              Notes
+            </TabsTrigger>
           {user?.role === 'school_admin' && (
-            <TabsTrigger value="expenses" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">Expenses</TabsTrigger>
+            <TabsTrigger 
+              value="expenses" 
+              className="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground"
+            >
+              Expenses
+            </TabsTrigger>
           )}
           </TabsList>
 
@@ -3486,7 +3515,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
                           <CardContent className="p-4">
                             <div className="text-center">
                               <div className="text-2xl font-bold text-red-800 dark:text-red-200">
-                                ${ledger.charges.reduce((sum, charge) => sum + charge.amount, 0).toFixed(2)}
+                                ${(ledger.charges || []).reduce((sum, charge) => sum + charge.amount, 0).toFixed(2)}
                               </div>
                               <div className="text-sm text-red-600 dark:text-red-300">Total Charges</div>
                             </div>
@@ -3497,7 +3526,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
                           <CardContent className="p-4">
                             <div className="text-center">
                               <div className="text-2xl font-bold text-green-800 dark:text-green-200">
-                                ${ledger.payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2)}
+                                ${(ledger.payments || []).reduce((sum, payment) => sum + payment.amount, 0).toFixed(2)}
                               </div>
                               <div className="text-sm text-green-600 dark:text-green-300">Total Payments</div>
                             </div>
@@ -3608,9 +3637,9 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          {ledger.charges.length > 0 ? (
+                          {(ledger.charges || []).length > 0 ? (
                             <div className="space-y-3">
-                              {ledger.charges.map((charge) => (
+                              {(ledger.charges || []).map((charge) => (
                                 <div key={charge._id} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
@@ -3654,9 +3683,9 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          {ledger.payments.length > 0 ? (
+                          {(ledger.payments || []).length > 0 ? (
                             <div className="space-y-3">
-                              {ledger.payments.map((payment, index) => (
+                              {(ledger.payments || []).map((payment, index) => (
                                 <div key={payment._id || index} className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">

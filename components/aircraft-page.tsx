@@ -27,10 +27,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { DashboardShell } from "@/components/dashboard-shell"
-import { MainNav } from "@/components/main-nav"
-import { UserNav } from "@/components/user-nav"
+import { MainNav } from "@/components/main-nav-new"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
@@ -71,36 +68,23 @@ interface Aircraft {
 }
 
 // Add interfaces for maintenance data
-interface MaintenanceLog {
-  _id: string;
-  aircraftId: string;
-  date: string;
-  type: string;
+interface MaintenanceRecord {
+  id: string;
+  plane_id: string;
+  record_type: string;
+  title: string;
   description: string;
-  workPerformed: string;
-  partsReplaced: {
-    partNumber: string;
-    description: string;
-    quantity: number;
-    cost: number;
-    _id: string;
-  }[];
-  technician: {
-    name: string;
-    certificate: string;
-    signature: string;
-  };
-  aircraftHours: {
-    total: number;
-    sinceLastOverhaul: number;
-  };
-  nextDue: {
-    hours: number;
-    date: string;
-  };
   status: string;
-  referenceDocuments: string[];
+  date: string;
+  nextDue: string;
+  aircraftHours: number;
+  partsReplaced: string[];
   notes: string;
+  attachments: {
+    url: string;
+    name: string;
+    uploaded_at: string;
+  }[];
   created_at: string;
   updated_at: string;
 }
@@ -219,9 +203,9 @@ export function AircraftPage() {
         const data = await response.json()
         console.log('User data received:', JSON.stringify(data, null, 2))
         
-        if (data.user && data.user.school_id) {
-          localStorage.setItem("schoolId", data.user.school_id)
-          console.log('Stored school ID in localStorage:', data.user.school_id)
+        if (data.data && data.data.user && data.data.user.school_id) {
+          localStorage.setItem("schoolId", data.data.user.school_id)
+          console.log('Stored school ID in localStorage:', data.data.user.school_id)
           setIsAuthenticated(true)
         } else {
           throw new Error("Invalid user data")
@@ -288,12 +272,12 @@ export function AircraftPage() {
         throw new Error(`Failed to fetch aircraft: ${response.status}`)
       }
 
-      const data = await response.json()
-      console.log("Received aircraft data:", data)
+      const response_data = await response.json()
+      console.log("Received aircraft data:", response_data)
       
-      if (data.planes && Array.isArray(data.planes)) {
-        console.log("Setting aircraft data:", data.planes.length, "aircraft found")
-        setAircraft(data.planes)
+      if (response_data.data && response_data.data.planes && Array.isArray(response_data.data.planes)) {
+        console.log("Setting aircraft data:", response_data.data.planes.length, "aircraft found")
+        setAircraft(response_data.data.planes)
       } else {
         throw new Error("Invalid data format received from API")
       }
@@ -326,7 +310,7 @@ export function AircraftPage() {
   const [newStatus, setNewStatus] = useState<string>('')
 
   // Add state variables for maintenance data
-  const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>([])
+  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([])
   const [maintenanceSchedule, setMaintenanceSchedule] = useState<MaintenanceSchedule | null>(null)
   const [airworthinessDirectives, setAirworthinessDirectives] = useState<AirworthinessDirective[]>([])
   const [serviceBulletins, setServiceBulletins] = useState<ServiceBulletin[]>([])
@@ -338,7 +322,7 @@ export function AircraftPage() {
   const [loadingMaintenanceData, setLoadingMaintenanceData] = useState(false);
 
   // Add state for expanded items
-  const [expandedMaintenanceLog, setExpandedMaintenanceLog] = useState<string | null>(null);
+  const [expandedMaintenanceRecord, setExpandedMaintenanceRecord] = useState<string | null>(null);
   const [expandedAD, setExpandedAD] = useState<string | null>(null);
   const [expandedSB, setExpandedSB] = useState<string | null>(null);
 
@@ -377,30 +361,19 @@ export function AircraftPage() {
   });
 
   // Add new state variables after the existing AD state variables
-  const [isMaintenanceLogDialogOpen, setIsMaintenanceLogDialogOpen] = useState(false);
-  const [editingMaintenanceLog, setEditingMaintenanceLog] = useState<MaintenanceLog | null>(null);
-  const [newMaintenanceLog, setNewMaintenanceLog] = useState<Partial<MaintenanceLog>>({
-    date: new Date().toISOString(),
-    type: 'Annual',
+  const [isMaintenanceRecordDialogOpen, setIsMaintenanceRecordDialogOpen] = useState(false);
+  const [editingMaintenanceRecord, setEditingMaintenanceRecord] = useState<MaintenanceRecord | null>(null);
+  const [newMaintenanceRecord, setNewMaintenanceRecord] = useState<Partial<MaintenanceRecord>>({
+    record_type: 'maintenance',
+    title: '',
     description: '',
-    workPerformed: '',
+    status: 'pending',
+    date: new Date().toISOString(),
+    nextDue: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+    aircraftHours: 0,
     partsReplaced: [],
-    technician: {
-      name: '',
-      certificate: '',
-      signature: ''
-    },
-    aircraftHours: {
-      total: 0,
-      sinceLastOverhaul: 0
-    },
-    nextDue: {
-      hours: 0,
-      date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    status: 'Pending',
-    referenceDocuments: [],
-    notes: ''
+    notes: '',
+    attachments: []
   });
 
   // Add new state variables after the existing ones
@@ -666,8 +639,13 @@ export function AircraftPage() {
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Not set'
+    
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Invalid date'
+    
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -944,75 +922,36 @@ export function AircraftPage() {
         throw new Error("School ID or authentication token not found")
       }
 
-      // Fetch all data in parallel
-      const [logsResponse, scheduleResponse, adResponse, sbResponse] = await Promise.all([
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`,
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-              'Authorization': `Bearer ${token}`,
-              'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-            },
-            credentials: 'include'
-          }
-        ),
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-              'Authorization': `Bearer ${token}`,
-              'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-            },
-            credentials: 'include'
-          }
-        ),
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`,
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-              'Authorization': `Bearer ${token}`,
-              'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-            },
-            credentials: 'include'
-          }
-        ),
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`,
-          {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-              'Authorization': `Bearer ${token}`,
-              'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-            },
-            credentials: 'include'
-          }
-        )
-      ]);
+      // Fetch maintenance records using the new API endpoint
+      const recordsResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'Authorization': `Bearer ${token}`,
+            'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+          },
+          credentials: 'include'
+        }
+      );
 
-      // Process all responses
-      const [logsData, scheduleData, adData, sbData] = await Promise.all([
-        logsResponse.json(),
-        scheduleResponse.json(),
-        adResponse.json(),
-        sbResponse.json()
-      ]);
+      if (!recordsResponse.ok) {
+        throw new Error(`Failed to fetch maintenance records: ${recordsResponse.status}`);
+      }
 
-      // Update state with all data
-      setMaintenanceLogs(logsData.logs);
-      setMaintenanceSchedule(scheduleData.maintenanceSchedule);
-      setAirworthinessDirectives(adData.airworthinessDirectives);
-      setServiceBulletins(sbData.serviceBulletins);
+      // Process response
+      const recordsData = await recordsResponse.json();
+      console.log('Maintenance records response:', recordsData);
+
+      // Update state with maintenance records
+      setMaintenanceRecords(recordsData.data?.records || []);
+      
+      // For now, we'll set empty data for the other sections since they're not in the new API yet
+      setMaintenanceSchedule(null);
+      setAirworthinessDirectives([]);
+      setServiceBulletins([]);
     } catch (err) {
       console.error("Error fetching maintenance data:", err)
       toast.error("Failed to load maintenance data")
@@ -1035,75 +974,36 @@ export function AircraftPage() {
           throw new Error("School ID or authentication token not found")
         }
 
-        // Fetch all data in parallel
-        const [logsResponse, scheduleResponse, adResponse, sbResponse] = await Promise.all([
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`,
-            {
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-              },
-              credentials: 'include'
-            }
-          ),
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
-            {
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-              },
-              credentials: 'include'
-            }
-          ),
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`,
-            {
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-              },
-              credentials: 'include'
-            }
-          ),
-          fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`,
-            {
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-              },
-              credentials: 'include'
-            }
-          )
-        ]);
+        // Fetch maintenance records using the new API endpoint
+        const recordsResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+              'Authorization': `Bearer ${token}`,
+              'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+            },
+            credentials: 'include'
+          }
+        );
 
-        // Process all responses
-        const [logsData, scheduleData, adData, sbData] = await Promise.all([
-          logsResponse.json(),
-          scheduleResponse.json(),
-          adResponse.json(),
-          sbResponse.json()
-        ]);
+        if (!recordsResponse.ok) {
+          throw new Error(`Failed to fetch maintenance records: ${recordsResponse.status}`);
+        }
 
-        // Update state with all data
-        setMaintenanceLogs(logsData.logs);
-        setMaintenanceSchedule(scheduleData.maintenanceSchedule);
-        setAirworthinessDirectives(adData.airworthinessDirectives);
-        setServiceBulletins(sbData.serviceBulletins);
+        // Process response
+        const recordsData = await recordsResponse.json();
+        console.log('Maintenance records response:', recordsData);
+
+        // Update state with maintenance records
+        setMaintenanceRecords(recordsData.data?.records || []);
+        
+        // For now, we'll set empty data for the other sections since they're not in the new API yet
+        setMaintenanceSchedule(null);
+        setAirworthinessDirectives([]);
+        setServiceBulletins([]);
       } catch (err) {
         console.error("Error fetching maintenance data:", err)
         toast.error("Failed to load maintenance data")
@@ -1370,7 +1270,7 @@ export function AircraftPage() {
   };
 
   // Add new handlers after the existing AD handlers
-  const handleMaintenanceLogSubmit = async () => {
+  const handleMaintenanceRecordSubmit = async () => {
     if (!maintenanceAircraft) return;
 
     try {
@@ -1381,11 +1281,11 @@ export function AircraftPage() {
         throw new Error("School ID or authentication token not found");
       }
 
-      const endpoint = editingMaintenanceLog
-        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance/${editingMaintenanceLog._id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance`;
+      const endpoint = editingMaintenanceRecord
+        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records/${editingMaintenanceRecord.id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records`;
 
-      const method = editingMaintenanceLog ? 'PUT' : 'POST';
+      const method = editingMaintenanceRecord ? 'PUT' : 'POST';
 
       const response = await fetch(endpoint, {
         method,
@@ -1396,51 +1296,40 @@ export function AircraftPage() {
           'Authorization': `Bearer ${token}`,
           'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
         },
-        body: JSON.stringify(newMaintenanceLog),
+        body: JSON.stringify(newMaintenanceRecord),
         credentials: 'include'
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${editingMaintenanceLog ? 'update' : 'create'} maintenance log: ${response.status}`);
+        throw new Error(`Failed to ${editingMaintenanceRecord ? 'update' : 'create'} maintenance record: ${response.status}`);
       }
 
       // Refresh maintenance data
       await fetchMaintenanceData();
       
       // Reset form and close dialog
-      setNewMaintenanceLog({
-        date: new Date().toISOString(),
-        type: 'Annual',
+      setNewMaintenanceRecord({
+        record_type: 'maintenance',
+        title: '',
         description: '',
-        workPerformed: '',
+        status: 'pending',
+        date: new Date().toISOString(),
+        nextDue: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        aircraftHours: 0,
         partsReplaced: [],
-        technician: {
-          name: '',
-          certificate: '',
-          signature: ''
-        },
-        aircraftHours: {
-          total: 0,
-          sinceLastOverhaul: 0
-        },
-        nextDue: {
-          hours: 0,
-          date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        status: 'Pending',
-        referenceDocuments: [],
-        notes: ''
+        notes: '',
+        attachments: []
       });
-      setEditingMaintenanceLog(null);
-      setIsMaintenanceLogDialogOpen(false);
-      toast.success(`Maintenance log ${editingMaintenanceLog ? 'updated' : 'created'} successfully`);
+      setEditingMaintenanceRecord(null);
+      setIsMaintenanceRecordDialogOpen(false);
+      toast.success(`Maintenance record ${editingMaintenanceRecord ? 'updated' : 'created'} successfully`);
     } catch (err) {
-      console.error("Error saving maintenance log:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to save maintenance log");
+      console.error("Error saving maintenance record:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to save maintenance record");
     }
   };
 
-  const handleDeleteMaintenanceLog = async (logId: string) => {
+  const handleDeleteMaintenanceRecord = async (recordId: string) => {
     if (!maintenanceAircraft) return;
 
     try {
@@ -1452,7 +1341,7 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance/${logId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records/${recordId}`,
         {
           method: 'DELETE',
           headers: {
@@ -1467,15 +1356,15 @@ export function AircraftPage() {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to delete maintenance log: ${response.status}`);
+        throw new Error(`Failed to delete maintenance record: ${response.status}`);
       }
 
       // Refresh maintenance data
       await fetchMaintenanceData();
-      toast.success("Maintenance log deleted successfully");
+      toast.success("Maintenance record deleted successfully");
     } catch (err) {
-      console.error("Error deleting maintenance log:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to delete maintenance log");
+      console.error("Error deleting maintenance record:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to delete maintenance record");
     }
   };
 
@@ -1534,12 +1423,11 @@ export function AircraftPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader>
+    <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+      <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <MainNav />
-        <UserNav />
-      </DashboardHeader>
-      <DashboardShell>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         <div className="flex flex-col space-y-4">
           <h1 className="text-2xl font-bold tracking-tight">Aircraft Fleet</h1>
           <p className="text-muted-foreground">Manage aircraft information, maintenance schedules, and hourly rates.</p>
@@ -2242,35 +2130,24 @@ export function AircraftPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    setNewMaintenanceLog({
-                                      date: new Date().toISOString(),
-                                      type: 'Annual',
+                                    setNewMaintenanceRecord({
+                                      record_type: 'maintenance',
+                                      title: '',
                                       description: '',
-                                      workPerformed: '',
+                                      status: 'pending',
+                                      date: new Date().toISOString(),
+                                      nextDue: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                                      aircraftHours: 0,
                                       partsReplaced: [],
-                                      technician: {
-                                        name: '',
-                                        certificate: '',
-                                        signature: ''
-                                      },
-                                      aircraftHours: {
-                                        total: 0,
-                                        sinceLastOverhaul: 0
-                                      },
-                                      nextDue: {
-                                        hours: 0,
-                                        date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-                                      },
-                                      status: 'Pending',
-                                      referenceDocuments: [],
-                                      notes: ''
+                                      notes: '',
+                                      attachments: []
                                     });
-                                    setEditingMaintenanceLog(null);
-                                    setIsMaintenanceLogDialogOpen(true);
+                                    setEditingMaintenanceRecord(null);
+                                    setIsMaintenanceRecordDialogOpen(true);
                                   }}
                                 >
                                   <Plus className="h-4 w-4 mr-2" />
-                                  Add Maintenance Log
+                                  Add Maintenance Record
                                 </Button>
                               </div>
                               <Table>
@@ -2286,26 +2163,26 @@ export function AircraftPage() {
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {maintenanceLogs.map((log) => (
+                                  {maintenanceRecords.map((record) => (
                                     <>
                                       <TableRow 
-                                        key={log._id}
-                                        className={expandedMaintenanceLog === log._id ? "bg-muted" : ""}
-                                        onClick={() => setExpandedMaintenanceLog(expandedMaintenanceLog === log._id ? null : log._id)}
+                                        key={record.id}
+                                        className={expandedMaintenanceRecord === record.id ? "bg-muted" : ""}
+                                        onClick={() => setExpandedMaintenanceRecord(expandedMaintenanceRecord === record.id ? null : record.id)}
                                       >
-                                        <TableCell>{formatDate(log.date)}</TableCell>
-                                        <TableCell>{log.type}</TableCell>
-                                        <TableCell className="max-w-[200px] truncate">{log.description}</TableCell>
-                                        <TableCell>{log.technician.name}</TableCell>
+                                        <TableCell>{formatDate(record.date)}</TableCell>
+                                        <TableCell>{record.record_type}</TableCell>
+                                        <TableCell className="max-w-[200px] truncate">{record.description}</TableCell>
+                                        <TableCell>N/A</TableCell>
                                         <TableCell>
                                           <Badge
-                                            variant={log.status === "Completed" ? "default" : "secondary"}
-                                            className={log.status === "Completed" ? "bg-green-500/80" : "bg-yellow-500/80"}
+                                            variant={record.status === "completed" ? "default" : "secondary"}
+                                            className={record.status === "completed" ? "bg-green-500/80" : "bg-yellow-500/80"}
                                           >
-                                            {log.status}
+                                            {record.status}
                             </Badge>
                           </TableCell>
-                                        <TableCell>{formatDate(log.nextDue.date)}</TableCell>
+                                        <TableCell>{formatDate(record.nextDue)}</TableCell>
                                         <TableCell className="text-right">
                                           <Button
                                             variant="ghost"
@@ -2313,42 +2190,41 @@ export function AircraftPage() {
                                             className="h-8 w-8 p-0"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              setEditingMaintenanceLog(log);
-                                              setNewMaintenanceLog({
-                                                date: log.date,
-                                                type: log.type,
-                                                description: log.description,
-                                                workPerformed: log.workPerformed,
-                                                partsReplaced: log.partsReplaced,
-                                                technician: log.technician,
-                                                aircraftHours: log.aircraftHours,
-                                                nextDue: log.nextDue,
-                                                status: log.status,
-                                                referenceDocuments: log.referenceDocuments,
-                                                notes: log.notes
-                                              });
-                                              setIsMaintenanceLogDialogOpen(true);
+                                              setEditingMaintenanceRecord(record);
+                                              setNewMaintenanceRecord({
+                                                record_type: record.record_type,
+                                                title: record.title,
+                                                description: record.description,
+                                                status: record.status,
+                                                date: record.date,
+                                                nextDue: record.nextDue,
+                                                aircraftHours: record.aircraftHours,
+                                                partsReplaced: record.partsReplaced,
+                                                notes: record.notes,
+                                                                                                 attachments: record.attachments
+                                               });
+                                               setIsMaintenanceRecordDialogOpen(true);
                                             }}
                                           >
                                             <Edit2 className="h-4 w-4" />
                                           </Button>
                                         </TableCell>
                                       </TableRow>
-                                      {expandedMaintenanceLog === log._id && (
+                                      {expandedMaintenanceRecord === record.id && (
                                         <TableRow>
                                           <TableCell colSpan={7} className="bg-muted/50">
                                             <div className="p-4 space-y-4">
                                               <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                  <h5 className="font-medium mb-2">Work Performed</h5>
-                                                  <p className="text-sm text-muted-foreground">{log.workPerformed}</p>
+                                                  <h5 className="font-medium mb-2">Title</h5>
+                                                  <p className="text-sm text-muted-foreground">{record.title}</p>
                                                 </div>
                                                 <div>
                                                   <h5 className="font-medium mb-2">Parts Replaced</h5>
                                                   <div className="space-y-2">
-                                                    {log.partsReplaced.map((part) => (
-                                                      <div key={part._id} className="text-sm">
-                                                        <span className="font-medium">{part.partNumber}</span> - {part.description} (Qty: {part.quantity})
+                                                    {record.partsReplaced.map((part, index) => (
+                                                      <div key={index} className="text-sm">
+                                                        <span className="font-medium">{part}</span>
                                                       </div>
                                                     ))}
                                                   </div>
@@ -2358,22 +2234,34 @@ export function AircraftPage() {
                                                 <div>
                                                   <h5 className="font-medium mb-2">Aircraft Hours</h5>
                                                   <div className="space-y-1 text-sm">
-                                                    <div>Total: {log.aircraftHours.total}</div>
-                                                    <div>Since Last Overhaul: {log.aircraftHours.sinceLastOverhaul}</div>
+                                                    <div>Total: {record.aircraftHours}</div>
                                                   </div>
                                                 </div>
                                                 <div>
                                                   <h5 className="font-medium mb-2">Next Due</h5>
                                                   <div className="space-y-1 text-sm">
-                                                    <div>Hours: {log.nextDue.hours}</div>
-                                                    <div>Date: {formatDate(log.nextDue.date)}</div>
+                                                    <div>Date: {formatDate(record.nextDue)}</div>
                                                   </div>
                                                 </div>
                                               </div>
-                                              {log.notes && (
+                                              {record.notes && (
                                                 <div>
                                                   <h5 className="font-medium mb-2">Notes</h5>
-                                                  <p className="text-sm text-muted-foreground">{log.notes}</p>
+                                                  <p className="text-sm text-muted-foreground">{record.notes}</p>
+                                                </div>
+                                              )}
+                                              {record.attachments && record.attachments.length > 0 && (
+                                                <div>
+                                                  <h5 className="font-medium mb-2">Attachments</h5>
+                                                  <div className="space-y-1">
+                                                    {record.attachments.map((attachment, index) => (
+                                                      <div key={index} className="text-sm">
+                                                        <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                          {attachment.name}
+                                                        </a>
+                                                      </div>
+                                                    ))}
+                                                  </div>
                                                 </div>
                                               )}
                                             </div>
@@ -2737,7 +2625,6 @@ export function AircraftPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </DashboardShell>
 
       <Dialog open={selectedAircraft !== null} onOpenChange={(open) => {
         if (!open) {
@@ -3353,14 +3240,14 @@ export function AircraftPage() {
       </Dialog>
 
       {/* Add the Maintenance Log Dialog before the closing div */}
-      <Dialog open={isMaintenanceLogDialogOpen} onOpenChange={setIsMaintenanceLogDialogOpen}>
+      <Dialog open={isMaintenanceRecordDialogOpen} onOpenChange={setIsMaintenanceRecordDialogOpen}>
         <DialogContent className="max-w-[90vw] w-[1200px] max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{editingMaintenanceLog ? 'Edit Maintenance Log' : 'Add Maintenance Log'}</DialogTitle>
+            <DialogTitle>{editingMaintenanceRecord ? 'Edit Maintenance Record' : 'Add Maintenance Record'}</DialogTitle>
             <DialogDescription>
-              {editingMaintenanceLog 
-                ? `Edit maintenance log from ${formatDate(editingMaintenanceLog.date)}`
-                : 'Create a new maintenance log entry'}
+              {editingMaintenanceRecord 
+                ? `Edit maintenance record from ${formatDate(editingMaintenanceRecord.date)}`
+                : 'Create a new maintenance record entry'}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto flex-1">
@@ -3368,44 +3255,43 @@ export function AircraftPage() {
               {/* First row - Basic Information */}
               <div className="grid grid-cols-3 gap-6">
                 <div className="space-y-2.5">
-                  <Label htmlFor="log-date">Date</Label>
+                  <Label htmlFor="record-date">Date</Label>
                   <Input
-                    id="log-date"
+                    id="record-date"
                     type="date"
-                    value={newMaintenanceLog.date?.split('T')[0]}
-                    onChange={(e) => setNewMaintenanceLog({ 
-                      ...newMaintenanceLog, 
+                    value={newMaintenanceRecord.date?.split('T')[0]}
+                    onChange={(e) => setNewMaintenanceRecord({ 
+                      ...newMaintenanceRecord, 
                       date: new Date(e.target.value).toISOString() 
                     })}
                   />
                 </div>
                 <div className="space-y-2.5">
-                  <Label htmlFor="log-type">Type</Label>
+                  <Label htmlFor="record-type">Type</Label>
                   <select
-                    id="log-type"
+                    id="record-type"
                     className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    value={newMaintenanceLog.type}
-                    onChange={(e) => setNewMaintenanceLog({ ...newMaintenanceLog, type: e.target.value })}
+                    value={newMaintenanceRecord.record_type}
+                    onChange={(e) => setNewMaintenanceRecord({ ...newMaintenanceRecord, record_type: e.target.value })}
                   >
-                    <option value="Annual">Annual</option>
-                    <option value="100-Hour">100-Hour</option>
-                    <option value="Progressive">Progressive</option>
-                    <option value="Repair">Repair</option>
-                    <option value="Inspection">Inspection</option>
-                    <option value="Other">Other</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="inspection">Inspection</option>
+                    <option value="repair">Repair</option>
+                    <option value="overhaul">Overhaul</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
                 <div className="space-y-2.5">
-                  <Label htmlFor="log-status">Status</Label>
+                  <Label htmlFor="record-status">Status</Label>
                   <select
-                    id="log-status"
+                    id="record-status"
                     className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    value={newMaintenanceLog.status}
-                    onChange={(e) => setNewMaintenanceLog({ ...newMaintenanceLog, status: e.target.value })}
+                    value={newMaintenanceRecord.status}
+                    onChange={(e) => setNewMaintenanceRecord({ ...newMaintenanceRecord, status: e.target.value })}
                   >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
                   </select>
                 </div>
               </div>
@@ -3413,112 +3299,60 @@ export function AircraftPage() {
               {/* Second row - Description and Work Performed */}
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2.5">
-                  <Label htmlFor="log-description">Description</Label>
-                  <Textarea
-                    id="log-description"
-                    value={newMaintenanceLog.description}
-                    onChange={(e) => setNewMaintenanceLog({ ...newMaintenanceLog, description: e.target.value })}
-                    placeholder="Brief description of maintenance work"
-                    className="min-h-[100px]"
+                  <Label htmlFor="record-title">Title</Label>
+                  <Input
+                    id="record-title"
+                    value={newMaintenanceRecord.title}
+                    onChange={(e) => setNewMaintenanceRecord({ ...newMaintenanceRecord, title: e.target.value })}
+                    placeholder="e.g., 100-hour Inspection"
                   />
                 </div>
                 <div className="space-y-2.5">
-                  <Label htmlFor="log-workPerformed">Work Performed</Label>
+                  <Label htmlFor="record-description">Description</Label>
                   <Textarea
-                    id="log-workPerformed"
-                    value={newMaintenanceLog.workPerformed}
-                    onChange={(e) => setNewMaintenanceLog({ ...newMaintenanceLog, workPerformed: e.target.value })}
-                    placeholder="Detailed description of work performed"
+                    id="record-description"
+                    value={newMaintenanceRecord.description}
+                    onChange={(e) => setNewMaintenanceRecord({ ...newMaintenanceRecord, description: e.target.value })}
+                    placeholder="Detailed description of maintenance work"
                     className="min-h-[100px]"
                   />
                 </div>
               </div>
 
               {/* Third row - Parts Replaced */}
-              <div className="space-y-2.5">
+                              <div className="space-y-2.5">
                 <Label>Parts Replaced</Label>
                 <div className="space-y-4">
-                  {newMaintenanceLog.partsReplaced?.map((part, index) => (
-                    <div key={index} className="grid grid-cols-4 gap-4 items-end">
-                      <div className="space-y-2">
-                        <Label htmlFor={`part-number-${index}`}>Part Number</Label>
-                        <Input
-                          id={`part-number-${index}`}
-                          value={part.partNumber}
-                          onChange={(e) => {
-                            const updatedParts = [...(newMaintenanceLog.partsReplaced || [])];
-                            updatedParts[index] = { ...part, partNumber: e.target.value };
-                            setNewMaintenanceLog({ ...newMaintenanceLog, partsReplaced: updatedParts });
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`part-description-${index}`}>Description</Label>
-                        <Input
-                          id={`part-description-${index}`}
-                          value={part.description}
-                          onChange={(e) => {
-                            const updatedParts = [...(newMaintenanceLog.partsReplaced || [])];
-                            updatedParts[index] = { ...part, description: e.target.value };
-                            setNewMaintenanceLog({ ...newMaintenanceLog, partsReplaced: updatedParts });
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`part-quantity-${index}`}>Quantity</Label>
-                        <Input
-                          id={`part-quantity-${index}`}
-                          type="number"
-                          value={part.quantity}
-                          onChange={(e) => {
-                            const updatedParts = [...(newMaintenanceLog.partsReplaced || [])];
-                            updatedParts[index] = { ...part, quantity: Number(e.target.value) };
-                            setNewMaintenanceLog({ ...newMaintenanceLog, partsReplaced: updatedParts });
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`part-cost-${index}`}>Cost ($)</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id={`part-cost-${index}`}
-                            type="number"
-                            step="0.01"
-                            value={part.cost}
-                            onChange={(e) => {
-                              const updatedParts = [...(newMaintenanceLog.partsReplaced || [])];
-                              updatedParts[index] = { ...part, cost: Number(e.target.value) };
-                              setNewMaintenanceLog({ ...newMaintenanceLog, partsReplaced: updatedParts });
-                            }}
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => {
-                              const updatedParts = newMaintenanceLog.partsReplaced?.filter((_, i) => i !== index);
-                              setNewMaintenanceLog({ ...newMaintenanceLog, partsReplaced: updatedParts });
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                  {newMaintenanceRecord.partsReplaced?.map((part, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <Input
+                        value={part}
+                        onChange={(e) => {
+                          const updatedParts = [...(newMaintenanceRecord.partsReplaced || [])];
+                          updatedParts[index] = e.target.value;
+                          setNewMaintenanceRecord({ ...newMaintenanceRecord, partsReplaced: updatedParts });
+                        }}
+                        placeholder="e.g., Oil filter, Brake pads"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          const updatedParts = newMaintenanceRecord.partsReplaced?.filter((_, i) => i !== index);
+                          setNewMaintenanceRecord({ ...newMaintenanceRecord, partsReplaced: updatedParts });
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const newPart = {
-                        _id: `temp-${Date.now()}`,
-                        partNumber: '',
-                        description: '',
-                        quantity: 1,
-                        cost: 0
-                      };
-                      setNewMaintenanceLog({
-                        ...newMaintenanceLog,
-                        partsReplaced: [...(newMaintenanceLog.partsReplaced || []), newPart]
+                      setNewMaintenanceRecord({
+                        ...newMaintenanceRecord,
+                        partsReplaced: [...(newMaintenanceRecord.partsReplaced || []), '']
                       });
                     }}
                   >
@@ -3528,190 +3362,83 @@ export function AircraftPage() {
                 </div>
               </div>
 
-              {/* Fourth row - Technician Information */}
-              <div className="grid grid-cols-3 gap-6">
+              {/* Fourth row - Aircraft Hours and Next Due */}
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2.5">
-                  <Label htmlFor="technician-name">Technician Name</Label>
+                  <Label htmlFor="aircraft-hours">Aircraft Hours</Label>
                   <Input
-                    id="technician-name"
-                    value={newMaintenanceLog.technician?.name}
-                    onChange={(e) => setNewMaintenanceLog({
-                      ...newMaintenanceLog,
-                      technician: { ...newMaintenanceLog.technician!, name: e.target.value }
+                    id="aircraft-hours"
+                    type="number"
+                    step="0.1"
+                    value={newMaintenanceRecord.aircraftHours}
+                    onChange={(e) => setNewMaintenanceRecord({
+                      ...newMaintenanceRecord,
+                      aircraftHours: Number(e.target.value)
                     })}
+                    placeholder="e.g., 1250.5"
                   />
                 </div>
                 <div className="space-y-2.5">
-                  <Label htmlFor="technician-certificate">Certificate Number</Label>
+                  <Label htmlFor="next-due-date">Next Due Date</Label>
                   <Input
-                    id="technician-certificate"
-                    value={newMaintenanceLog.technician?.certificate}
-                    onChange={(e) => setNewMaintenanceLog({
-                      ...newMaintenanceLog,
-                      technician: { ...newMaintenanceLog.technician!, certificate: e.target.value }
-                    })}
-                  />
-                </div>
-                <div className="space-y-2.5">
-                  <Label htmlFor="technician-signature">Signature</Label>
-                  <Input
-                    id="technician-signature"
-                    value={newMaintenanceLog.technician?.signature}
-                    onChange={(e) => setNewMaintenanceLog({
-                      ...newMaintenanceLog,
-                      technician: { ...newMaintenanceLog.technician!, signature: e.target.value }
+                    id="next-due-date"
+                    type="date"
+                    value={newMaintenanceRecord.nextDue?.split('T')[0]}
+                    onChange={(e) => setNewMaintenanceRecord({
+                      ...newMaintenanceRecord,
+                      nextDue: new Date(e.target.value).toISOString()
                     })}
                   />
                 </div>
               </div>
 
-              {/* Fifth row - Aircraft Hours and Next Due */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2.5">
-                  <Label>Aircraft Hours</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="hours-total">Total Hours</Label>
-                      <Input
-                        id="hours-total"
-                        type="number"
-                        value={newMaintenanceLog.aircraftHours?.total}
-                        onChange={(e) => setNewMaintenanceLog({
-                          ...newMaintenanceLog,
-                          aircraftHours: {
-                            ...newMaintenanceLog.aircraftHours!,
-                            total: Number(e.target.value)
-                          }
-                        })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="hours-since-overhaul">Since Last Overhaul</Label>
-                      <Input
-                        id="hours-since-overhaul"
-                        type="number"
-                        value={newMaintenanceLog.aircraftHours?.sinceLastOverhaul}
-                        onChange={(e) => setNewMaintenanceLog({
-                          ...newMaintenanceLog,
-                          aircraftHours: {
-                            ...newMaintenanceLog.aircraftHours!,
-                            sinceLastOverhaul: Number(e.target.value)
-                          }
-                        })}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2.5">
-                  <Label>Next Due</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="next-due-hours">Hours</Label>
-                      <Input
-                        id="next-due-hours"
-                        type="number"
-                        value={newMaintenanceLog.nextDue?.hours}
-                        onChange={(e) => setNewMaintenanceLog({
-                          ...newMaintenanceLog,
-                          nextDue: {
-                            ...newMaintenanceLog.nextDue!,
-                            hours: Number(e.target.value)
-                          }
-                        })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="next-due-date">Date</Label>
-                      <Input
-                        id="next-due-date"
-                        type="date"
-                        value={newMaintenanceLog.nextDue?.date.split('T')[0]}
-                        onChange={(e) => setNewMaintenanceLog({
-                          ...newMaintenanceLog,
-                          nextDue: {
-                            ...newMaintenanceLog.nextDue!,
-                            date: new Date(e.target.value).toISOString()
-                          }
-                        })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sixth row - Reference Documents and Notes */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2.5">
-                  <Label htmlFor="reference-documents">Reference Documents</Label>
-                  <Textarea
-                    id="reference-documents"
-                    value={newMaintenanceLog.referenceDocuments?.join('\n')}
-                    onChange={(e) => setNewMaintenanceLog({
-                      ...newMaintenanceLog,
-                      referenceDocuments: e.target.value.split('\n').filter(doc => doc.trim())
-                    })}
-                    placeholder="Enter reference documents (one per line)"
-                    className="min-h-[100px]"
-                  />
-                </div>
-                <div className="space-y-2.5">
-                  <Label htmlFor="log-notes">Notes</Label>
-                  <Textarea
-                    id="log-notes"
-                    value={newMaintenanceLog.notes}
-                    onChange={(e) => setNewMaintenanceLog({ ...newMaintenanceLog, notes: e.target.value })}
-                    placeholder="Additional notes or observations"
-                    className="min-h-[100px]"
-                  />
-                </div>
+              {/* Fifth row - Notes */}
+              <div className="space-y-2.5">
+                <Label htmlFor="record-notes">Notes</Label>
+                <Textarea
+                  id="record-notes"
+                  value={newMaintenanceRecord.notes}
+                  onChange={(e) => setNewMaintenanceRecord({ ...newMaintenanceRecord, notes: e.target.value })}
+                  placeholder="Additional notes or observations"
+                  className="min-h-[100px]"
+                />
               </div>
             </div>
             <DialogFooter className="flex justify-between px-6 pb-6">
-              {editingMaintenanceLog && (
+              {editingMaintenanceRecord && (
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this maintenance log?")) {
-                      handleDeleteMaintenanceLog(editingMaintenanceLog._id);
-                      setIsMaintenanceLogDialogOpen(false);
+                    if (window.confirm("Are you sure you want to delete this maintenance record?")) {
+                      handleDeleteMaintenanceRecord(editingMaintenanceRecord.id);
+                      setIsMaintenanceRecordDialogOpen(false);
                     }
                   }}
                 >
-                  Delete Maintenance Log
+                  Delete Maintenance Record
                 </Button>
               )}
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => {
-                  setIsMaintenanceLogDialogOpen(false);
-                  setEditingMaintenanceLog(null);
-                  setNewMaintenanceLog({
-                    date: new Date().toISOString(),
-                    type: 'Annual',
+                  setIsMaintenanceRecordDialogOpen(false);
+                  setEditingMaintenanceRecord(null);
+                  setNewMaintenanceRecord({
+                    record_type: 'maintenance',
+                    title: '',
                     description: '',
-                    workPerformed: '',
+                    status: 'pending',
+                    date: new Date().toISOString(),
+                    nextDue: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                    aircraftHours: 0,
                     partsReplaced: [],
-                    technician: {
-                      name: '',
-                      certificate: '',
-                      signature: ''
-                    },
-                    aircraftHours: {
-                      total: 0,
-                      sinceLastOverhaul: 0
-                    },
-                    nextDue: {
-                      hours: 0,
-                      date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-                    },
-                    status: 'Pending',
-                    referenceDocuments: [],
-                    notes: ''
+                    notes: '',
+                    attachments: []
                   });
                 }}>
                   Cancel
                 </Button>
-                <Button onClick={handleMaintenanceLogSubmit}>
-                  {editingMaintenanceLog ? 'Update' : 'Create'} Maintenance Log
+                <Button onClick={handleMaintenanceRecordSubmit}>
+                  {editingMaintenanceRecord ? 'Update' : 'Create'} Maintenance Record
                 </Button>
               </div>
             </DialogFooter>
@@ -4042,6 +3769,7 @@ export function AircraftPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }

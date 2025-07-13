@@ -174,8 +174,10 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
           throw new Error('Failed to fetch programs');
         }
 
-        const data = await response.json();
-        setPrograms(data.programs || []);
+        const responseData = await response.json();
+        // Extract programs from the new response structure
+        const data = responseData.data;
+        setPrograms(data?.programs || []);
       } catch (err) {
         console.error('Error fetching programs:', err);
       }
@@ -221,18 +223,21 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
           throw new Error('Failed to fetch students');
         }
 
-        const data = await response.json();
-        setStudents(data.students || []);
+        const responseData = await response.json();
+        // Extract data from the new response structure
+        const data = responseData.data;
+        setStudents(data?.students || []);
 
-        if (data.pagination) {
+        if (data?.pagination) {
           setPagination({
             ...data.pagination,
             hasNext: data.pagination.hasNextPage,
             hasPrev: data.pagination.hasPrevPage,
             currentPage: page,
+            totalStudents: data.pagination.totalCount || 0,
           });
         } else {
-          const totalStudents = data.students?.length || 0;
+          const totalStudents = data?.students?.length || 0;
           const totalPages = Math.ceil(totalStudents / STUDENTS_PER_PAGE);
           setPagination({
             currentPage: page,

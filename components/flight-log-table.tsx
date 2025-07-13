@@ -87,7 +87,8 @@ interface Aircraft {
   id: string
   registration: string
   type: string
-  model: string
+  model?: string
+  aircraftModel?: string
   status: string
 }
 
@@ -121,11 +122,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedFlight, setSelectedFlight] = useState<FlightLog | null>(null)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
-    return now
-  })
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [startTime, setStartTime] = useState<string | null>(null)
   const [endTime, setEndTime] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -251,7 +248,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     if (aircraftId === "all") return "All aircraft"
     const plane = aircraft.find(p => p.id === aircraftId)
     if (plane) {
-      const typeModel = [plane.type, plane.model].filter(Boolean).join(' ')
+      const typeModel = [plane.type, plane.aircraftModel || plane.model].filter(Boolean).join(' ')
       return `${plane.registration} - ${typeModel}`
     }
     return "Select aircraft"
@@ -272,9 +269,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const fetchFlightLogs = async () => {
     try {
       setLoading(true)
+      console.log('🚁 Fetching flight logs - Starting...')
       const schoolId = localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      
+      console.log('🚁 Auth check:', { schoolId: !!schoolId, token: !!token, apiKey: !!apiKey })
       
       if (!schoolId || !token) {
         setError("School ID or authentication token not found")
@@ -359,11 +359,11 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       const data = await response.json()
               console.log('Flight logs data:', data)
         
-        if (data.schedules && Array.isArray(data.schedules)) {
-          console.log('Raw schedules count:', data.schedules.length)
+        if (data.success && data.data && data.data.schedules && Array.isArray(data.data.schedules)) {
+          console.log('Raw schedules count:', data.data.schedules.length)
           
           // Transform the schedule data to match our FlightLog interface
-          const transformedFlights: FlightLog[] = data.schedules.map((schedule: any) => {
+          const transformedFlights: FlightLog[] = data.data.schedules.map((schedule: any) => {
           // Parse UTC time and convert to local time for display
           const utcDateTime = schedule.scheduled_start_time ? new Date(schedule.scheduled_start_time) : null
           
@@ -439,10 +439,16 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
           })
         }
         
-        console.log('Final filtered flights:', filteredFlights)
+        console.log('🚁 Final filtered flights:', filteredFlights)
+        console.log('🚁 Setting flights state with', filteredFlights.length, 'flights')
         setFlights(filteredFlights)
       } else {
-        setError("Invalid data format received from API")
+        console.error('Invalid response format:', data)
+        if (!data.success) {
+          setError(`API Error: ${data.message || 'Unknown error occurred'}`)
+        } else {
+          setError("Invalid data format received from API - schedules not found")
+        }
       }
     } catch (err) {
       console.error("Error fetching flight logs:", err)
@@ -520,10 +526,15 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       const data = await response.json()
       console.log('Students data:', data)
       
-      if (data.students && Array.isArray(data.students)) {
-        setStudents(data.students)
+      if (data.success && data.data && data.data.students && Array.isArray(data.data.students)) {
+        setStudents(data.data.students)
       } else {
-        toast.error("Invalid data format received from API")
+        console.error('Invalid students response format:', data)
+        if (!data.success) {
+          toast.error(`API Error: ${data.message || 'Failed to fetch students'}`)
+        } else {
+          toast.error("Invalid data format received from API - students not found")
+        }
       }
     } catch (err) {
       console.error("Error fetching students:", err)
@@ -580,10 +591,18 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       const data = await response.json();
       console.log('Instructors data:', data);
       
-      if (Array.isArray(data)) {
-        setInstructors(data);
+      if (data.success && data.data && data.data.instructors && Array.isArray(data.data.instructors)) {
+        setInstructors(data.data.instructors);
+      } else if (data.success && data.data && Array.isArray(data.data)) {
+        // Fallback: if the data array is directly under data
+        setInstructors(data.data);
       } else {
-        toast.error("Invalid data format received from API");
+        console.error('Invalid instructors response format:', data)
+        if (!data.success) {
+          toast.error(`API Error: ${data.message || 'Failed to fetch instructors'}`)
+        } else {
+          toast.error("Invalid data format received from API - instructors not found")
+        }
       }
     } catch (err) {
       console.error("Error fetching instructors:", err);
@@ -640,12 +659,18 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       const data = await response.json();
       console.log('Aircraft data:', data);
       
-      if (data.planes && Array.isArray(data.planes)) {
-        setAircraft(data.planes);
-      } else if (Array.isArray(data)) {
-        setAircraft(data);
+      if (data.success && data.data && data.data.planes && Array.isArray(data.data.planes)) {
+        setAircraft(data.data.planes);
+      } else if (data.success && data.data && Array.isArray(data.data)) {
+        // Fallback: if the data array is directly under data
+        setAircraft(data.data);
       } else {
-        toast.error("Invalid data format received from API");
+        console.error('Invalid aircraft response format:', data)
+        if (!data.success) {
+          toast.error(`API Error: ${data.message || 'Failed to fetch aircraft'}`)
+        } else {
+          toast.error("Invalid data format received from API - aircraft not found")
+        }
       }
     } catch (err) {
       console.error("Error fetching aircraft:", err);
@@ -803,7 +828,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   }
 
   const handleResetFilters = () => {
-    setSelectedDate(new Date())
+    setSelectedDate(null)
     setSelectedEndDate(null)
     setStartTime(null)
     setEndTime(null)
@@ -1052,8 +1077,8 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     if (selectedId) {
       const selectedPlane = aircraft.find(p => p.id === selectedId)
       if (selectedPlane) {
-        const typeModel = [selectedPlane.type, selectedPlane.model].filter(Boolean).join(' ')
-        return `${selectedPlane.registration} - ${typeModel}`
+                                          const typeModel = [selectedPlane.type, selectedPlane.aircraftModel || selectedPlane.model].filter(Boolean).join(' ')
+                                  return `${selectedPlane.registration} - ${typeModel}`
       }
     }
     
@@ -1133,978 +1158,247 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     }
   };
 
+  // Debug logging for render state
+  console.log('🚁 FlightLogTable render:', { 
+    loading, 
+    error, 
+    flightsCount: flights.length, 
+    selectedDate, 
+    filteredAndSortedFlightsCount: filteredAndSortedFlights.length 
+  })
+
   // Render the component structure immediately to prevent blank screen
   // Show loading state only within the table body area
 
   if (error) {
-  return (
-    <Card className={className}>
-      <CardHeader>
+    return (
+      <Card className={`w-full h-full ${className}`}>
+        <CardHeader>
           <CardTitle>Flight Log</CardTitle>
           <CardDescription>Error loading flight data</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
-                        <div className="text-center text-[#f90606]">{error}</div>
+          <div className="text-center text-[#f90606]">{error}</div>
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <div className={`grid ${selectedFlight ? 'grid-cols-1 md:grid-cols-2 gap-4' : 'grid-cols-1'} ${className}`}>
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle>Flight Log</CardTitle>
-          <CardDescription>Complete flight log for the school</CardDescription>
-      </CardHeader>
-      <CardContent>
-          {showWarning && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Editing in progress</AlertTitle>
-              <AlertDescription>
-                You are currently editing a flight. Please save or cancel your changes before selecting another flight.
-              </AlertDescription>
-            </Alert>
-          )}
-          <div className="space-y-4">
-            {/* Header with Search and Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search flights..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-9 w-full sm:w-[300px] pl-10 pr-10 dark:bg-muted/50"
-                    />
-                    {searchQuery && (
+    <div className={`w-full h-full ${className}`}>
+      {/* Main container with responsive layout */}
+      <div className={`h-full ${selectedFlight ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}`}>
+        <Card className="h-full flex flex-col border-0 shadow-none">
+          <CardHeader className="pb-1 pt-2 px-3 flex-shrink-0">
+            <CardTitle className="text-lg">Flight Log</CardTitle>
+            <CardDescription className="text-sm">Complete flight log for the school</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col overflow-hidden p-0 m-0">
+            {showWarning && (
+              <Alert variant="destructive" className="mb-4 flex-shrink-0">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Editing in progress</AlertTitle>
+                <AlertDescription>
+                  You are currently editing a flight. Please save or cancel your changes before selecting another flight.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="flex-1 flex flex-col overflow-hidden px-3">
+              {/* Search and Filters Header */}
+              <div className="flex-shrink-0 mb-1">
+                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:flex-none">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search flights..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-8 w-full sm:w-[280px] lg:w-[320px] pl-10 pr-10 text-sm"
+                      />
+                      {searchQuery && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 hover:bg-muted"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <TooltipProvider>
+                      <Tooltip open={searchHelpOpen} onOpenChange={setSearchHelpOpen}>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 flex-shrink-0"
+                            onClick={() => setSearchHelpOpen(!searchHelpOpen)}
+                            onMouseEnter={() => setSearchHelpOpen(true)}
+                            onMouseLeave={() => setSearchHelpOpen(false)}
+                          >
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <div className="space-y-2 text-sm">
+                            <div className="font-medium">Search Tips:</div>
+                            <div>• Search by: student name, aircraft, instructor, status, date, time</div>
+                            <div>• <code>"exact phrase"</code> - for exact matches</div>
+                            <div>• <code>term AND term</code> - both must match</div>
+                            <div>• <code>term OR term</code> - either can match</div>
+                            <div>• Examples: <code>David N166</code>, <code>"Solo"</code>, <code>Scheduled OR Completed</code></div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    {!selectedFlight && (
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => setSearchQuery("")}
-                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 p-0 hover:bg-muted"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="h-8 px-3 gap-2 whitespace-nowrap flex-shrink-0"
                       >
-                        <X className="h-3 w-3" />
+                        <Filter className="h-4 w-4" />
+                        <span className="hidden xs:inline">Filters</span>
+                        {showFilters ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
                       </Button>
                     )}
                   </div>
-                  <TooltipProvider>
-                    <Tooltip open={searchHelpOpen} onOpenChange={setSearchHelpOpen}>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-9 w-9 p-0"
-                          onClick={() => setSearchHelpOpen(!searchHelpOpen)}
-                          onMouseEnter={() => setSearchHelpOpen(true)}
-                          onMouseLeave={() => setSearchHelpOpen(false)}
-                        >
-                          <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <div className="space-y-2 text-sm">
-                          <div className="font-medium">Search Tips:</div>
-                          <div>• Search by: student name, aircraft, instructor, status, date, time</div>
-                          <div>• <code>"exact phrase"</code> - for exact matches</div>
-                          <div>• <code>term AND term</code> - both must match</div>
-                          <div>• <code>term OR term</code> - either can match</div>
-                          <div>• Examples: <code>David N166</code>, <code>"Solo"</code>, <code>Scheduled OR Completed</code></div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                {!selectedFlight && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="h-9 px-3 gap-2 whitespace-nowrap"
-                  >
-                    <Filter className="h-4 w-4" />
-                    Filters
-                    {showFilters ? (
-                      <ChevronUp className="h-4 w-4" />
+                  
+                  <div className="text-sm text-muted-foreground whitespace-nowrap">
+                    {searchQuery ? (
+                      <>
+                        {filteredAndSortedFlights.length} of {flights.length} flight{flights.length !== 1 ? 's' : ''} 
+                        {filteredAndSortedFlights.length !== flights.length && (
+                          <span className="text-[#3366ff]"> (filtered)</span>
+                        )}
+                      </>
                     ) : (
-                      <ChevronDown className="h-4 w-4" />
+                      `${flights.length} flight${flights.length !== 1 ? 's' : ''} found`
                     )}
-                  </Button>
-                )}
+                  </div>
+                </div>
               </div>
-              
-              <div className="text-sm text-muted-foreground">
-                {searchQuery ? (
-                  <>
-                    {filteredAndSortedFlights.length} of {flights.length} flight{flights.length !== 1 ? 's' : ''} 
-                    {filteredAndSortedFlights.length !== flights.length && (
-                      <span className="text-[#3366ff] dark:text-[#3366ff]"> (filtered)</span>
-                    )}
-                  </>
-                ) : (
-                  `${flights.length} flight${flights.length !== 1 ? 's' : ''} found`
-                )}
-              </div>
-            </div>
 
-            {/* Collapsible Filters */}
-            {!selectedFlight && showFilters && (
-              <div className="space-y-4 p-4 border rounded-lg dark:border-muted-foreground/20 bg-muted/20 animate-in slide-in-from-top-2">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {/* Date Range */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">Start Date</Label>
-                    <DatePicker
-                      date={selectedDate}
-                      setDate={handleStartDateChange}
-                      className="dark:bg-muted/50 h-8"
-                    />
+              {/* Responsive Filters */}
+              {!selectedFlight && showFilters && (
+                <div className="space-y-3 p-3 border rounded-lg dark:border-muted-foreground/20 bg-muted/20 animate-in slide-in-from-top-2 flex-shrink-0 mb-1">
+                  {/* Row 1: Dates and Status */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Start Date</Label>
+                      <DatePicker
+                        date={selectedDate}
+                        setDate={handleStartDateChange}
+                        className="dark:bg-muted/50 h-8 w-full"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">End Date</Label>
+                      <DatePicker
+                        date={selectedEndDate}
+                        setDate={handleEndDateChange}
+                        className="dark:bg-muted/50 h-8 w-full"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Status</Label>
+                      <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                        <SelectTrigger className="h-8 dark:bg-muted/50 text-xs">
+                          <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All statuses</SelectItem>
+                          <SelectItem value="scheduled">Scheduled</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                          <SelectItem value="preparing">Preparing</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Time Range</Label>
+                      <div className="flex items-center gap-1">
+                        <TimePicker
+                          time={startTime}
+                          setTime={setStartTime}
+                          onApply={handleApplyFilters}
+                          className="h-8 text-xs flex-1"
+                        />
+                        <span className="text-xs text-muted-foreground px-1">-</span>
+                        <TimePicker
+                          time={endTime}
+                          setTime={setEndTime}
+                          onApply={handleApplyFilters}
+                          className="h-8 text-xs flex-1"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">End Date</Label>
-                    <DatePicker
-                      date={selectedEndDate}
-                      setDate={handleEndDateChange}
-                      className="dark:bg-muted/50 h-8"
-                    />
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">Status</Label>
-                    <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                      <SelectTrigger className="h-8 dark:bg-muted/50 text-xs">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All statuses</SelectItem>
-                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                        
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                        <SelectItem value="preparing">Preparing</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Aircraft Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">Aircraft</Label>
-                    <Popover open={aircraftOpen} onOpenChange={setAircraftOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={aircraftOpen}
-                          className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                        >
-                          <span className="truncate">{getAircraftDisplayName(selectedAircraft)}</span>
-                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search aircraft..." className="h-9" />
-                          <CommandEmpty>No aircraft found.</CommandEmpty>
-                          <CommandList>
-                            <CommandGroup>
-                              <CommandItem
-                                key="all-aircraft"
-                                value="all"
-                                onSelect={() => {
-                                  setSelectedAircraft("all")
-                                  setAircraftOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedAircraft === "all" ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                All aircraft
-                              </CommandItem>
-                              {aircraft.map((plane, index) => (
+                  {/* Row 2: People and Aircraft */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Aircraft</Label>
+                      <Popover open={aircraftOpen} onOpenChange={setAircraftOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={aircraftOpen}
+                            className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal"
+                          >
+                            <span className="truncate text-left">{getAircraftDisplayName(selectedAircraft)}</span>
+                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search aircraft..." className="h-9" />
+                            <CommandEmpty>No aircraft found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
                                 <CommandItem
-                                  key={plane.id || `aircraft-${index}`}
-                                  value={`${plane.registration} ${plane.type} ${plane.model}`}
+                                  key="all-aircraft"
+                                  value="all"
                                   onSelect={() => {
-                                    setSelectedAircraft(plane.id)
+                                    setSelectedAircraft("all")
                                     setAircraftOpen(false)
                                   }}
                                 >
                                   <Check
                                     className={cn(
                                       "mr-2 h-4 w-4",
-                                      selectedAircraft === plane.id ? "opacity-100" : "opacity-0"
+                                      selectedAircraft === "all" ? "opacity-100" : "opacity-0"
                                     )}
                                   />
-                                  {plane.registration} - {plane.type}
+                                  All aircraft
                                 </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Instructor Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">Instructor</Label>
-                    <Popover open={instructorOpen} onOpenChange={setInstructorOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={instructorOpen}
-                          className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                        >
-                          <span className="truncate">{getInstructorDisplayName(selectedInstructor)}</span>
-                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search instructors..." className="h-9" />
-                          <CommandEmpty>No instructors found.</CommandEmpty>
-                          <CommandList>
-                            <CommandGroup>
-                              <CommandItem
-                                key="all-instructors"
-                                value="all"
-                                onSelect={() => {
-                                  setSelectedInstructor("all")
-                                  setInstructorOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedInstructor === "all" ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                All instructors
-                              </CommandItem>
-                              {instructors
-                                .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
-                                .map((instructor, index) => (
+                                {aircraft.map((plane, index) => (
                                   <CommandItem
-                                    key={instructor._id || `instructor-${index}`}
-                                    value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                    key={plane.id || `aircraft-${index}`}
+                                    value={`${plane.registration} ${plane.type} ${plane.aircraftModel || plane.model}`}
                                     onSelect={() => {
-                                      setSelectedInstructor(instructor._id)
-                                      setInstructorOpen(false)
+                                      setSelectedAircraft(plane.id)
+                                      setAircraftOpen(false)
                                     }}
                                   >
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        selectedInstructor === instructor._id ? "opacity-100" : "opacity-0"
+                                        selectedAircraft === plane.id ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    {instructor.user_id.first_name} {instructor.user_id.last_name}
-                                  </CommandItem>
-                                ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Student Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">Student</Label>
-                    <Popover open={studentOpen} onOpenChange={setStudentOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={studentOpen}
-                          className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                        >
-                          <span className="truncate">{getStudentDisplayName(selectedStudent)}</span>
-                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search students..." className="h-9" />
-                          <CommandEmpty>No students found.</CommandEmpty>
-                          <CommandList>
-                            <CommandGroup>
-                              <CommandItem
-                                key="all-students"
-                                value="all"
-                                onSelect={() => {
-                                  setSelectedStudent("all")
-                                  setStudentOpen(false)
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedStudent === "all" ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                All students
-                              </CommandItem>
-                              {students
-                                .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
-                                .map((student, index) => (
-                                  <CommandItem
-                                    key={student._id || `student-${index}`}
-                                    value={`${student.user_id.first_name} ${student.user_id.last_name}`}
-                                    onSelect={() => {
-                                      setSelectedStudent(student._id)
-                                      setStudentOpen(false)
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        selectedStudent === student._id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {student.user_id.first_name} {student.user_id.last_name}
-                                  </CommandItem>
-                                ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                {/* Time Range and Actions */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Time:</Label>
-                    <TimePicker
-                      time={startTime}
-                      setTime={setStartTime}
-                      onApply={handleApplyFilters}
-                    />
-                    <span className="text-xs text-muted-foreground">to</span>
-                    <TimePicker
-                      time={endTime}
-                      setTime={setEndTime}
-                      onApply={handleApplyFilters}
-                    />
-                  </div>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleResetFilters}
-                    className="h-8 text-xs dark:border-muted-foreground/20"
-                  >
-                    Reset All
-                  </Button>
-                </div>
-              </div>
-            )}
-            <div className="rounded-md border dark:border-muted-foreground/20">
-        <Table>
-          <TableHeader>
-                  <TableRow className="dark:border-muted-foreground/20">
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('date')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Date
-                        {sortConfig?.key === 'date' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'date' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'date' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('start_time')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Time
-                        {sortConfig?.key === 'start_time' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'start_time' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'start_time' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('plane_reg')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Aircraft
-                        {sortConfig?.key === 'plane_reg' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'plane_reg' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'plane_reg' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('student_name')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Student
-                        {sortConfig?.key === 'student_name' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'student_name' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'student_name' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('instructor')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Instructor
-                        {sortConfig?.key === 'instructor' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'instructor' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'instructor' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('duration')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Duration
-                        {sortConfig?.key === 'duration' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'duration' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'duration' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('status')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Status
-                        {sortConfig?.key === 'status' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'status' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'status' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('type')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Type
-                        {sortConfig?.key === 'type' && (
-                          <ArrowUpDown className="h-3 w-3" />
-                        )}
-                        {sortConfig?.key === 'type' && sortConfig.direction === 'ascending' && (
-                          <span className="text-xs">↑</span>
-                        )}
-                        {sortConfig?.key === 'type' && sortConfig.direction === 'descending' && (
-                          <span className="text-xs">↓</span>
-                        )}
-                      </div>
-                    </TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-                  {loading ? (
-                    <>
-                      {Array.from({ length: 8 }).map((_, i) => (
-                        <TableRow key={i} className="dark:border-muted-foreground/20">
-                          <TableCell>
-                            <Skeleton className="h-4 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-16" />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Skeleton className="h-4 w-4 rounded" />
-                              <Skeleton className="h-4 w-16" />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Skeleton className="h-4 w-4 rounded" />
-                              <Skeleton className="h-4 w-24" />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Skeleton className="h-4 w-4 rounded" />
-                              <Skeleton className="h-4 w-28" />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-14" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-6 w-16 rounded-full" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-12" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </>
-                  ) : filteredAndSortedFlights.length > 0 ? (
-                    filteredAndSortedFlights.map((flight) => (
-                      <TableRow 
-                        key={flight._id}
-                        className={`cursor-pointer hover:bg-muted/50 dark:hover:bg-muted/30 dark:border-muted-foreground/20 ${
-                          selectedFlight?._id === flight._id ? 'bg-muted/50 dark:bg-muted/30' : ''
-                        }`}
-                        onClick={() => handleViewDetails(flight)}
-                      >
-                        <TableCell>{formatDate(flight.date)}</TableCell>
-                        <TableCell>{formatTime(flight.start_time)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Plane className="h-4 w-4 text-primary dark:text-primary/80" strokeWidth={2.5} />
-                            {flight.plane_reg}
-                          </div>
-                        </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground dark:text-muted-foreground/80" />
-                            {flight.student_name}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground dark:text-muted-foreground/80" />
-                            {flight.instructor}
-                  </div>
-                </TableCell>
-                <TableCell>{flight.duration} hrs</TableCell>
-                <TableCell>
-                  <div
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                                              flight.status === "Completed" 
-                          ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
-                        : flight.status === "In-Progress"
-                          ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
-                        
-                          : flight.status === "Preparing"
-                            ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
-                          : flight.status === "Scheduled"
-                            ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
-                          : flight.status === "Cancelled" || flight.status === "Canceled"
-                            ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
-                            : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
-                    }`}
-                  >
-                    {flight.status}
-                  </div>
-                </TableCell>
-                        <TableCell>{flight.type}</TableCell>
-                        <TableCell></TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={9} className="h-32 text-center">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <Plane className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.5} />
-                          <p className="text-lg font-medium text-muted-foreground">No flights found</p>
-                          <p className="text-sm text-muted-foreground/80">Try adjusting your filters or search criteria</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {selectedFlight && (
-        <Card className="h-full">
-          <CardHeader className="border-b dark:border-muted-foreground/20 pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl">Flight Details</CardTitle>
-                <CardDescription className="text-sm">
-                  {selectedFlight.plane_reg} • {formatDate(selectedFlight.date)} • {formatTime(selectedFlight.start_time)}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {isEditing ? (
-                  <>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          className="flex items-center gap-2"
-                          disabled={isDeleting}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="max-w-md">
-                        <AlertDialogHeader>
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
-                              <Trash2 className="h-5 w-5 text-destructive" />
-                            </div>
-                            <div>
-                              <AlertDialogTitle className="text-lg font-semibold">Delete Flight Log</AlertDialogTitle>
-                            </div>
-                          </div>
-                          <AlertDialogDescription className="text-sm text-muted-foreground mt-4">
-                            Are you sure you want to delete this flight log? This action cannot be undone and will permanently remove all flight data.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        
-                        {/* Flight Details Card */}
-                        <div className="my-4 p-4 rounded-lg bg-muted/30 border border-muted">
-                          <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                            <Plane className="h-4 w-4 text-muted-foreground" />
-                            Flight Details
-                          </h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">Date:</span>
-                              <span className="font-medium">{formatDate(selectedFlight?.date || '')}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">Time:</span>
-                              <span className="font-medium">{formatTime(selectedFlight?.start_time || '')}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">Aircraft:</span>
-                              <span className="font-medium font-mono">{selectedFlight?.plane_reg}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">Student:</span>
-                              <span className="font-medium">{selectedFlight?.student_name}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">Instructor:</span>
-                              <span className="font-medium">{selectedFlight?.instructor}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <AlertDialogFooter className="gap-2">
-                          <AlertDialogCancel className="flex-1">
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleDeleteFlight}
-                            className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive/50"
-                            disabled={isDeleting}
-                          >
-                            {isDeleting ? (
-                              <>
-                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                Deleting...
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Flight
-                              </>
-                            )}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleCancelEdit}
-                      className="dark:border-muted-foreground/20"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      variant="default" 
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={handleSaveEdit}
-                    >
-                      <Save className="h-4 w-4" />
-                      Save
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="flex items-center gap-2 dark:border-muted-foreground/20"
-                      onClick={handleEditClick}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={handleBackToList}
-                      className="hover:bg-muted dark:hover:bg-muted/30"
-                    >
-                      <X className="h-5 w-5" />
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {isEditing ? (
-              <div className="space-y-4">
-                {/* Flight Information Header */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
-                      <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
-                      <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Edit flight details</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#3366ff]"></div>
-                        <Label htmlFor="date" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</Label>
-                      </div>
-                      <Input
-                        id="date"
-                        type="date"
-                        value={editedFlight?.date || ''}
-                        onChange={(e) => handleInputChange('date', e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#809fff]"></div>
-                        <Label htmlFor="start_time" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</Label>
-                      </div>
-                      <Input
-                        id="start_time"
-                        type="time"
-                        value={editedFlight?.start_time || ''}
-                        onChange={(e) => handleInputChange('start_time', e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
-                        <Label htmlFor="duration" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration (HRS)</Label>
-                      </div>
-                      <Input
-                        id="duration"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={editedFlight?.duration || 0}
-                        onChange={(e) => handleInputChange('duration', parseFloat(e.target.value))}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#cc00ff]"></div>
-                        <Label htmlFor="type" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
-                      </div>
-                      <Input
-                        id="type"
-                        value={editedFlight?.type || ''}
-                        onChange={(e) => handleInputChange('type', e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Aircraft Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#c2f0c2]/20 to-[#99e699]/20 dark:from-[#33cc33]/20 dark:to-[#33cc33]/10 rounded-lg border border-[#99e699]/30 dark:border-[#33cc33]/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#33cc33]/10 dark:bg-[#33cc33]/20">
-                      <Plane className="h-4 w-4 text-[#33cc33] dark:text-[#33cc33]" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-[#33cc33] dark:text-[#c2f0c2]">Aircraft</h3>
-                      <p className="text-xs text-[#33cc33]/80 dark:text-[#99e699]">Aircraft registration details</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 p-3 rounded-md bg-card border">
-                    <div className="flex items-center gap-1">
-                      <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
-                      <Label htmlFor="aircraft" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</Label>
-                    </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="h-8 w-full justify-between text-sm font-mono font-normal"
-                        >
-                          <span className="truncate">
-                            {getSelectedPlaneDisplay(editedFlight) || (loadingAircraft ? "Loading aircraft..." : "Select aircraft")}
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search aircraft..." className="h-9" />
-                          <CommandEmpty>No aircraft found.</CommandEmpty>
-                          <CommandList>
-                            <CommandGroup>
-                              {loadingAircraft ? (
-                                <CommandItem value="loading" disabled>
-                                  Loading aircraft...
-                                </CommandItem>
-                              ) : aircraft.length === 0 ? (
-                                <CommandItem value="no-aircraft" disabled>
-                                  No aircraft available
-                                </CommandItem>
-                              ) : (
-                                aircraft.map((plane) => {
-                                  const typeModel = [plane.type, plane.model].filter(Boolean).join(' ')
-                                  const displayText = `${plane.registration} - ${typeModel}`
-                                  return (
-                                    <CommandItem
-                                      key={plane.id}
-                                      value={displayText}
-                                      onSelect={() => handleAircraftChange(plane.id)}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          getSelectedPlaneId(editedFlight) === plane.id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {displayText}
-                                    </CommandItem>
-                                  )
-                                })
-                              )}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                
-                {/* Flight Crew Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#ffe0b3]/20 to-[#ffcc80]/20 dark:from-[#ff9900]/20 dark:to-[#ff9900]/10 rounded-lg border border-[#ffcc80]/30 dark:border-[#ff9900]/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#ff9900]/10 dark:bg-[#ff9900]/20">
-                      <User className="h-4 w-4 text-[#ff9900] dark:text-[#ff9900]" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-[#ff9900] dark:text-[#ffe0b3]">Flight Crew</h3>
-                      <p className="text-xs text-[#ff9900]/80 dark:text-[#ffcc80]">Student and instructor assignment</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#ff9900]"></div>
-                        <Label htmlFor="student" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</Label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="h-8 w-full justify-between text-sm font-normal"
-                          >
-                            <span className="truncate">
-                              {editedFlight?.student_id ? 
-                                students.find(s => s._id === editedFlight.student_id)?.user_id ? 
-                                  `${students.find(s => s._id === editedFlight.student_id)?.user_id.first_name} ${students.find(s => s._id === editedFlight.student_id)?.user_id.last_name}`
-                                  : "Select a student"
-                                : "Select a student"
-                              }
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search students..." className="h-9" />
-                            <CommandEmpty>No students found.</CommandEmpty>
-                            <CommandList>
-                              <CommandGroup>
-                                {students.map((student) => (
-                                  <CommandItem
-                                    key={student._id}
-                                    value={`${student.user_id.first_name} ${student.user_id.last_name}`}
-                                    onSelect={() => handleStudentChange(student._id)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        editedFlight?.student_id === student._id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {student.user_id.first_name} {student.user_id.last_name}
+                                    {plane.registration} - {plane.type}
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
@@ -2113,27 +1407,17 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         </PopoverContent>
                       </Popover>
                     </div>
-                    
-                    <div className="space-y-2 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#ffcc80]"></div>
-                        <Label htmlFor="instructor" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</Label>
-                      </div>
-                      <Popover>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Instructor</Label>
+                      <Popover open={instructorOpen} onOpenChange={setInstructorOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             role="combobox"
-                            className="h-8 w-full justify-between text-sm font-normal"
+                            aria-expanded={instructorOpen}
+                            className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal"
                           >
-                            <span className="truncate">
-                              {editedFlight?.instructor_id ? 
-                                instructors.find(i => i._id === editedFlight.instructor_id)?.user_id ? 
-                                  `${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.first_name} ${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.last_name}`
-                                  : "Select an instructor"
-                                : "Select an instructor"
-                              }
-                            </span>
+                            <span className="truncate text-left">{getInstructorDisplayName(selectedInstructor)}</span>
                             <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
@@ -2143,18 +1427,37 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                             <CommandEmpty>No instructors found.</CommandEmpty>
                             <CommandList>
                               <CommandGroup>
+                                <CommandItem
+                                  key="all-instructors"
+                                  value="all"
+                                  onSelect={() => {
+                                    setSelectedInstructor("all")
+                                    setInstructorOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedInstructor === "all" ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  All instructors
+                                </CommandItem>
                                 {instructors
                                   .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
-                                  .map((instructor) => (
+                                  .map((instructor, index) => (
                                     <CommandItem
-                                      key={instructor._id}
+                                      key={instructor._id || `instructor-${index}`}
                                       value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
-                                      onSelect={() => handleInstructorChange(instructor._id)}
+                                      onSelect={() => {
+                                        setSelectedInstructor(instructor._id)
+                                        setInstructorOpen(false)
+                                      }}
                                     >
                                       <Check
                                         className={cn(
                                           "mr-2 h-4 w-4",
-                                          editedFlight?.instructor_id === instructor._id ? "opacity-100" : "opacity-0"
+                                          selectedInstructor === instructor._id ? "opacity-100" : "opacity-0"
                                         )}
                                       />
                                       {instructor.user_id.first_name} {instructor.user_id.last_name}
@@ -2166,234 +1469,978 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                         </PopoverContent>
                       </Popover>
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Student</Label>
+                      <Popover open={studentOpen} onOpenChange={setStudentOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={studentOpen}
+                            className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal"
+                          >
+                            <span className="truncate text-left">{getStudentDisplayName(selectedStudent)}</span>
+                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search students..." className="h-9" />
+                            <CommandEmpty>No students found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
+                                <CommandItem
+                                  key="all-students"
+                                  value="all"
+                                  onSelect={() => {
+                                    setSelectedStudent("all")
+                                    setStudentOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedStudent === "all" ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  All students
+                                </CommandItem>
+                                {students
+                                  .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
+                                  .map((student, index) => (
+                                    <CommandItem
+                                      key={student._id || `student-${index}`}
+                                      value={`${student.user_id.first_name} ${student.user_id.last_name}`}
+                                      onSelect={() => {
+                                        setSelectedStudent(student._id)
+                                        setStudentOpen(false)
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedStudent === student._id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {student.user_id.first_name} {student.user_id.last_name}
+                                    </CommandItem>
+                                  ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                    <div className="text-xs text-muted-foreground">
+                      Use filters to narrow down results
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleResetFilters}
+                      className="h-7 text-xs px-3"
+                    >
+                      Reset All
+                    </Button>
                   </div>
                 </div>
-                
-                {/* Status Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
-                      <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
-                      <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 rounded-md bg-card border">
-                    <div className="space-y-1">
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
-                      <div
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                          editedFlight?.status === "Completed" 
-                            ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border border-[#809fff]" 
-                            : editedFlight?.status === "In-Progress"
-                              ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+              )}
 
-                              : editedFlight?.status === "Preparing"
-                                ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
-                              : editedFlight?.status === "Scheduled"
-                                ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
-                              : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
-                                ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
-                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
-                        }`}
-                      >
-                        {editedFlight?.status}
-                      </div>
+              {/* Responsive Table Container */}
+              <div className="flex-1 overflow-hidden -mx-3">
+                <div className="h-full border rounded-lg dark:border-muted-foreground/20 bg-card mx-3">
+                  <div className="h-full overflow-auto">
+                    <div className="min-w-[800px] h-full">
+                      <Table className="h-full">
+                        <TableHeader className="sticky top-0 bg-card dark:bg-card z-10 border-b">
+                          <TableRow>
+                            <TableHead 
+                              className="cursor-pointer w-[100px] bg-card dark:bg-card"
+                              onClick={() => handleSort('date')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Date
+                                {sortConfig?.key === 'date' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'date' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'date' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer w-[80px] bg-card dark:bg-card"
+                              onClick={() => handleSort('start_time')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Time
+                                {sortConfig?.key === 'start_time' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'start_time' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'start_time' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer w-[120px] bg-card dark:bg-card"
+                              onClick={() => handleSort('plane_reg')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Aircraft
+                                {sortConfig?.key === 'plane_reg' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'plane_reg' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'plane_reg' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer min-w-[140px] bg-card dark:bg-card"
+                              onClick={() => handleSort('student_name')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Student
+                                {sortConfig?.key === 'student_name' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'student_name' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'student_name' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer min-w-[140px] bg-card dark:bg-card"
+                              onClick={() => handleSort('instructor')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Instructor
+                                {sortConfig?.key === 'instructor' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'instructor' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'instructor' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer w-[100px] bg-card dark:bg-card"
+                              onClick={() => handleSort('duration')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Duration
+                                {sortConfig?.key === 'duration' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'duration' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'duration' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer w-[120px] bg-card dark:bg-card"
+                              onClick={() => handleSort('status')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Status
+                                {sortConfig?.key === 'status' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'status' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'status' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className="cursor-pointer w-[100px] bg-card dark:bg-card"
+                              onClick={() => handleSort('type')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Type
+                                {sortConfig?.key === 'type' && (
+                                  <ArrowUpDown className="h-3 w-3" />
+                                )}
+                                {sortConfig?.key === 'type' && sortConfig.direction === 'ascending' && (
+                                  <span className="text-xs">↑</span>
+                                )}
+                                {sortConfig?.key === 'type' && sortConfig.direction === 'descending' && (
+                                  <span className="text-xs">↓</span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead className="w-[50px] bg-card dark:bg-card"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {loading ? (
+                            <>
+                              {Array.from({ length: 10 }).map((_, i) => (
+                                <TableRow key={i}>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-20" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-16" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Skeleton className="h-4 w-4 rounded" />
+                                      <Skeleton className="h-4 w-16" />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Skeleton className="h-4 w-4 rounded" />
+                                      <Skeleton className="h-4 w-24" />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Skeleton className="h-4 w-4 rounded" />
+                                      <Skeleton className="h-4 w-28" />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-14" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-6 w-16 rounded-full" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-12" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-4" />
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </>
+                          ) : filteredAndSortedFlights.length > 0 ? (
+                            filteredAndSortedFlights.map((flight) => (
+                              <TableRow 
+                                key={flight._id}
+                                className={`cursor-pointer hover:bg-muted/50 ${
+                                  selectedFlight?._id === flight._id ? 'bg-muted/50' : ''
+                                }`}
+                                onClick={() => handleViewDetails(flight)}
+                              >
+                                <TableCell className="font-medium">{formatDate(flight.date)}</TableCell>
+                                <TableCell>{formatTime(flight.start_time)}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Plane className="h-4 w-4 text-primary" strokeWidth={2.5} />
+                                    <span className="font-mono text-sm">{flight.plane_reg}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-muted-foreground" />
+                                    <span className="truncate">{flight.student_name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-muted-foreground" />
+                                    <span className="truncate">{flight.instructor}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-medium">{flight.duration} hrs</TableCell>
+                                <TableCell>
+                                  <div
+                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                                      flight.status === "Completed" 
+                                        ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
+                                        : flight.status === "In-Progress"
+                                          ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+                                          : flight.status === "Preparing"
+                                            ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
+                                          : flight.status === "Scheduled"
+                                            ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
+                                          : flight.status === "Cancelled" || flight.status === "Canceled"
+                                            ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                                            : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
+                                    }`}
+                                  >
+                                    {flight.status}
+                                  </div>
+                                </TableCell>
+                                <TableCell>{flight.type}</TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={10} className="h-32 text-center">
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                  <Plane className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.5} />
+                                  <p className="text-lg font-medium text-muted-foreground">No flights found</p>
+                                  <p className="text-sm text-muted-foreground/80">Try adjusting your filters or search criteria</p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                     </div>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-xs">
-                          Change Status
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleInputChange('status', "Scheduled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleInputChange('status', "Preparing")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleInputChange('status', "In-Progress")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem onClick={() => handleInputChange('status', "Completed")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleInputChange('status', "Canceled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Flight Information Header */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
-                      <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
-                      <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Primary flight details</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</h4>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{formatTime(selectedFlight.start_time)}</p>
-                    </div>
-                    <div className="space-y-1 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration</h4>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{selectedFlight.duration} hrs</p>
-                    </div>
-                    <div className="space-y-1 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</h4>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{selectedFlight.type}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Aircraft Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-400/10">
-                      <Plane className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-emerald-900 dark:text-emerald-100">Aircraft</h3>
-                      <p className="text-xs text-emerald-700 dark:text-emerald-300">Aircraft registration details</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1 p-3 rounded-md bg-card border">
-                    <div className="flex items-center gap-1">
-                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</h4>
-                    </div>
-                    <p className="text-sm font-semibold text-foreground font-mono">{selectedFlight.plane_reg}</p>
-                  </div>
-                </div>
-                
-                {/* People Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg border border-amber-100 dark:border-amber-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 dark:bg-amber-400/10">
-                      <User className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">Flight Crew</h3>
-                      <p className="text-xs text-amber-700 dark:text-amber-300">Student and instructor information</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="space-y-1 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</h4>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{selectedFlight.student_name}</p>
-                    </div>
-                    
-                    <div className="space-y-1 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</h4>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{selectedFlight.instructor}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Status Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
-                      <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
-                      <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 rounded-md bg-card border">
-                    <div className="space-y-1">
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
-                      <div
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                          selectedFlight.status === "Completed" 
-                            ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
-                            : selectedFlight.status === "In-Progress"
-                              ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+            </div>
+          </CardContent>
+        </Card>
 
-                              : selectedFlight.status === "Preparing"
-                                ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
-                              : selectedFlight.status === "Scheduled"
-                                ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
-                              : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
-                                ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
-                              : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
-                        }`}
+        {selectedFlight && (
+          <Card className="h-full">
+            <CardHeader className="border-b dark:border-muted-foreground/20 pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">Flight Details</CardTitle>
+                  <CardDescription className="text-sm">
+                    {selectedFlight.plane_reg} • {formatDate(selectedFlight.date)} • {formatTime(selectedFlight.start_time)}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isEditing ? (
+                    <>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            className="flex items-center gap-2"
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="max-w-md">
+                          <AlertDialogHeader>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                                <Trash2 className="h-5 w-5 text-destructive" />
+                              </div>
+                              <div>
+                                <AlertDialogTitle className="text-lg font-semibold">Delete Flight Log</AlertDialogTitle>
+                              </div>
+                            </div>
+                            <AlertDialogDescription className="text-sm text-muted-foreground mt-4">
+                              Are you sure you want to delete this flight log? This action cannot be undone and will permanently remove all flight data.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          
+                          {/* Flight Details Card */}
+                          <div className="my-4 p-4 rounded-lg bg-muted/30 border border-muted">
+                            <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                              <Plane className="h-4 w-4 text-muted-foreground" />
+                              Flight Details
+                            </h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Date:</span>
+                                <span className="font-medium">{selectedFlight ? formatDate(selectedFlight.date) : ''}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Time:</span>
+                                <span className="font-medium">{selectedFlight ? formatTime(selectedFlight.start_time) : ''}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Aircraft:</span>
+                                <span className="font-medium font-mono">{selectedFlight?.plane_reg || ''}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Student:</span>
+                                <span className="font-medium">{selectedFlight?.student_name || ''}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Instructor:</span>
+                                <span className="font-medium">{selectedFlight?.instructor || ''}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <AlertDialogFooter className="gap-2">
+                            <AlertDialogCancel className="flex-1">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleDeleteFlight}
+                              className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive/50"
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? (
+                                <>
+                                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete Flight
+                                </>
+                              )}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleCancelEdit}
+                        className="dark:border-muted-foreground/20"
                       >
-                        {selectedFlight.status}
-                      </div>
-                    </div>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-xs">
-                          Change Status
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleStatusChange("Scheduled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange("Preparing")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange("In-Progress")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem onClick={() => handleStatusChange("Completed")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleStatusChange("Canceled")} className="flex items-center gap-2 py-1.5">
-                          <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                        Cancel
+                      </Button>
+                      <Button 
+                        variant="default" 
+                        size="sm"
+                        className="flex items-center gap-2"
+                        onClick={handleSaveEdit}
+                      >
+                        <Save className="h-4 w-4" />
+                        Save
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex items-center gap-2 dark:border-muted-foreground/20"
+                        onClick={handleEditClick}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleBackToList}
+                        className="hover:bg-muted dark:hover:bg-muted/30"
+                      >
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {isEditing ? (
+                <div className="space-y-4">
+                  {/* Flight Information Header */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
+                        <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
+                        <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Edit flight details</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[#3366ff]"></div>
+                          <Label htmlFor="date" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</Label>
+                        </div>
+                        <Input
+                          id="date"
+                          type="date"
+                          value={editedFlight?.date || ''}
+                          onChange={(e) => handleInputChange('date', e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[#809fff]"></div>
+                          <Label htmlFor="start_time" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</Label>
+                        </div>
+                        <Input
+                          id="start_time"
+                          type="time"
+                          value={editedFlight?.start_time || ''}
+                          onChange={(e) => handleInputChange('start_time', e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
+                          <Label htmlFor="duration" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration (HRS)</Label>
+                        </div>
+                        <Input
+                          id="duration"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={editedFlight?.duration || 0}
+                          onChange={(e) => handleInputChange('duration', parseFloat(e.target.value))}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[#cc00ff]"></div>
+                          <Label htmlFor="type" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
+                        </div>
+                        <Input
+                          id="type"
+                          value={editedFlight?.type || ''}
+                          onChange={(e) => handleInputChange('type', e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Aircraft Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#c2f0c2]/20 to-[#99e699]/20 dark:from-[#33cc33]/20 dark:to-[#33cc33]/10 rounded-lg border border-[#99e699]/30 dark:border-[#33cc33]/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#33cc33]/10 dark:bg-[#33cc33]/20">
+                        <Plane className="h-4 w-4 text-[#33cc33] dark:text-[#33cc33]" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-[#33cc33] dark:text-[#c2f0c2]">Aircraft</h3>
+                        <p className="text-xs text-[#33cc33]/80 dark:text-[#99e699]">Aircraft registration details</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
+                        <Label htmlFor="aircraft" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</Label>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="h-8 w-full justify-between text-sm font-mono font-normal"
+                          >
+                            <span className="truncate">
+                              {getSelectedPlaneDisplay(editedFlight) || (loadingAircraft ? "Loading aircraft..." : "Select aircraft")}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search aircraft..." className="h-9" />
+                            <CommandEmpty>No aircraft found.</CommandEmpty>
+                            <CommandList>
+                              <CommandGroup>
+                                {loadingAircraft ? (
+                                  <CommandItem value="loading" disabled>
+                                    Loading aircraft...
+                                  </CommandItem>
+                                ) : aircraft.length === 0 ? (
+                                  <CommandItem value="no-aircraft" disabled>
+                                    No aircraft available
+                                  </CommandItem>
+                                ) : (
+                                  aircraft.map((plane) => {
+                                    const typeModel = [plane.type, plane.aircraftModel || plane.model].filter(Boolean).join(' ')
+                                    const displayText = `${plane.registration} - ${typeModel}`
+                                    return (
+                                      <CommandItem
+                                        key={plane.id}
+                                        value={displayText}
+                                        onSelect={() => handleAircraftChange(plane.id)}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            getSelectedPlaneId(editedFlight) === plane.id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {displayText}
+                                      </CommandItem>
+                                    )
+                                  })
+                                )}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  
+                  {/* Flight Crew Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#ffe0b3]/20 to-[#ffcc80]/20 dark:from-[#ff9900]/20 dark:to-[#ff9900]/10 rounded-lg border border-[#ffcc80]/30 dark:border-[#ff9900]/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#ff9900]/10 dark:bg-[#ff9900]/20">
+                        <User className="h-4 w-4 text-[#ff9900] dark:text-[#ff9900]" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-[#ff9900] dark:text-[#ffe0b3]">Flight Crew</h3>
+                        <p className="text-xs text-[#ff9900]/80 dark:text-[#ffcc80]">Student and instructor assignment</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[#ff9900]"></div>
+                          <Label htmlFor="student" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</Label>
+                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="h-8 w-full justify-between text-sm font-normal"
+                            >
+                              <span className="truncate">
+                                {editedFlight?.student_id ? 
+                                  students.find(s => s._id === editedFlight.student_id)?.user_id ? 
+                                    `${students.find(s => s._id === editedFlight.student_id)?.user_id.first_name} ${students.find(s => s._id === editedFlight.student_id)?.user_id.last_name}`
+                                    : "Select a student"
+                                  : "Select a student"
+                                }
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search students..." className="h-9" />
+                              <CommandEmpty>No students found.</CommandEmpty>
+                              <CommandList>
+                                <CommandGroup>
+                                  {students.map((student) => (
+                                    <CommandItem
+                                      key={student._id}
+                                      value={`${student.user_id.first_name} ${student.user_id.last_name}`}
+                                      onSelect={() => handleStudentChange(student._id)}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          editedFlight?.student_id === student._id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {student.user_id.first_name} {student.user_id.last_name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      
+                      <div className="space-y-2 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-[#ffcc80]"></div>
+                          <Label htmlFor="instructor" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</Label>
+                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="h-8 w-full justify-between text-sm font-normal"
+                            >
+                              <span className="truncate">
+                                {editedFlight?.instructor_id ? 
+                                  instructors.find(i => i._id === editedFlight.instructor_id)?.user_id ? 
+                                    `${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.first_name} ${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.last_name}`
+                                    : "Select an instructor"
+                                  : "Select an instructor"
+                                }
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search instructors..." className="h-9" />
+                              <CommandEmpty>No instructors found.</CommandEmpty>
+                              <CommandList>
+                                <CommandGroup>
+                                  {instructors
+                                    .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                                    .map((instructor) => (
+                                      <CommandItem
+                                        key={instructor._id}
+                                        value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
+                                        onSelect={() => handleInstructorChange(instructor._id)}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            editedFlight?.instructor_id === instructor._id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {instructor.user_id.first_name} {instructor.user_id.last_name}
+                                      </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Status Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
+                        <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
+                        <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 rounded-md bg-card border">
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
+                        <div
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                            editedFlight?.status === "Completed" 
+                              ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border border-[#809fff]" 
+                              : editedFlight?.status === "In-Progress"
+                                ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+
+                                : editedFlight?.status === "Preparing"
+                                  ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
+                                : editedFlight?.status === "Scheduled"
+                                  ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
+                                : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
+                                  ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                                : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
+                          }`}
+                        >
+                          {editedFlight?.status}
+                        </div>
+                      </div>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-xs">
+                            Change Status
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleInputChange('status', "Scheduled")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleInputChange('status', "Preparing")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleInputChange('status', "In-Progress")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem onClick={() => handleInputChange('status', "Completed")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleInputChange('status', "Canceled")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Flight Information Header */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
+                        <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
+                        <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Primary flight details</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</h4>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">{formatTime(selectedFlight.start_time)}</p>
+                      </div>
+                      <div className="space-y-1 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration</h4>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">{selectedFlight.duration} hrs</p>
+                      </div>
+                      <div className="space-y-1 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</h4>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">{selectedFlight.type}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Aircraft Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-400/10">
+                        <Plane className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-emerald-900 dark:text-emerald-100">Aircraft</h3>
+                        <p className="text-xs text-emerald-700 dark:text-emerald-300">Aircraft registration details</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1 p-3 rounded-md bg-card border">
+                      <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</h4>
+                      </div>
+                      <p className="text-sm font-semibold text-foreground font-mono">{selectedFlight.plane_reg}</p>
+                    </div>
+                  </div>
+                  
+                  {/* People Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg border border-amber-100 dark:border-amber-800/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 dark:bg-amber-400/10">
+                        <User className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">Flight Crew</h3>
+                        <p className="text-xs text-amber-700 dark:text-amber-300">Student and instructor information</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-1 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</h4>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">{selectedFlight.student_name}</p>
+                      </div>
+                      
+                      <div className="space-y-1 p-3 rounded-md bg-card border">
+                        <div className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</h4>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">{selectedFlight.instructor}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Status Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
+                        <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
+                        <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 rounded-md bg-card border">
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
+                        <div
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                            selectedFlight.status === "Completed" 
+                              ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
+                              : selectedFlight.status === "In-Progress"
+                                ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+
+                                : selectedFlight.status === "Preparing"
+                                  ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
+                                : selectedFlight.status === "Scheduled"
+                                  ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
+                                : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
+                                  ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                                : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
+                          }`}
+                        >
+                          {selectedFlight.status}
+                        </div>
+                      </div>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-xs">
+                            Change Status
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleStatusChange("Scheduled")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusChange("Preparing")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusChange("In-Progress")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem onClick={() => handleStatusChange("Completed")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusChange("Canceled")} className="flex items-center gap-2 py-1.5">
+                            <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
-      </CardContent>
-    </Card>
-      )}
+      </div>
     </div>
   )
 }

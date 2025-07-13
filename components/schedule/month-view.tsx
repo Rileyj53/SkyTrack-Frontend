@@ -285,7 +285,8 @@ export function MonthView({
                     {/* Schedule Items */}
                     <div className="space-y-1">
                       {daySchedules.slice(0, 3).map((schedule) => {
-                        const student = students[schedule.student_id?._id || '']
+                        const student = schedule.student_id ? students[schedule.student_id._id] : null
+                        const instructor = schedule.instructor_id ? instructors[schedule.instructor_id._id] : null
                         const studentName = student 
                           ? `${student.user_id.first_name} ${student.user_id.last_name}`
                           : '...'
@@ -299,6 +300,7 @@ export function MonthView({
                               "hover:scale-[1.02] hover:shadow-sm",
                               getFlightTypeColor(schedule.flight_type)
                             )}
+                            title={`${studentName} - ${schedule.plane_id.registration} - ${schedule.flight_type} at ${formatTime(schedule.scheduled_start_time)}`}
                           >
                             <div className="font-medium leading-tight truncate">
                               {formatTime(schedule.scheduled_start_time)} • {studentName}
@@ -327,8 +329,8 @@ export function MonthView({
 
       <ScheduleDialog
         schedule={selectedSchedule}
-        student={selectedSchedule ? students[selectedSchedule.student_id?._id || ''] : null}
-        instructor={selectedSchedule ? instructors[selectedSchedule.instructor_id?._id || ''] : null}
+        student={selectedSchedule?.student_id ? students[selectedSchedule.student_id._id] : null}
+                  instructor={selectedSchedule?.instructor_id ? instructors[selectedSchedule.instructor_id._id] : null}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onScheduleUpdate={() => {

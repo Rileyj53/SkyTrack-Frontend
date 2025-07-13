@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { addDays, format, startOfMonth, endOfMonth, startOfWeek as dateFnsStartOfWeek, endOfWeek, parseISO } from "date-fns"
 import { Loader2, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -12,15 +12,14 @@ const startOfWeek = (date: Date, options: { weekStartsOn: number }) => {
   return addDays(date, -diff)
 }
 
-import { DashboardHeader } from "@/components/dashboard-header"
-import { DashboardShell } from "@/components/dashboard-shell"
-import { MainNav } from "@/components/main-nav"
+
+import { MainNav } from "@/components/main-nav-new"
 import { ScheduleCalendar } from "@/components/schedule-calendar"
 import { ScheduleHeader } from "@/components/schedule-header"
-import { UserNav } from "@/components/user-nav"
 import { Button } from "@/components/ui/button"
 import { Loading } from "@/components/ui/loading"
 import { NewFlightDialog } from "@/components/schedule/new-flight-dialog"
+import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "sonner"
 
 interface Student {
@@ -93,6 +92,7 @@ export function SchedulePage() {
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [newFlightDialogOpen, setNewFlightDialogOpen] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [filters, setFilters] = useState<Filters>({
     student: "all",
     instructor: "all",
@@ -179,12 +179,30 @@ export function SchedulePage() {
       if (!response.ok) return
 
       const data = await response.json()
-      const instructorsMap: Record<string, Instructor> = {}
-      data.forEach((instructor: Instructor) => {
-        instructorsMap[instructor._id] = instructor
-      })
-      setAllInstructors(instructorsMap)
-      setInstructors(instructorsMap)
+      
+      if (data.success && data.data && data.data.instructors && Array.isArray(data.data.instructors)) {
+        const instructorsMap: Record<string, Instructor> = {}
+        data.data.instructors.forEach((instructor: Instructor) => {
+          instructorsMap[instructor._id] = instructor
+        })
+        setAllInstructors(instructorsMap)
+        setInstructors(instructorsMap)
+      } else if (data.success && data.data && Array.isArray(data.data)) {
+        // Fallback: if the data array is directly under data
+        const instructorsMap: Record<string, Instructor> = {}
+        data.data.forEach((instructor: Instructor) => {
+          instructorsMap[instructor._id] = instructor
+        })
+        setAllInstructors(instructorsMap)
+        setInstructors(instructorsMap)
+      } else {
+        console.error('Invalid instructors response format:', data)
+        if (!data.success) {
+          console.error(`API Error: ${data.message || 'Failed to fetch instructors'}`)
+        } else {
+          console.error("Invalid data format received from API - instructors not found")
+        }
+      }
     } catch (err) {
       console.error("Error fetching instructors:", err)
     }
@@ -219,26 +237,62 @@ export function SchedulePage() {
 
       const data = await response.json()
       
-      // Handle both possible response formats
-      const studentsArray = Array.isArray(data) ? data : (data.students || [])
-      
-      const studentsMap: Record<string, Student> = {}
-      studentsArray.forEach((student: Student) => {
-        if (student && student._id) {
-          studentsMap[student._id] = student
+      if (data.success && data.data && data.data.students && Array.isArray(data.data.students)) {
+        const studentsMap: Record<string, Student> = {}
+        data.data.students.forEach((student: Student) => {
+          if (student && student._id) {
+            studentsMap[student._id] = student
+          }
+        })
+        
+        setAllStudents(studentsMap)
+        setStudents(studentsMap)
+      } else {
+        console.error('Invalid students response format:', data)
+        if (!data.success) {
+          console.error(`API Error: ${data.message || 'Failed to fetch students'}`)
+        } else {
+          console.error("Invalid data format received from API - students not found")
         }
-      })
-      
-      setAllStudents(studentsMap)
-      setStudents(studentsMap)
+      }
     } catch (err) {
       console.error("Error fetching all students:", err)
     }
   }
 
-  const fetchSchedules = async (start: Date, end: Date, isRetry: boolean = false) => {
+  // Helper function to calculate date ranges for different views
+  const getDateRange = useCallback((date: Date, viewType: "day" | "week" | "month") => {
+    switch (viewType) {
+      case "month":
+        return {
+          start: startOfMonth(date),
+          end: endOfMonth(date)
+        }
+      case "week":
+        const days = []
+        for (let i = -3; i <= 3; i++) {
+          days.push(addDays(date, i))
+        }
+        return {
+          start: days[0],
+          end: days[6]
+        }
+      case "day":
+        return {
+          start: date,
+          end: date
+        }
+      default:
+        return {
+          start: date,
+          end: date
+        }
+    }
+  }, [])
+
+  const fetchSchedules = async (start: Date, end: Date, isRetry: boolean = false, isTransition: boolean = false) => {
     try {
-      if (!isRetry) {
+      if (!isRetry && !isTransition) {
         setLoading(true)
       }
       setError(null)
@@ -302,14 +356,14 @@ export function SchedulePage() {
 
       const data = await response.json()
       
-      if (data.schedules && Array.isArray(data.schedules)) {
-        setSchedules(data.schedules)
+      if (data.success && data.data && data.data.schedules && Array.isArray(data.data.schedules)) {
+        setSchedules(data.data.schedules)
         
         // Extract student and instructor data from the populated response for current schedules
         const currentStudentsMap: Record<string, Student> = {}
         const currentInstructorsMap: Record<string, Instructor> = {}
         
-        data.schedules.forEach((schedule: Schedule) => {
+        data.data.schedules.forEach((schedule: Schedule) => {
           if (schedule.student_id && schedule.student_id._id && schedule.student_id.user_id) {
             currentStudentsMap[schedule.student_id._id] = {
               _id: schedule.student_id._id,
@@ -329,7 +383,12 @@ export function SchedulePage() {
         setInstructors(currentInstructorsMap)
         setRetryCount(0) // Reset retry count on success
       } else {
-        setSchedules([])
+        console.error('Invalid response format:', data)
+        if (!data.success) {
+          setError(`API Error: ${data.message || 'Unknown error occurred'}`)
+        } else {
+          setError("Invalid data format received from API - schedules not found")
+        }
       }
     } catch (err) {
       console.error("Error fetching schedules:", err)
@@ -348,27 +407,7 @@ export function SchedulePage() {
   const handleRetry = () => {
     setRetryCount(prev => prev + 1)
     
-    let start: Date
-    let end: Date
-
-    switch (view) {
-      case "month":
-        start = startOfMonth(currentDate)
-        end = endOfMonth(currentDate)
-        break
-      case "week":
-        start = weekDays[0]
-        end = weekDays[6]
-        break
-      case "day":
-        start = currentDate
-        end = currentDate
-        break
-      default:
-        start = currentDate
-        end = currentDate
-    }
-
+    const { start, end } = getDateRange(currentDate, view)
     fetchSchedules(start, end, true)
   }
 
@@ -412,70 +451,51 @@ export function SchedulePage() {
   }, [router])
 
   useEffect(() => {
+    if (!isInitialLoad) return
+    
     const loadData = async () => {
       // First load students and instructors
       await Promise.all([fetchAllStudents(), fetchInstructors()])
       
-      // Then load schedules
-      let start: Date
-      let end: Date
-
-      switch (view) {
-        case "month":
-          start = startOfMonth(currentDate)
-          end = endOfMonth(currentDate)
-          break
-        case "week":
-          start = weekDays[0] // Use the first day of our weekDays array
-          end = weekDays[6] // Use the last day of our weekDays array
-          break
-        case "day":
-          start = currentDate
-          end = currentDate
-          break
-        default:
-          start = currentDate
-          end = currentDate
-      }
-
+      // Then load schedules for initial load
+      const { start, end } = getDateRange(currentDate, view)
       fetchSchedules(start, end)
+      setIsInitialLoad(false)
     }
     
     loadData()
-  }, [currentDate, view, filters])
+  }, [isInitialLoad, getDateRange, currentDate, view]) // Dependencies for initial load
+
+  // Separate effect for filter changes (not view/date changes which are handled manually)
+  useEffect(() => {
+    // Skip if this is the initial load
+    if (isInitialLoad) return
+    
+    const { start, end } = getDateRange(currentDate, view)
+    fetchSchedules(start, end, false, true)
+  }, [filters, isInitialLoad, currentDate, view, getDateRange])
 
   const handleDateChange = (newDate: Date) => {
     setCurrentDate(newDate)
+    
+    // Fetch new data with transition loading
+    const { start, end } = getDateRange(newDate, view)
+    fetchSchedules(start, end, false, true)
   }
 
   const handleViewChange = (newView: "day" | "week" | "month") => {
     setView(newView)
+    
+    // Fetch new data with transition loading
+    const { start, end } = getDateRange(currentDate, newView)
+    fetchSchedules(start, end, false, true)
   }
 
   const handleFlightCreated = () => {
-    let start: Date
-    let end: Date
-
-    switch (view) {
-      case "month":
-        start = startOfMonth(currentDate)
-        end = endOfMonth(currentDate)
-        break
-      case "week":
-        start = weekDays[0] // Use the first day of our weekDays array
-        end = weekDays[6] // Use the last day of our weekDays array
-        break
-      case "day":
-        start = currentDate
-        end = currentDate
-        break
-      default:
-        start = currentDate
-        end = currentDate
-    }
-
+    const { start, end } = getDateRange(currentDate, view)
+    
     // Only refresh schedules since complete lists don't change
-    fetchSchedules(start, end)
+    fetchSchedules(start, end, false, true)
   }
 
   // Since filtering is now handled server-side, we can use schedules directly
@@ -486,95 +506,97 @@ export function SchedulePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader>
+    <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+      <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <MainNav />
-        <UserNav />
-      </DashboardHeader>
-      <DashboardShell>
-        <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Flight Schedule</h1>
-              <p className="text-muted-foreground">
-                Manage flight schedules, instructor assignments, and aircraft availability.
-              </p>
-            </div>
-          </div>
+      </div>
 
-          <ScheduleHeader 
-            currentDate={currentDate} 
-            onDateChange={handleDateChange} 
-            view={view} 
-            onViewChange={handleViewChange}
-            students={Object.values(allStudents)}
-            instructors={Object.values(allInstructors)}
-            onFlightCreated={handleFlightCreated}
-            filters={filters}
-            onFilterChange={handleFilterChange}
-          />
-
-          {loading && (
-            <div className="flex justify-center items-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <Loading 
-                  size="lg" 
-                  text="Loading schedules..."
-                />
-                {retryCount > 0 && (
-                  <span className="text-xs text-muted-foreground">Attempt {retryCount + 1}</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="text-center text-[#f90606] dark:text-[#f90606]">
-                <p className="font-medium">{error}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleRetry}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Retrying...
-                    </>
-                  ) : (
-                    'Try Again'
-                  )}
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => window.location.reload()}
-                >
-                  Refresh Page
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!loading && !error && (
-            <ScheduleCalendar
-              currentDate={currentDate}
-              view={view}
-              weekDays={weekDays}
-              schedules={filteredSchedules}
-              students={students}
-              instructors={instructors}
-              onScheduleUpdate={handleFlightCreated}
-              onDateChange={handleDateChange}
-              onViewChange={handleViewChange}
-            />
-          )}
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
+        {/* Header section */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         </div>
-      </DashboardShell>
+
+        <ScheduleHeader 
+          currentDate={currentDate} 
+          onDateChange={handleDateChange} 
+          view={view} 
+          onViewChange={handleViewChange}
+          students={Object.values(allStudents)}
+          instructors={Object.values(allInstructors)}
+          onFlightCreated={handleFlightCreated}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+        />
+
+        {/* Main content area - flexible */}
+        <div style={{ flex: '1', display: 'flex', flexDirection: 'column', minHeight: '0' }}>
+          <Card className="h-full">
+            <CardContent className="p-0 h-full">
+              {loading && (
+                <div className="flex justify-center items-center py-12">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loading 
+                      size="lg" 
+                      text="Loading schedules..."
+                    />
+                    {retryCount > 0 && (
+                      <span className="text-xs text-muted-foreground">Attempt {retryCount + 1}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <div className="text-center text-[#f90606] dark:text-[#f90606]">
+                    <p className="font-medium">{error}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleRetry}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Retrying...
+                        </>
+                      ) : (
+                        'Try Again'
+                      )}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => window.location.reload()}
+                    >
+                      Refresh Page
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!loading && !error && (
+                <div className="h-full">
+                  <ScheduleCalendar
+                    currentDate={currentDate}
+                    view={view}
+                    weekDays={weekDays}
+                    schedules={filteredSchedules}
+                    students={students}
+                    instructors={instructors}
+                    onScheduleUpdate={handleFlightCreated}
+                    onDateChange={handleDateChange}
+                    onViewChange={handleViewChange}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Edit2, MoreHorizontal, Plus, Trash2 } from "lucide-react"
+import { Edit2, MoreHorizontal, Plus, Trash2, User } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -199,8 +200,8 @@ export function SettingsStudents() {
       const data = await response.json()
       console.log("Raw API response:", data)
       
-      // Extract the students array from the response
-      const studentsData = data.students || []
+      // Extract the students array from the response - handle new nested structure
+      const studentsData = data.data?.students || data.students || []
       console.log("Extracted students data:", studentsData)
       
       // Validate each student object
@@ -459,9 +460,7 @@ export function SettingsStudents() {
     setIsDeleteDialogOpen(true)
   }
 
-  if (loading) {
-    return <div>Loading...</div>
-  }
+
 
   return (
     <Card>
@@ -701,13 +700,43 @@ export function SettingsStudents() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 3 }).map((_, idx) => (
+                <TableRow key={idx}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-5 rounded-full" />
+                      <Skeleton className="h-4 w-32 rounded" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-48 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-36 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-28 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-12 rounded" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Skeleton className="h-8 w-8 rounded" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredStudents.length > 0 ? (
               filteredStudents.map((student) => (
                 <TableRow key={student._id}>
@@ -764,8 +793,18 @@ export function SettingsStudents() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
-                  No students found.
+                <TableCell colSpan={9} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center gap-4 py-6">
+                    <div className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/20">
+                      <User className="h-8 w-8 text-blue-500 dark:text-blue-400" strokeWidth={1.5} />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No students found</h3>
+                      <p className="text-sm text-muted-foreground max-w-sm">
+                        No students have been added to your flight school yet.
+                      </p>
+                    </div>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

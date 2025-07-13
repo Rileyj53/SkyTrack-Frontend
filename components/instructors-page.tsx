@@ -12,10 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { DashboardShell } from "@/components/dashboard-shell"
-import { MainNav } from "@/components/main-nav"
-import { UserNav } from "@/components/user-nav"
+import { MainNav } from "@/components/main-nav-new"
 
 export function InstructorsPage() {
   const [instructors, setInstructors] = useState<any[]>([])
@@ -112,9 +109,12 @@ export function InstructorsPage() {
 
       const data = await response.json()
       
-      if (Array.isArray(data)) {
+      // Access the instructors data from the nested data.instructors property
+      const instructorsData = data.data?.instructors || data.instructors || []
+      
+      if (Array.isArray(instructorsData)) {
         // Transform the API data to match our component's expected format
-        const transformedInstructors = data.map((instructor) => ({
+        const transformedInstructors = instructorsData.map((instructor) => ({
           id: instructor._id,
           name: `${instructor.user_id.first_name} ${instructor.user_id.last_name}`,
           email: instructor.user_id.email,
@@ -190,12 +190,12 @@ export function InstructorsPage() {
   })
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader>
+    <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+      <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <MainNav />
-        <UserNav />
-      </DashboardHeader>
-      <DashboardShell>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         <div className="flex flex-col space-y-4">
           <h1 className="text-2xl font-bold tracking-tight">Flight Instructors</h1>
           <p className="text-muted-foreground">Manage instructor information, certifications, and hourly rates.</p>
@@ -318,7 +318,7 @@ export function InstructorsPage() {
                         filteredInstructors.map((instructor) => (
                           <TableRow key={instructor.id}>
                             <TableCell>
-                              <Badge variant={instructor.status === "Active" ? "success" : "secondary"}
+                              <Badge variant={instructor.status === "Active" ? "default" : "secondary"}
                                 className={`${
                                   instructor.status === "Active" 
                                     ? "bg-green-100 text-green-800" 
@@ -334,7 +334,7 @@ export function InstructorsPage() {
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-1">
-                                {instructor.certifications.map((cert) => (
+                                {instructor.certifications.map((cert: string) => (
                                   <Badge key={cert} variant="outline" className="text-xs">
                                     {cert}
                                   </Badge>
@@ -379,7 +379,7 @@ export function InstructorsPage() {
             </>
           )}
         </div>
-      </DashboardShell>
+      </div>
     </div>
   )
 }

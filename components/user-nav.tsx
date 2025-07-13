@@ -59,7 +59,13 @@ export function UserNav() {
         }
 
         const data = await response.json()
-        setUserData(data)
+        
+        if (data.success && data.data) {
+          setUserData(data.data)
+        } else {
+          console.error('Invalid user data response format:', data)
+          throw new Error(data.message || 'Failed to fetch user data')
+        }
       } catch (error) {
         console.error("Error fetching user data:", error)
       }
@@ -86,6 +92,12 @@ export function UserNav() {
 
       if (!response.ok) {
         throw new Error("Logout failed")
+      }
+
+      // Check for API response format (logout might return data)
+      const data = await response.json().catch(() => null)
+      if (data && !data.success) {
+        console.warn("Logout API returned error:", data.message)
       }
 
       // Clear local storage

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -167,8 +168,8 @@ export function SettingsAircraft() {
       const data = await response.json()
       console.log("Raw API response:", data)
       
-      // Extract the planes array from the response
-      const planesData = data.planes || []
+      // Extract the planes array from the response - handle new nested structure
+      const planesData = data.data?.planes || data.planes || []
       console.log("Extracted planes data:", planesData)
       
       // Validate each plane object
@@ -765,13 +766,43 @@ export function SettingsAircraft() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, idx) => (
+                <TableRow key={idx}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-5 rounded-full" />
+                      <Skeleton className="h-4 w-20 rounded" />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-12 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-16 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-12 rounded" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20 rounded" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Skeleton className="h-8 w-8 rounded" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredAircraft.length > 0 ? (
               filteredAircraft.map((plane) => (
                 <TableRow key={plane.id}>

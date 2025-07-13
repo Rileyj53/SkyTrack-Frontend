@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Plane, School, SettingsIcon, Users } from "lucide-react"
+import { Plane, School, SettingsIcon, Users, GraduationCap } from "lucide-react"
 
-import { DashboardHeader } from "@/components/dashboard-header"
-import { DashboardShell } from "@/components/dashboard-shell"
-import { MainNav } from "@/components/main-nav"
-import { UserNav } from "@/components/user-nav"
+import { MainNav } from "@/components/main-nav-new"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SettingsInstructors } from "@/components/settings-instructors"
 import { SettingsAircraft } from "@/components/settings-aircraft"
 import { SettingsStudents } from "@/components/settings-students"
 import { SettingsGeneral } from "@/components/settings-general"
+import { SettingsPrograms } from "@/components/settings-programs"
 
 export function SettingsPage() {
   const router = useRouter()
@@ -45,9 +43,9 @@ export function SettingsPage() {
         console.log('User data received:', JSON.stringify(data, null, 2))
         
         // Store the school ID in localStorage for other components to use
-        if (data.user && data.user.school_id) {
-          localStorage.setItem("schoolId", data.user.school_id)
-          console.log('Stored school ID in localStorage:', data.user.school_id)
+        if (data.data && data.data.user && data.data.user.school_id) {
+          localStorage.setItem("schoolId", data.data.user.school_id)
+          console.log('Stored school ID in localStorage:', data.data.user.school_id)
         }
       } catch (error) {
         console.error("Auth check failed:", error)
@@ -65,20 +63,16 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <DashboardHeader>
+    <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+      <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <MainNav />
-        <UserNav />
-      </DashboardHeader>
-      <DashboardShell>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         <div className="flex flex-col space-y-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-            <p className="text-muted-foreground">Manage your flight school settings, users, aircraft, and more.</p>
-          </div>
 
           <Tabs defaultValue="general" className="space-y-4" onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 md:w-[600px]">
+            <TabsList className="grid grid-cols-5 md:w-[700px]">
               <TabsTrigger value="general">
                 <SettingsIcon className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline-block">General</span>
@@ -94,6 +88,10 @@ export function SettingsPage() {
               <TabsTrigger value="students">
                 <School className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline-block">Students</span>
+              </TabsTrigger>
+              <TabsTrigger value="programs">
+                <GraduationCap className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline-block">Programs</span>
               </TabsTrigger>
             </TabsList>
 
@@ -112,9 +110,13 @@ export function SettingsPage() {
             <TabsContent value="students">
               <SettingsStudents />
             </TabsContent>
+
+            <TabsContent value="programs">
+              <SettingsPrograms />
+            </TabsContent>
           </Tabs>
         </div>
-      </DashboardShell>
+      </div>
     </div>
   )
 }

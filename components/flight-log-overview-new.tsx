@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Plane, User, ArrowLeft } from "lucide-react"
+import { MoreHorizontal, Plane, User, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Pagination, PaginationContent, PaginationItem, PaginationEllipsis } from '@/components/ui/pagination'
 import { Skeleton } from "@/components/ui/skeleton"
+import { StartFlightModal } from "@/components/start-flight-modal"
+import { EndFlightModal } from "@/components/end-flight-modal"
 
 interface FlightLog {
   _id: string
@@ -49,6 +51,9 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   const [selectedFlight, setSelectedFlight] = useState<FlightLog | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [isStartFlightModalOpen, setIsStartFlightModalOpen] = useState(false)
+  const [isEndFlightModalOpen, setIsEndFlightModalOpen] = useState(false)
+  const [isUpdatingFlight, setIsUpdatingFlight] = useState(false)
   const FLIGHTS_PER_PAGE = 5
 
   const formatTime = (time: string) => {
@@ -139,10 +144,13 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
         throw new Error(`Failed to fetch flight logs: ${response.status} ${response.statusText}`)
       }
 
-      const data = await response.json()
-      console.log('Flight logs data:', data)
+      const responseData = await response.json()
+      console.log('Flight logs data:', responseData)
       
-      if (data.schedules && Array.isArray(data.schedules)) {
+      // Extract data from the new response structure
+      const data = responseData.data
+      
+      if (data?.schedules && Array.isArray(data.schedules)) {
         // Transform the schedule data to match our FlightLog interface
         const transformedFlights: FlightLog[] = data.schedules.map((schedule: any) => {
           // Parse UTC time and convert to local time for display
@@ -203,6 +211,134 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
 
   const handleBackToList = () => {
     setSelectedFlight(null)
+  }
+
+  const handleStartFlight = async (actualStartTime: string) => {
+    if (!selectedFlight || !actualStartTime) return
+
+    try {
+      setIsUpdatingFlight(true)
+      const schoolId = localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+
+      if (!schoolId || !token || !apiKey) {
+        throw new Error("Missing required authentication data")
+      }
+
+      // Create a proper datetime string for the actual start time
+      const flightDate = new Date(selectedFlight.date)
+      const [hours, minutes] = actualStartTime.split(':').map(Number)
+      flightDate.setHours(hours, minutes, 0, 0)
+      const actualStartTimeISO = flightDate.toISOString()
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          status: 'in-progress',
+          actual_start_time: actualStartTimeISO
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to start flight: ${response.status} ${response.statusText}`)
+      }
+
+      // Update the selected flight and flights list
+      const updatedFlight = {
+        ...selectedFlight,
+        status: 'In-progress'
+      }
+      setSelectedFlight(updatedFlight)
+      setFlights(prevFlights => 
+        prevFlights.map(flight => 
+          flight._id === selectedFlight._id 
+            ? updatedFlight 
+            : flight
+        )
+      )
+
+      // Close modal
+      setIsStartFlightModalOpen(false)
+
+    } catch (error) {
+      console.error("Error starting flight:", error)
+      // You could add a toast notification here
+    } finally {
+      setIsUpdatingFlight(false)
+    }
+  }
+
+  const handleEndFlight = async (actualEndTime: string) => {
+    if (!selectedFlight || !actualEndTime) return
+
+    try {
+      setIsUpdatingFlight(true)
+      const schoolId = localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+
+      if (!schoolId || !token || !apiKey) {
+        throw new Error("Missing required authentication data")
+      }
+
+      // Create a proper datetime string for the actual end time
+      const flightDate = new Date(selectedFlight.date)
+      const [hours, minutes] = actualEndTime.split(':').map(Number)
+      flightDate.setHours(hours, minutes, 0, 0)
+      const actualEndTimeISO = flightDate.toISOString()
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          status: 'completed',
+          actual_end_time: actualEndTimeISO
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to end flight: ${response.status} ${response.statusText}`)
+      }
+
+      // Update the selected flight and flights list
+      const updatedFlight = {
+        ...selectedFlight,
+        status: 'Completed'
+      }
+      setSelectedFlight(updatedFlight)
+      setFlights(prevFlights => 
+        prevFlights.map(flight => 
+          flight._id === selectedFlight._id 
+            ? updatedFlight 
+            : flight
+        )
+      )
+
+      // Close modal
+      setIsEndFlightModalOpen(false)
+
+    } catch (error) {
+      console.error("Error ending flight:", error)
+      // You could add a toast notification here
+    } finally {
+      setIsUpdatingFlight(false)
+    }
   }
 
   if (error) {
@@ -302,28 +438,62 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
               
               <div className="space-y-4 p-4 rounded-lg bg-muted/30">
                 <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                <Badge
-                  variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
-                  className={`text-sm px-3 py-1 text-black border ${
-                    selectedFlight.status === "Completed" 
-                      ? "bg-[#b3c6ff] border-[#809fff]" 
-                      : selectedFlight.status === "In-progress"
-                        ? "bg-[#c2f0c2] border-[#99e699]"
-                        : selectedFlight.status === "Preparing"
-                          ? "bg-[#fbfbb6] border-[#f9f986]"
-                        : selectedFlight.status === "Scheduled"
-                          ? "bg-[#f0b3ff] border-[#e580ff]"
-                        : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
-                          ? "bg-[#fc9c9c] border-[#fb6a6a]"
-                          : "bg-[#f0b3ff] border-[#e580ff]"
-                  }`}
-                >
-                  {selectedFlight.status}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <Badge
+                    variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
+                    className={`text-sm px-3 py-1 text-black border ${
+                      selectedFlight.status === "Completed" 
+                        ? "bg-[#b3c6ff] border-[#809fff]" 
+                        : selectedFlight.status === "In-progress"
+                          ? "bg-[#c2f0c2] border-[#99e699]"
+                          : selectedFlight.status === "Preparing"
+                            ? "bg-[#fbfbb6] border-[#f9f986]"
+                          : selectedFlight.status === "Scheduled"
+                            ? "bg-[#f0b3ff] border-[#e580ff]"
+                          : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
+                            ? "bg-[#fc9c9c] border-[#fb6a6a]"
+                            : "bg-[#f0b3ff] border-[#e580ff]"
+                    }`}
+                  >
+                    {selectedFlight.status}
+                  </Badge>
+                  {selectedFlight.status === "Scheduled" && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => setIsStartFlightModalOpen(true)}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                    >
+                      Start Flight
+                    </Button>
+                  )}
+                  {selectedFlight.status === "In-progress" && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => setIsEndFlightModalOpen(true)}
+                      className="bg-green-600 hover:bg-green-500 text-white"
+                    >
+                      End Flight
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </CardContent>
+        <StartFlightModal
+          isOpen={isStartFlightModalOpen}
+          onClose={() => setIsStartFlightModalOpen(false)}
+          onStartFlight={handleStartFlight}
+          selectedFlight={selectedFlight}
+          isUpdating={isUpdatingFlight}
+        />
+        <EndFlightModal
+          isOpen={isEndFlightModalOpen}
+          onClose={() => setIsEndFlightModalOpen(false)}
+          onEndFlight={handleEndFlight}
+          selectedFlight={selectedFlight}
+          isUpdating={isUpdatingFlight}
+        />
       </Card>
     )
   }
@@ -488,32 +658,101 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
           </Table>
         </div>
         {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <Button variant="ghost" size="default" onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>
-                    Previous
-                  </Button>
-                </PaginationItem>
-                {Array.from({ length: totalPages }).map((_, idx) => (
-                  <PaginationItem key={idx + 1}>
+          <div className="mt-4 flex items-center relative">
+            <div className="flex-[2] flex justify-center min-w-0">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
                     <Button
-                      variant={currentPage === idx + 1 ? "outline" : "ghost"}
-                      size="icon"
-                      onClick={() => setCurrentPage(idx + 1)}
+                      variant="ghost"
+                      size="default"
+                      className="gap-1 pl-2.5"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
                     >
-                      {idx + 1}
+                      <ChevronLeft className="h-4 w-4" />
+                      <span>Previous</span>
                     </Button>
                   </PaginationItem>
-                ))}
-                <PaginationItem>
-                  <Button variant="ghost" size="default" onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>
-                    Next
-                  </Button>
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+                  
+                  {/* Always show first page */}
+                  {totalPages > 0 && (
+                    <PaginationItem>
+                      <Button
+                        variant={currentPage === 1 ? "outline" : "ghost"}
+                        size="icon"
+                        onClick={() => setCurrentPage(1)}
+                      >
+                        1
+                      </Button>
+                    </PaginationItem>
+                  )}
+
+                  {/* Show ellipsis if there's a gap */}
+                  {currentPage > 3 && totalPages > 4 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+
+                  {/* Show pages around current page */}
+                  {(() => {
+                    const start = Math.max(2, currentPage - 1);
+                    const end = Math.min(totalPages - 1, currentPage + 1);
+                    const items = [];
+
+                    for (let page = start; page <= end; page++) {
+                      items.push(
+                        <PaginationItem key={page}>
+                          <Button
+                            variant={currentPage === page ? "outline" : "ghost"}
+                            size="icon"
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </Button>
+                        </PaginationItem>
+                      );
+                    }
+
+                    return items;
+                  })()}
+
+                  {/* Show ellipsis if there's a gap at the end */}
+                  {currentPage < totalPages - 2 && totalPages > 4 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+
+                  {/* Always show last page if more than 1 page */}
+                  {totalPages > 1 && (
+                    <PaginationItem>
+                      <Button
+                        variant={currentPage === totalPages ? "outline" : "ghost"}
+                        size="icon"
+                        onClick={() => setCurrentPage(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <Button
+                      variant="ghost"
+                      size="default"
+                      className="gap-1 pr-2.5"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
           </div>
         )}
       </CardContent>
