@@ -6,7 +6,7 @@ import { BackgroundBeamsDemo } from "@/components/home/waitlist"
 
 export default function DemoPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-900 via-slate-900 to-blue-900">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-900 via-slate-900 to-blue-900 scroll-smooth">
       <HomeNavbar />
       
       <main className="flex-1">
