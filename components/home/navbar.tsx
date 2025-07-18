@@ -15,6 +15,26 @@ const navLinks = [
   { href: '#contact', label: 'Contact' },
 ]
 
+const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  e.preventDefault()
+  const targetId = href.replace('#', '')
+  const targetElement = document.getElementById(targetId)
+  
+  if (targetElement) {
+    const headerHeight = 80 // Account for navbar height + some padding
+    
+    targetElement.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+    
+    // Adjust for fixed header after scroll
+    setTimeout(() => {
+      window.scrollBy(0, -headerHeight)
+    }, 100)
+  }
+}
+
 export function HomeNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -26,22 +46,25 @@ export function HomeNavbar() {
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen)
 
   const navItems = navLinks.map((link) => (
-    <Link
+    <a
       key={link.label}
       href={link.href}
       className={cn(
-        "block px-3 py-2 rounded-md text-sm font-medium transition-colors",
+        "block px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
         "hover:bg-gray-800/50 hover:text-white",
         "text-gray-300"
       )}
-      onClick={() => setMobileMenuOpen(false)}
+      onClick={(e) => {
+        handleSmoothScroll(e, link.href)
+        setMobileMenuOpen(false)
+      }}
     >
       {link.label}
-    </Link>
+    </a>
   ))
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-700/50 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
+    <header className="fixed top-0 z-50 w-full border-b border-gray-700/50 bg-black/80 backdrop-blur-md supports-[backdrop-filter]:bg-black/60">
       <div className="container flex h-16 items-center justify-between">
         {/* Left: Logo */}
         <div className="flex items-center space-x-2 flex-1 justify-start">
@@ -132,21 +155,24 @@ export function HomeNavbar() {
             <nav className="flex-1 p-4">
               <div className="space-y-1">
                 {navLinks.map((link, index) => (
-                  <Link
+                  <a
                     key={link.label}
                     href={link.href}
                     className={cn(
-                      "block px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                      "block px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
                       "text-gray-300 hover:text-white hover:bg-gray-800/60 hover:scale-[1.01]",
                       "active:scale-[0.99]"
                     )}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={(e) => {
+                      handleSmoothScroll(e, link.href)
+                      setMobileMenuOpen(false)
+                    }}
                     style={{
                       animationDelay: `${index * 50}ms`
                     }}
                   >
                     {link.label}
-                  </Link>
+                  </a>
                 ))}
               </div>
             </nav>

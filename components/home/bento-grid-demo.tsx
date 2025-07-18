@@ -14,7 +14,7 @@ import {
 
 export default function BentoGridDemo() {
   return (
-    <div className="w-full py-12 md:py-20 bg-black px-4 relative overflow-hidden">
+    <div id="features" className="w-full py-12 md:py-20 bg-black px-4 relative overflow-hidden">
       {/* Background Beams */}
       <BackgroundBeams />
       
