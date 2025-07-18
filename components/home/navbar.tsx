@@ -96,8 +96,11 @@ export function HomeNavbar() {
             <Button variant="ghost" className="text-gray-300 hover:text-white hover:bg-gray-800/50" asChild>
               <Link href="/auth/login">Log In</Link>
             </Button>
-            <Button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200" asChild>
-              <Link href="/demo">Learn More</Link>
+            <Button 
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+              onClick={(e) => handleSmoothScroll(e as any, '#contact')}
+            >
+              Learn More
             </Button>
           </div>
 
@@ -189,10 +192,12 @@ export function HomeNavbar() {
               </Button>
               <Button 
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
-                onClick={() => setMobileMenuOpen(false)}
-                asChild
+                onClick={(e) => {
+                  handleSmoothScroll(e as any, '#contact')
+                  setMobileMenuOpen(false)
+                }}
               >
-                <Link href="/demo">Learn More</Link>
+                Learn More
               </Button>
             </div>
           </div>
