@@ -1,9 +1,24 @@
-import { redirect } from 'next/navigation'
+import { HomeNavbar } from "@/components/home/navbar"
+import HomeHero from "@/components/home/hero"
+import BentoGridDemo from "@/components/home/bento-grid-demo"
+import PricingSection from "@/components/home/pricing"
+import { BackgroundBeamsDemo } from "@/components/home/waitlist"
 
-export default function Home() {
+export default function DemoPage() {
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-4xl font-bold">Home page</h1>
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-900 via-slate-900 to-blue-900">
+      <HomeNavbar />
+      
+      <main className="flex-1">
+        <HomeHero />
+
+        <BentoGridDemo />
+
+        <PricingSection />
+
+        <BackgroundBeamsDemo />
+    
+      </main>
     </div>
   )
-}
+} 

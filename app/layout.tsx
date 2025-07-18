@@ -1,19 +1,16 @@
 import type React from "react"
-import type { Metadata } from "next"
+import "@/app/globals.css"
 import { Inter } from "next/font/google"
-import { Toaster } from "react-hot-toast"
 
 import { ThemeProvider } from "@/components/theme-provider"
 import { MantineThemeProvider } from "@/components/mantine-theme-provider"
-import "./globals.css"
 import '@mantine/core/styles.css'
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
-  title: "SkyTrack Flight School",
-  description: "Flight school management dashboard",
-    generator: 'v0.dev'
+export const metadata = {
+  title: "Albatross - The Ultimate Flight School Management Dashboard",
+  description: "Streamline your flight school operations with our comprehensive dashboard solution.",
 }
 
 export default function RootLayout({
@@ -22,12 +19,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider defaultTheme="dark" storageKey="skytrack-theme">
+    <html lang="en">
+      <body className={inter.className}>
+        <ThemeProvider defaultTheme="light" storageKey="albatross-theme">
           <MantineThemeProvider>
             {children}
-            <Toaster position="top-right" />
           </MantineThemeProvider>
         </ThemeProvider>
       </body>

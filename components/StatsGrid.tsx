@@ -37,7 +37,7 @@ const icons = {
 
 export function StatsGrid() {
   const { statsData, loading, error, fetchStats } = useStatsData();
-  const { preferences, refreshFromStorage } = useStatsPreferences();
+  const { preferences, isInitialized, refreshFromStorage } = useStatsPreferences();
   const [showCustomization, setShowCustomization] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [isClient, setIsClient] = useState(false);
@@ -50,7 +50,7 @@ export function StatsGrid() {
 
   // Update formatted time only on client side
   useEffect(() => {
-    if (isClient && preferences.lastUpdated) {
+    if (isClient && preferences.lastUpdated && preferences.lastUpdated !== 'never') {
       setFormattedLastUpdated(new Date(preferences.lastUpdated).toLocaleTimeString());
     }
   }, [preferences.lastUpdated, isClient]);
@@ -107,8 +107,9 @@ export function StatsGrid() {
     );
   }
 
-  // Only render stats after client hydration to prevent SSR/client mismatches
-  const stats = isClient ? enabledStats.map((config) => {
+  // Only render stats after client hydration AND preferences are initialized
+  const shouldRenderStats = isClient && isInitialized;
+  const stats = shouldRenderStats ? enabledStats.map((config) => {
     const Icon = icons[config.icon as keyof typeof icons] || IconReceipt2;
     
     // Get the value from the API data
@@ -190,7 +191,7 @@ export function StatsGrid() {
               Statistics
             </Text>
             <Text size="xs" c="dimmed">
-              {isClient ? `${enabledStats.length} enabled • Last updated: ${formattedLastUpdated}` : 'Loading...'}
+              {shouldRenderStats ? `${enabledStats.length} enabled • Last updated: ${formattedLastUpdated}` : 'Loading...'}
             </Text>
           </div>
           <Group gap="xs">
@@ -217,7 +218,7 @@ export function StatsGrid() {
       <div style={{ position: 'relative' }}>
         <LoadingOverlay visible={loading} />
         
-        {!isClient ? (
+        {!shouldRenderStats ? (
           // Show skeleton during SSR/initial load
           <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }}>
             {Array.from({ length: 4 }).map((_, index) => (
