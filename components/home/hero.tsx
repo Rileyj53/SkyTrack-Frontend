@@ -47,7 +47,7 @@ export default function HomeHero() {
   };
 
   return (
-    <div className="h-[35rem] sm:h-[30rem] md:h-[65rem] lg:h-[65rem] w-full bg-black flex flex-col items-center justify-center overflow-hidden rounded-md">
+    <div className="h-[35rem] sm:h-[30rem] md:h-[65rem] lg:h-[65rem] w-full bg-black flex flex-col items-center justify-center overflow-hidden">
       <h1 
         className="font-black text-center text-white relative z-20 px-2 w-full md:whitespace-nowrap leading-tight"
         style={{ fontSize: 'clamp(2rem, 4.6vw, 8rem)' }}

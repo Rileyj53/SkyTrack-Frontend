@@ -64,17 +64,11 @@ export default function PricingSection() {
   return (
     <section 
       id="pricing" 
-      className="w-full py-12 md:py-20 lg:py-32 bg-black relative"
+      className="w-full py-12 md:py-20 lg:py-32 bg-black relative overflow-hidden"
     >
       <div className="container px-4 md:px-6">
         {/* Header */}
         <div className="flex flex-col items-center justify-center space-y-4 md:space-y-6 text-center mb-12 md:mb-20">
-          <Badge 
-            variant="secondary" 
-            className="bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border-0 px-3 py-1 md:px-4 md:py-2"
-          >
-            Pricing
-          </Badge>
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl max-w-4xl">
             <span className="bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
               Built to grow with your flight school, not bill against it
