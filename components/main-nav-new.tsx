@@ -204,7 +204,7 @@ export function MainNav() {
         <div className="flex items-center space-x-2 flex-1 justify-start">
           <Link href="/dashboard" className="flex items-center space-x-2">
             <Image 
-              src="/Albatross.png" 
+              src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png" 
               alt="Albatross Logo" 
               width={50} 
               height={50} 
@@ -314,7 +314,7 @@ export function MainNav() {
               <div className="flex items-center space-x-2">
                 <div className="p-1.5 rounded-lg bg-primary/10">
                   <Image 
-                    src="/Albatross.png" 
+                    src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png" 
                     alt="Albatross Logo" 
                     width={20} 
                     height={20} 

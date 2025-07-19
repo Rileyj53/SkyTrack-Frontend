@@ -4,12 +4,14 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Lock, Mail, Shield } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useBackground } from "@/contexts/background-context"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,6 +21,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [requiresMFA, setRequiresMFA] = useState(false)
+  const { backgroundData, isLoaded: imageLoaded } = useBackground()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -188,14 +191,30 @@ export default function LoginPage() {
     setError(null)
   }
 
+  // Don't render anything until image is loaded
+  if (!imageLoaded) {
+    return null
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
-      <div className="w-full max-w-md space-y-8">
+    <div 
+      className="flex min-h-screen items-center justify-center p-4 relative animate-in fade-in duration-700 bg-background"
+      style={{
+        backgroundImage: backgroundData ? `url(${backgroundData.image_url})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Background overlay */}
+      <div className="absolute inset-0 bg-black/40 dark:bg-black/60" />
+      
+      <div className="w-full max-w-md space-y-8 relative z-10">
         {/* Albatross Logo and Brand */}
         <div className="text-center">
           <div className="flex justify-center mb-2">
             <Image
-              src="/Albatross.png"
+              src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png"
               alt="Albatross Logo"
               width={80}
               height={80}
@@ -207,17 +226,16 @@ export default function LoginPage() {
           </h1>
         </div>
 
-        <Card className="border-none shadow-lg dark:shadow-none dark:border dark:border-border bg-card">
+        <Card className="border-none shadow-lg dark:shadow-none dark:border dark:border-border bg-card/95 backdrop-blur-sm">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
+          <CardTitle className="text-3xl font-bold text-center">
             {requiresMFA ? "Two-Factor Authentication" : "Welcome Back"}
           </CardTitle>
-          <CardDescription className="text-center">
-            {requiresMFA 
-              ? "Enter the 6-digit code from your authenticator app" 
-              : "Enter your credentials to access your account"
-            }
-          </CardDescription>
+          {requiresMFA && (
+            <CardDescription className="text-center">
+              Enter the 6-digit code from your authenticator app
+            </CardDescription>
+          )}
         </CardHeader>
         
         {!requiresMFA ? (
@@ -244,7 +262,15 @@ export default function LoginPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">Password</Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="password" className="text-foreground">Password</Label>
+                  <Link 
+                    href="/auth/request_reset"
+                    className="text-sm text-primary hover:text-primary/80 font-medium"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -335,6 +361,13 @@ export default function LoginPage() {
         )}
       </Card>
       </div>
+      
+      {/* Attribution */}
+      {backgroundData && (
+        <div className="absolute bottom-4 right-4 text-xs text-white/80 bg-black/20 px-2 py-1 rounded backdrop-blur-sm">
+          <div dangerouslySetInnerHTML={{ __html: backgroundData.attribution }} />
+        </div>
+      )}
     </div>
   )
 } 

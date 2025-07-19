@@ -1,5 +1,6 @@
 import type React from "react"
 import { Toaster } from "@/components/ui/sonner"
+import { BackgroundProvider } from "@/contexts/background-context"
 
 export default function AuthLayout({
   children,
@@ -7,9 +8,9 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="auth-layout">
+    <BackgroundProvider>
       {children}
       <Toaster />
-    </div>
+    </BackgroundProvider>
   )
 } 
