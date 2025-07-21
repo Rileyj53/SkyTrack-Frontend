@@ -28,6 +28,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Pagination, PaginationContent, PaginationItem, PaginationEllipsis, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -143,6 +144,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const [selectedStudent, setSelectedStudent] = useState<string>("all")
   const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
 
   // Handle end date validation
   const handleEndDateChange = (date: Date | null) => {
@@ -270,14 +277,14 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     try {
       setLoading(true)
       console.log('🚁 Fetching flight logs - Starting...')
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      console.log('🚁 Auth check:', { schoolId: !!schoolId, token: !!token, apiKey: !!apiKey })
+      console.log('🚁 Auth check:', { organizationId: !!organizationId, token: !!token, apiKey: !!apiKey })
       
-      if (!schoolId || !token) {
-        setError("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        setError("Organization ID or authentication token not found")
         setLoading(false)
         return
       }
@@ -288,10 +295,14 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      let apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule`
+      let apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule`
       
       // Build query parameters
       const params = new URLSearchParams()
+      
+      // Add pagination parameters
+      params.append("page", currentPage.toString())
+      params.append("limit", itemsPerPage.toString())
       
       // Add date filters
       if (selectedDate) {
@@ -307,6 +318,11 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
             params.append("end_date", endDate)
           }
         }
+      }
+      
+      // Add search query
+      if (searchQuery.trim()) {
+        params.append("search", searchQuery.trim())
       }
       
       // Add other filters
@@ -362,6 +378,16 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         if (data.success && data.data && data.data.schedules && Array.isArray(data.data.schedules)) {
           console.log('Raw schedules count:', data.data.schedules.length)
           
+          // Update pagination metadata
+          if (data.data.pagination) {
+            setTotalItems(data.data.pagination.totalCount || 0)
+            setTotalPages(data.data.pagination.pages || 1)
+          } else {
+            // Fallback if no pagination metadata
+            setTotalItems(data.data.schedules.length)
+            setTotalPages(Math.ceil(data.data.schedules.length / itemsPerPage))
+          }
+          
           // Transform the schedule data to match our FlightLog interface
           const transformedFlights: FlightLog[] = data.data.schedules.map((schedule: any) => {
           // Parse UTC time and convert to local time for display
@@ -388,7 +414,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
             duration: schedule.scheduled_duration || 0,
             type: schedule.flight_type || 'Training',
             status: capitalizeStatus(schedule.status || 'scheduled'),
-            school_id: schedule.school_id?._id || schoolId,
+            school_id: schedule.school_id?._id || organizationId,
             created_at: schedule.created_at || '',
             updated_at: schedule.updated_at || ''
           }
@@ -482,12 +508,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const fetchStudents = async () => {
     try {
       setLoadingStudents(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found")
         return
       }
 
@@ -496,7 +522,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`
       
       console.log('Fetching students from:', apiUrl)
       
@@ -547,12 +573,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const fetchInstructors = async () => {
     try {
       setLoadingInstructors(true);
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found");
         return;
       }
 
@@ -561,7 +587,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return;
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`;
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/instructors`;
       
       console.log('Fetching instructors from:', apiUrl);
       
@@ -615,12 +641,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const fetchAircraft = async () => {
     try {
       setLoadingAircraft(true);
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found");
         return;
       }
 
@@ -629,7 +655,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return;
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`;
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes`;
       
       console.log('Fetching aircraft from:', apiUrl);
       
@@ -688,7 +714,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
   useEffect(() => {
     fetchFlightLogs()
-  }, [selectedDate, selectedEndDate, selectedStatus, selectedAircraft, selectedInstructor, selectedStudent, startTime, endTime])
+  }, [selectedDate, selectedEndDate, selectedStatus, selectedAircraft, selectedInstructor, selectedStudent, startTime, endTime, currentPage, itemsPerPage, searchQuery])
 
   // Check for edit parameter in URL and enter edit mode if found
   useEffect(() => {
@@ -836,10 +862,17 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     setSelectedAircraft("all")
     setSelectedInstructor("all")
     setSelectedStudent("all")
+    setCurrentPage(1) // Reset to first page
     // Close any open comboboxes
     setAircraftOpen(false)
     setInstructorOpen(false)
     setStudentOpen(false)
+  }
+
+  // Reset to first page when filters change
+  const handleFilterChange = (callback: () => void) => {
+    callback()
+    setCurrentPage(1)
   }
 
   const handleEditClick = () => {
@@ -857,12 +890,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     if (!editedFlight) return
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found")
         return
       }
 
@@ -871,7 +904,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${editedFlight._id}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${editedFlight._id}`
       
       console.log('Updating flight log:', apiUrl)
       
@@ -940,12 +973,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
     try {
       setIsDeleting(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found")
         return
       }
 
@@ -954,7 +987,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`
       
       console.log('Deleting flight log:', apiUrl)
       
@@ -1094,12 +1127,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     if (!selectedFlight) return;
     
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found");
         return;
       }
 
@@ -1110,7 +1143,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
       const updatedFlight = { ...selectedFlight, status: newStatus };
       
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`;
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`;
       
       console.log('Updating flight status:', apiUrl);
       
@@ -1214,7 +1247,10 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                       <Input
                         placeholder="Search flights..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value)
+                          setCurrentPage(1) // Reset to first page when searching
+                        }}
                         className="h-8 w-full sm:w-[280px] lg:w-[320px] pl-10 pr-10 text-sm"
                       />
                       {searchQuery && (
@@ -1274,16 +1310,37 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                     )}
                   </div>
                   
-                  <div className="text-sm text-muted-foreground whitespace-nowrap">
-                    {searchQuery ? (
-                      <>
-                        {filteredAndSortedFlights.length} of {flights.length} flight{flights.length !== 1 ? 's' : ''} 
-                        {filteredAndSortedFlights.length !== flights.length && (
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm text-muted-foreground whitespace-nowrap">
+                      {searchQuery || selectedDate || selectedStatus !== "all" || selectedAircraft !== "all" || selectedInstructor !== "all" || selectedStudent !== "all" || startTime || endTime ? (
+                        <>
+                          Showing {flights.length} of {totalItems} flight{totalItems !== 1 ? 's' : ''} 
                           <span className="text-[#3366ff]"> (filtered)</span>
-                        )}
-                      </>
-                    ) : (
-                      `${flights.length} flight${flights.length !== 1 ? 's' : ''} found`
+                        </>
+                      ) : (
+                        `Showing ${flights.length} of ${totalItems} flight${totalItems !== 1 ? 's' : ''}`
+                      )}
+                    </div>
+                    
+                    {!selectedFlight && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Per page:</Label>
+                        <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                          setItemsPerPage(parseInt(value))
+                          setCurrentPage(1) // Reset to first page when changing items per page
+                        }}>
+                          <SelectTrigger className="h-8 w-16 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="25">25</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1741,8 +1798,8 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                                 </TableRow>
                               ))}
                             </>
-                          ) : filteredAndSortedFlights.length > 0 ? (
-                            filteredAndSortedFlights.map((flight) => (
+                          ) : flights.length > 0 ? (
+                            flights.map((flight) => (
                               <TableRow 
                                 key={flight._id}
                                 className={`cursor-pointer hover:bg-muted/50 ${
@@ -1811,6 +1868,119 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                   </div>
                 </div>
               </div>
+              
+              {/* Pagination Controls */}
+              {!selectedFlight && totalPages > 1 && (
+                <div className="flex-shrink-0 mt-4 mx-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Page {currentPage} of {totalPages} ({totalItems} total flights)
+                    </div>
+                    
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              if (currentPage > 1) {
+                                setCurrentPage(currentPage - 1)
+                              }
+                            }}
+                            className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                          />
+                        </PaginationItem>
+
+                        {/* Always show first page */}
+                        {totalPages > 0 && (
+                          <PaginationItem>
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setCurrentPage(1)
+                              }}
+                              isActive={currentPage === 1}
+                            >
+                              1
+                            </PaginationLink>
+                          </PaginationItem>
+                        )}
+
+                        {/* Show ellipsis if there's a gap */}
+                        {currentPage > 3 && totalPages > 4 && (
+                          <PaginationItem>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        )}
+
+                        {/* Show pages around current page */}
+                        {(() => {
+                          const start = Math.max(2, currentPage - 1);
+                          const end = Math.min(totalPages - 1, currentPage + 1);
+                          const items = [];
+
+                          for (let page = start; page <= end; page++) {
+                            items.push(
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  href="#"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    setCurrentPage(page)
+                                  }}
+                                  isActive={currentPage === page}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          }
+
+                          return items;
+                        })()}
+
+                        {/* Show ellipsis if there's a gap at the end */}
+                        {currentPage < totalPages - 2 && totalPages > 4 && (
+                          <PaginationItem>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        )}
+
+                        {/* Always show last page if more than 1 page */}
+                        {totalPages > 1 && (
+                          <PaginationItem>
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setCurrentPage(totalPages)
+                              }}
+                              isActive={currentPage === totalPages}
+                            >
+                              {totalPages}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )}
+                        
+                        <PaginationItem>
+                          <PaginationNext
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              if (currentPage < totalPages) {
+                                setCurrentPage(currentPage + 1)
+                              }
+                            }}
+                            className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

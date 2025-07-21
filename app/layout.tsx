@@ -11,6 +11,30 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "Albatross - The Ultimate Flight School Management Dashboard",
   description: "Streamline your flight school operations with our comprehensive dashboard solution.",
+  icons: {
+    icon: [
+      {
+        url: '/favicon.ico',
+        sizes: 'any',
+      },
+      {
+        url: '/favicon-32x32.png',
+        type: 'image/png',
+        sizes: '32x32',
+      },
+      {
+        url: '/favicon-16x16.png',
+        type: 'image/png',
+        sizes: '16x16',
+      },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/site.webmanifest',
+  other: {
+    'msapplication-TileColor': '#ffffff',
+    'theme-color': '#ffffff',
+  },
 }
 
 export default function RootLayout({
@@ -20,7 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning={true}>
         <ThemeProvider defaultTheme="light" storageKey="albatross-theme">
           <MantineThemeProvider>
             {children}

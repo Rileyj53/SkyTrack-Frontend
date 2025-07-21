@@ -15,6 +15,7 @@ export function middleware(request: NextRequest) {
   const protectedRoutes = [
     '/dashboard',
     '/settings',
+    '/account-settings',
     '/instructors',
     '/students',
     '/aircraft',

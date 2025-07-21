@@ -42,10 +42,20 @@ export function SettingsPage() {
         const data = await response.json()
         console.log('User data received:', JSON.stringify(data, null, 2))
         
-        // Store the school ID in localStorage for other components to use
-        if (data.data && data.data.user && data.data.user.school_id) {
+        // Store the organization ID in localStorage for other components to use
+        if (data.data?.user?.organizationId) {
+          localStorage.setItem("organizationId", data.data.user.organizationId)
+          console.log('Stored organization ID in localStorage:', data.data.user.organizationId)
+        } else if (data.data?.user?.school_id) {
+          // Fallback for legacy data
           localStorage.setItem("schoolId", data.data.user.school_id)
-          console.log('Stored school ID in localStorage:', data.data.user.school_id)
+          console.log('Stored legacy school ID in localStorage:', data.data.user.school_id)
+        } else if (data.user?.organizationId) {
+          localStorage.setItem("organizationId", data.user.organizationId)
+          console.log('Stored organization ID in localStorage:', data.user.organizationId)
+        } else if (data.user?.school_id) {
+          localStorage.setItem("schoolId", data.user.school_id)
+          console.log('Stored legacy school ID in localStorage:', data.user.school_id)
         }
       } catch (error) {
         console.error("Auth check failed:", error)

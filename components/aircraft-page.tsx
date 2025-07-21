@@ -203,13 +203,44 @@ export function AircraftPage() {
         const data = await response.json()
         console.log('User data received:', JSON.stringify(data, null, 2))
         
-        if (data.data && data.data.user && data.data.user.school_id) {
+        // Store the organization ID in localStorage for other components to use
+        let hasStoredId = false
+        
+        if (data.data?.user?.organizationId) {
+          localStorage.setItem("organizationId", data.data.user.organizationId)
+          console.log('Stored organization ID in localStorage:', data.data.user.organizationId)
+          hasStoredId = true
+        } else if (data.data?.user?.school_id) {
+          // Fallback for legacy data
           localStorage.setItem("schoolId", data.data.user.school_id)
-          console.log('Stored school ID in localStorage:', data.data.user.school_id)
-          setIsAuthenticated(true)
-        } else {
-          throw new Error("Invalid user data")
+          console.log('Stored legacy school ID in localStorage:', data.data.user.school_id)
+          hasStoredId = true
+        } else if (data.user?.organizationId) {
+          localStorage.setItem("organizationId", data.user.organizationId)
+          console.log('Stored organization ID in localStorage:', data.user.organizationId)
+          hasStoredId = true
+        } else if (data.user?.school_id) {
+          localStorage.setItem("schoolId", data.user.school_id)
+          console.log('Stored legacy school ID in localStorage:', data.user.school_id)
+          hasStoredId = true
         }
+        
+        // If no org/school ID found in response, check localStorage for existing values
+        if (!hasStoredId) {
+          const existingOrgId = localStorage.getItem("organizationId")
+          const existingSchoolId = localStorage.getItem("schoolId")
+          
+          if (existingOrgId || existingSchoolId) {
+            console.log('Using existing organization/school ID from localStorage')
+            hasStoredId = true
+          } else {
+            console.warn('No organization or school ID found in API response or localStorage')
+          }
+        }
+        
+        // Set authenticated regardless - we have a valid token and user data
+        setIsAuthenticated(true)
+        console.log('Authentication successful')
       } catch (error) {
         console.error("Auth check failed:", error)
         router.push("/login")
@@ -231,21 +262,21 @@ export function AircraftPage() {
     console.log("Starting to fetch aircraft data")
     try {
       setLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
       console.log("Credentials check:", { 
-        hasSchoolId: !!schoolId, 
+        hasOrganizationId: !!organizationId, 
         hasToken: !!token,
         apiUrl: process.env.NEXT_PUBLIC_API_URL,
         apiKey: !!process.env.NEXT_PUBLIC_API_KEY
       })
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes`
       console.log("Fetching from URL:", apiUrl)
 
       const response = await fetch(apiUrl, {
@@ -431,11 +462,11 @@ export function AircraftPage() {
   // Save edited rates
   const handleSaveRates = async (id: string) => {
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const aircraftToUpdate = aircraft.find(a => a.id === id)
@@ -452,7 +483,7 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${id}`,
         {
           method: 'PUT',
           headers: {
@@ -512,11 +543,11 @@ export function AircraftPage() {
   // Update the handleAddSpecialRate function
   const handleAddSpecialRate = async (aircraftId: string) => {
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const aircraftToUpdate = aircraft.find(a => a.id === aircraftId)
@@ -539,7 +570,7 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${aircraftId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${aircraftId}`,
         {
           method: 'PUT',
           headers: {
@@ -583,11 +614,11 @@ export function AircraftPage() {
   // Update the handleRemoveSpecialRate function
   const handleRemoveSpecialRate = async (aircraftId: string, rateId: string) => {
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const aircraftToUpdate = aircraft.find(a => a.id === aircraftId)
@@ -605,7 +636,7 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${aircraftId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${aircraftId}`,
         {
           method: 'PUT',
           headers: {
@@ -657,15 +688,15 @@ export function AircraftPage() {
     if (!editedAircraft) return
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${editedAircraft.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${editedAircraft.id}`,
         {
           method: 'PUT',
           headers: {
@@ -744,11 +775,11 @@ export function AircraftPage() {
     if (!selectedAircraft || !editingField) return
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const updatedAircraft = {
@@ -757,7 +788,7 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${selectedAircraft.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${selectedAircraft.id}`,
         {
           method: 'PUT',
           headers: {
@@ -804,11 +835,11 @@ export function AircraftPage() {
     if (!updatingStatus || !newStatus) return
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const updatedAircraft = {
@@ -817,7 +848,7 @@ export function AircraftPage() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${updatingStatus.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${updatingStatus.id}`,
         {
           method: 'PUT',
           headers: {
@@ -915,16 +946,16 @@ export function AircraftPage() {
 
     try {
       setLoadingMaintenanceData(true);
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       // Fetch maintenance records using the new API endpoint
       const recordsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/records`,
         {
           headers: {
             'Accept': 'application/json',
@@ -967,16 +998,16 @@ export function AircraftPage() {
 
       try {
         setLoadingMaintenanceData(true);
-        const schoolId = localStorage.getItem("schoolId")
+        const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
         const token = localStorage.getItem("token")
         
-        if (!schoolId || !token) {
-          throw new Error("School ID or authentication token not found")
+        if (!organizationId || !token) {
+          throw new Error("Organization ID or authentication token not found")
         }
 
         // Fetch maintenance records using the new API endpoint
         const recordsResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records`,
+          `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/records`,
           {
             headers: {
               'Accept': 'application/json',
@@ -1028,16 +1059,16 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const endpoint = editingServiceBulletin
-        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${editingServiceBulletin._id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins`;
+        ? `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/service-bulletins/${editingServiceBulletin._id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/service-bulletins`;
 
       const method = editingServiceBulletin ? 'PUT' : 'POST';
 
@@ -1086,15 +1117,15 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
         {
           method: 'DELETE',
           headers: {
@@ -1126,15 +1157,15 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/service-bulletins/${sbId}`,
         {
           method: 'PUT',
           headers: {
@@ -1167,16 +1198,16 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const endpoint = editingAD
-        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${editingAD._id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives`;
+        ? `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${editingAD._id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/airworthiness-directives`;
 
       const method = editingAD ? 'PUT' : 'POST';
 
@@ -1234,15 +1265,15 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${adId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/airworthiness-directives/${adId}`,
         {
           method: 'DELETE',
           headers: {
@@ -1274,16 +1305,16 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const endpoint = editingMaintenanceRecord
-        ? `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records/${editingMaintenanceRecord.id}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records`;
+        ? `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/records/${editingMaintenanceRecord.id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/records`;
 
       const method = editingMaintenanceRecord ? 'PUT' : 'POST';
 
@@ -1333,15 +1364,15 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/records/${recordId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/records/${recordId}`,
         {
           method: 'DELETE',
           headers: {
@@ -1373,15 +1404,15 @@ export function AircraftPage() {
     if (!maintenanceAircraft) return;
 
     try {
-      const schoolId = localStorage.getItem("schoolId");
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
       const token = localStorage.getItem("token");
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found");
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found");
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/${maintenanceAircraft.id}/maintenance-schedule`,
         {
           method: 'PUT',
           headers: {

@@ -54,7 +54,10 @@ export default function FlightLogPage() {
         const data = await response.json();
 
         if (data.success && data.data) {
-          if (data.data.user && data.data.user.school_id) {
+          if (data.data.user && data.data.user.organizationId) {
+            localStorage.setItem('organizationId', data.data.user.organizationId);
+          } else if (data.data.user && data.data.user.school_id) {
+            // Fallback for legacy data
             localStorage.setItem('schoolId', data.data.user.school_id);
           }
           setUserData(data.data);

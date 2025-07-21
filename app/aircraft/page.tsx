@@ -1,3 +1,5 @@
+"use client"
+
 import { Suspense } from "react"
 import { Plane } from "lucide-react"
 import { AircraftPage } from "@/components/aircraft-page"
@@ -5,6 +7,9 @@ import { Card, CardContent } from "@/components/ui/card"
 
 export default function Aircraft() {
   console.log("Aircraft page component mounting")
+
+// Authentication is handled by the AircraftPage component
+
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center p-4">

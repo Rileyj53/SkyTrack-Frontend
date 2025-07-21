@@ -38,12 +38,21 @@ interface UserData {
     role: string
     first_name: string
     last_name: string
-    school?: {
+    organization_id: string
+    organization?: {
       name: string
+      type: string
       address: {
+        street: string
         city: string
         state: string
+        zip: string
+        country: string
       }
+      airport: string
+      phone: string
+      email: string
+      website: string
     }
   }
 }
@@ -213,7 +222,7 @@ export function MainNav() {
             <span className="hidden font-bold sm:inline-block">
               Albatross
               <span className="hidden 2xl:inline">
-                {userData?.user.school?.name ? ` - ${userData.user.school.name}` : ''}
+                {userData?.user.organization?.name ? ` - ${userData.user.organization.name}` : ''}
               </span>
             </span>
           </Link>
@@ -323,8 +332,8 @@ export function MainNav() {
                 </div>
                 <div className="flex flex-col">
                   <span className="font-bold text-sm">Albatross</span>
-                  {userData?.user.school?.name && (
-                    <span className="text-xs text-muted-foreground font-medium">{userData.user.school.name}</span>
+                  {userData?.user.organization?.name && (
+                    <span className="text-xs text-muted-foreground font-medium">{userData.user.organization.name}</span>
                   )}
                 </div>
               </div>
@@ -392,14 +401,14 @@ export function MainNav() {
                 {/* User Actions */}
                 <div className="space-y-1">
                   <Link
-                    href="/profile"
+                    href="/account-settings"
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-background/60 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <div className="p-1.5 rounded-md bg-muted/40">
                       <User className="h-3.5 w-3.5 flex-shrink-0" />
                     </div>
-                    <span className="font-medium">Profile</span>
+                    <span className="font-medium">Account Settings</span>
                   </Link>
                   
                   {/* Mobile Theme Toggle */}

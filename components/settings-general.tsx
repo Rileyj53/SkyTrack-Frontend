@@ -80,16 +80,16 @@ export function SettingsGeneral() {
   const fetchSchoolData = async () => {
     try {
       setLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token || !apiKey) {
+      if (!organizationId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}`,
         {
           headers: {
             "Accept": "application/json",
@@ -127,16 +127,16 @@ export function SettingsGeneral() {
 
     try {
       setIsSaving(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token || !apiKey) {
+      if (!organizationId || !token || !apiKey) {
         throw new Error("Missing required credentials")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}`,
         {
           method: "PUT",
           headers: {

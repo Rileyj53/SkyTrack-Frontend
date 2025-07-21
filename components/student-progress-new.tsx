@@ -152,14 +152,14 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const schoolId = localStorage.getItem('schoolId');
+        const organizationId = localStorage.getItem('organizationId') || localStorage.getItem('schoolId');
         const token = localStorage.getItem('token');
 
-        if (!schoolId || !token) {
-          throw new Error('School ID or authentication token not found');
+        if (!organizationId || !token) {
+          throw new Error('Organization ID or authentication token not found');
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/programs`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs`, {
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
@@ -192,11 +192,18 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         setLoading(true);
         setError(null);
 
-        const schoolId = localStorage.getItem('schoolId');
+        const organizationId = localStorage.getItem('organizationId') || localStorage.getItem('schoolId');
         const token = localStorage.getItem('token');
 
-        if (!schoolId || !token) {
-          throw new Error('School ID or authentication token not found');
+        console.log('🔍 STUDENT PROGRESS DEBUG - CHECK THESE VALUES:');
+        console.log('organizationId from localStorage:', localStorage.getItem('organizationId'));
+        console.log('schoolId from localStorage:', localStorage.getItem('schoolId'));
+        console.log('Final organizationId being used:', organizationId);
+        console.log('Has token:', !!token);
+        console.log('API URL being called:', `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`);
+
+        if (!organizationId || !token) {
+          throw new Error('Organization ID or authentication token not found');
         }
 
         const params = new URLSearchParams({
@@ -208,7 +215,7 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
           params.append('search', search.trim());
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students?${params.toString()}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students?${params.toString()}`, {
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',

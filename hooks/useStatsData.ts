@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 
 export interface StatsData {
   overview: {
-    school_name: string
+    organization_name: string
     total_students: number
     active_students: number
     total_instructors: number
@@ -122,8 +122,8 @@ export interface StatsResponse {
   data: {
     stats: StatsData
     metadata: {
-      school_id: string
-      school_name: string
+      organization_id: string
+      organization_name: string
       time_range_days: number
       start_date: string
       end_date: string
@@ -155,12 +155,12 @@ export function useStatsData() {
       setLoading(true)
       setError(null)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!apiKey) {
@@ -168,7 +168,7 @@ export function useStatsData() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/stats`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/stats`,
         {
           method: 'GET',
           headers: {

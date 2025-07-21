@@ -97,14 +97,14 @@ function UsersTable() {
     const fetchStudents = async () => {
       try {
         const token = localStorage.getItem("token");
-        const schoolId = localStorage.getItem("schoolId");
+        const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
         
-        if (!token || !schoolId) {
-          setError("Missing authentication or school information");
+        if (!token || !organizationId) {
+          setError("Missing authentication or organization information");
           return;
         }
 
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`;
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`;
         console.log('Fetching students from:', apiUrl);
         
         const response = await fetch(apiUrl, {

@@ -47,10 +47,20 @@ export function InstructorsPage() {
         const data = await response.json()
         console.log('User data received:', JSON.stringify(data, null, 2))
         
-        // Store the school ID in localStorage for other components to use
-        if (data.user && data.user.school_id) {
+        // Store the organization ID in localStorage for other components to use
+        if (data.data?.user?.organizationId) {
+          localStorage.setItem("organizationId", data.data.user.organizationId)
+          console.log('Stored organization ID in localStorage:', data.data.user.organizationId)
+        } else if (data.data?.user?.school_id) {
+          // Fallback for legacy data
+          localStorage.setItem("schoolId", data.data.user.school_id)
+          console.log('Stored legacy school ID in localStorage:', data.data.user.school_id)
+        } else if (data.user?.organizationId) {
+          localStorage.setItem("organizationId", data.user.organizationId)
+          console.log('Stored organization ID in localStorage:', data.user.organizationId)
+        } else if (data.user?.school_id) {
           localStorage.setItem("schoolId", data.user.school_id)
-          console.log('Stored school ID in localStorage:', data.user.school_id)
+          console.log('Stored legacy school ID in localStorage:', data.user.school_id)
         }
       } catch (error) {
         console.error("Auth check failed:", error)
@@ -68,12 +78,12 @@ export function InstructorsPage() {
   const fetchInstructors = async () => {
     try {
       setLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found")
         return
       }
 
@@ -82,7 +92,7 @@ export function InstructorsPage() {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/instructors`
       
       const response = await fetch(apiUrl, {
         method: 'GET',

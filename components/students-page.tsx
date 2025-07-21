@@ -237,9 +237,14 @@ export function StudentsPage() {
 
         const data = await response.json()
         
-        // Store the school ID in localStorage for other components to use
-        if (data.data?.user && data.data.user.school_id) {
+        // Store the organization ID in localStorage for other components to use
+        if (data.data?.user && data.data.user.organizationId) {
+          localStorage.setItem("organizationId", data.data.user.organizationId)
+        } else if (data.data?.user && data.data.user.school_id) {
+          // Fallback for legacy data
           localStorage.setItem("schoolId", data.data.user.school_id)
+        } else if (data.user && data.user.organizationId) {
+          localStorage.setItem("organizationId", data.user.organizationId)
         } else if (data.user && data.user.school_id) {
           localStorage.setItem("schoolId", data.user.school_id)
         }
@@ -312,15 +317,15 @@ export function StudentsPage() {
   const fetchStudents = async () => {
     try {
       setLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`,
         {
           headers: {
             'Accept': 'application/json',
@@ -350,18 +355,18 @@ export function StudentsPage() {
   const fetchPrograms = async () => {
     try {
       setProgramsLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        console.log('Missing schoolId or token for fetching programs')
+      if (!organizationId || !token) {
+        console.log('Missing organizationId or token for fetching programs')
         return // Keep default programs
       }
 
-      console.log('Fetching programs for school:', schoolId)
+      console.log('Fetching programs for organization:', organizationId)
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/programs`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs`,
         {
           headers: {
             'Accept': 'application/json',
@@ -437,15 +442,15 @@ export function StudentsPage() {
         return
       }
 
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/invite`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/invite`,
         {
           method: 'POST',
           headers: {

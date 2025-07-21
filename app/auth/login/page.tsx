@@ -161,7 +161,19 @@ export default function LoginPage() {
 
     // Store additional user info if available
     if (data.user) {
+      console.log('🔍 LOGIN DEBUG - Full user object:', data.user);
+      console.log('🔍 LOGIN DEBUG - organization_id in user:', data.user.organization_id);
       localStorage.setItem("user", JSON.stringify(data.user))
+      
+      // Store organization ID for API calls
+      if (data.user.organizationId) {
+        console.log('🔍 LOGIN DEBUG - Storing organizationId:', data.user.organizationId);
+        localStorage.setItem("organizationId", data.user.organizationId)
+      } else {
+        console.log('🔍 LOGIN DEBUG - No organizationId found in user object');
+      }
+    } else {
+      console.log('🔍 LOGIN DEBUG - No user object in response data');
     }
 
     // Redirect based on role

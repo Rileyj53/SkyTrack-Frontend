@@ -124,14 +124,14 @@ export function SchedulePage() {
 
   const fetchStudent = async (studentId: string) => {
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token || !apiKey) return null
+      if (!organizationId || !token || !apiKey) return null
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           headers: {
             "Accept": "application/json",
@@ -156,14 +156,14 @@ export function SchedulePage() {
 
   const fetchInstructors = async (): Promise<void> => {
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token || !apiKey) return
+      if (!organizationId || !token || !apiKey) return
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/instructors`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/instructors`,
         {
           headers: {
             "Accept": "application/json",
@@ -210,14 +210,14 @@ export function SchedulePage() {
 
   const fetchAllStudents = async (): Promise<void> => {
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token || !apiKey) return
+      if (!organizationId || !token || !apiKey) return
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`,
         {
           headers: {
             "Accept": "application/json",
@@ -297,11 +297,11 @@ export function SchedulePage() {
       }
       setError(null)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
+      if (!organizationId || !token) {
         throw new Error("Please sign in again to continue")
       }
 
@@ -328,7 +328,7 @@ export function SchedulePage() {
         params.append("student_id", filters.student)
       }
       
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule?${params.toString()}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule?${params.toString()}`
       
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -437,9 +437,12 @@ export function SchedulePage() {
 
         const data = await response.json()
         
-        // Store the school ID in localStorage for other components to use
-        if (data.user && data.user.school_id) {
-          localStorage.setItem("schoolId", data.user.school_id)
+        // Store the organization ID in localStorage for other components to use
+        if (data.data && data.data.user && data.data.user.organizationId) {
+          localStorage.setItem("organizationId", data.data.user.organizationId)
+        } else if (data.data && data.data.user && data.data.user.school_id) {
+          // Fallback for legacy data
+          localStorage.setItem("schoolId", data.data.user.school_id)
         }
       } catch (error) {
         console.error("Auth check failed:", error)

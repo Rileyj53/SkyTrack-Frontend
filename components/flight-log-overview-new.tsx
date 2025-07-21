@@ -67,8 +67,10 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
     
     try {
       const [hours, minutes] = time.split(':').map(Number)
+      if (isNaN(hours) || isNaN(minutes)) return time
+      
       const date = new Date()
-      date.setHours(hours, minutes)
+      date.setHours(hours, minutes, 0, 0)
       return date.toLocaleTimeString('en-US', { 
         hour: 'numeric', 
         minute: '2-digit',
@@ -84,6 +86,8 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
     
     try {
       const date = new Date(dateString)
+      if (isNaN(date.getTime())) return dateString
+      
       return date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
@@ -103,12 +107,12 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   const fetchFlightLogs = async (page = 1) => {
     try {
       setLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        setError("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        setError("Organization ID or authentication token not found")
         setLoading(false)
         return
       }
@@ -129,7 +133,7 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
       const startDateUTC = startOfDay.toISOString().split('T')[0]
       const endDateUTC = endOfDay.toISOString().split('T')[0]
       
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule?page=${page}&limit=${FLIGHTS_PER_PAGE}&start_date=${startDateUTC}&end_date=${endDateUTC}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule?page=${page}&limit=${FLIGHTS_PER_PAGE}&start_date=${startDateUTC}&end_date=${endDateUTC}`
       
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -182,7 +186,7 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
             duration: schedule.scheduled_duration || 0,
             type: schedule.flight_type || 'Training',
             status: capitalizeStatus(schedule.status || 'scheduled'),
-            school_id: schedule.school_id?._id || schoolId,
+            organization_id: schedule.organization_id?._id || organizationId,
             created_at: schedule.created_at || '',
             updated_at: schedule.updated_at || ''
           };
@@ -223,11 +227,11 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
 
     try {
       setIsUpdatingFlight(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
 
-      if (!schoolId || !token || !apiKey) {
+      if (!organizationId || !token || !apiKey) {
         throw new Error("Missing required authentication data")
       }
 
@@ -237,7 +241,7 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
       flightDate.setHours(hours, minutes, 0, 0)
       const actualStartTimeISO = flightDate.toISOString()
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`, {
         method: 'PUT',
         headers: {
           'Accept': 'application/json',
@@ -287,11 +291,11 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
 
     try {
       setIsUpdatingFlight(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
 
-      if (!schoolId || !token || !apiKey) {
+      if (!organizationId || !token || !apiKey) {
         throw new Error("Missing required authentication data")
       }
 
@@ -301,7 +305,7 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
       flightDate.setHours(hours, minutes, 0, 0)
       const actualEndTimeISO = flightDate.toISOString()
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule/${selectedFlight._id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`, {
         method: 'PUT',
         headers: {
           'Accept': 'application/json',

@@ -115,7 +115,7 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/programs`,
+          `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs`,
           {
             headers: {
               'Accept': 'application/json',
@@ -148,15 +148,15 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
         setLoading(true)
         setError(null)
         
-        const schoolId = localStorage.getItem("schoolId")
+        const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
         const token = localStorage.getItem("token")
         
-        if (!schoolId || !token) {
-          throw new Error("School ID or authentication token not found")
+        if (!organizationId || !token) {
+          throw new Error("Organization ID or authentication token not found")
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+          `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`,
           {
             headers: {
               'Accept': 'application/json',
@@ -212,15 +212,15 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
 
   const handleAddStudent = async () => {
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`,
         {
           method: 'POST',
           headers: {
@@ -242,7 +242,7 @@ export function StudentProgress({ className, fullView = false }: StudentProgress
       // Refresh the student list
       const fetchStudents = async () => {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students`,
+          `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`,
           {
             headers: {
               'Accept': 'application/json',

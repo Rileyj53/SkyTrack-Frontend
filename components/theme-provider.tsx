@@ -37,8 +37,11 @@ export function ThemeProvider({
 
     if (savedTheme && ["dark", "light", "system"].includes(savedTheme)) {
       setTheme(savedTheme as Theme)
+    } else {
+      // Ensure we use the defaultTheme if no saved theme exists
+      setTheme(defaultTheme)
     }
-  }, [storageKey])
+  }, [storageKey, defaultTheme])
 
   useEffect(() => {
     const root = window.document.documentElement

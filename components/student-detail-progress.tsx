@@ -400,11 +400,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       setLoading(true)
       setError(null)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       // Fetch complete user data
@@ -449,7 +449,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           headers: {
             'Accept': 'application/json',
@@ -623,13 +623,13 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     setLedgerLoading(true)
     try {
       const token = localStorage.getItem("token")
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       
-      if (!schoolId) {
-        throw new Error("School ID not found")
+      if (!organizationId) {
+        throw new Error("Organization ID not found")
       }
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}/ledger`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}/ledger`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -659,13 +659,13 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
   const recalculateBalance = async () => {
     try {
       const token = localStorage.getItem("token")
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       
-      if (!schoolId) {
-        throw new Error("School ID not found")
+      if (!organizationId) {
+        throw new Error("Organization ID not found")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}/ledger/recalculate`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}/ledger/recalculate`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -698,13 +698,13 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     setIsAddingPaymentLoading(true)
     try {
       const token = localStorage.getItem("token")
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       
-      if (!schoolId) {
-        throw new Error("School ID not found")
+      if (!organizationId) {
+        throw new Error("Organization ID not found")
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}/ledger`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}/ledger`, {
         method: 'PUT',
         headers: {
           'Accept': 'application/json',
@@ -798,11 +798,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsAddingRequirementLoading(true)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       // Create the new requirement object (without _id - let server generate it)
@@ -855,7 +855,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       console.log("Add requirement payload:", updatePayload)
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -923,11 +923,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsDeletingRequirement(requirementId)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       // Create updated requirements array without the deleted requirement
@@ -977,7 +977,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       console.log("Full update payload:", updatePayload)
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1042,11 +1042,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsTogglingMilestone(milestoneId)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1069,7 +1069,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1126,11 +1126,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsTogglingStage(stageId)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1153,7 +1153,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1215,11 +1215,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     }
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1245,7 +1245,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1294,11 +1294,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     }
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1324,7 +1324,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1372,11 +1372,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     if (!editingMilestone) return
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1399,7 +1399,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1455,11 +1455,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     if (!editingStage) return
 
     try {
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1482,7 +1482,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1537,11 +1537,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsDeletingMilestone(milestoneId)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1560,7 +1560,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1614,11 +1614,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsDeletingStage(stageId)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1637,7 +1637,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1682,11 +1682,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     
     try {
       setIsSaving(true);
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!student) {
@@ -1729,7 +1729,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       console.log("Sending update payload:", updatePayload);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1806,11 +1806,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsAddingNoteLoading(true)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       // Get user info from the state
@@ -1846,7 +1846,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       console.log("Update payload:", updatePayload)
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {
@@ -1919,11 +1919,11 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
     try {
       setIsDeletingNote(noteId)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       // Filter out the note to be deleted
@@ -1938,7 +1938,7 @@ export function StudentDetailProgress({ studentId, className }: StudentDetailPro
       console.log("Updated notes after deletion:", updatedNotes)
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/students/${studentId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/${studentId}`,
         {
           method: 'PUT',
           headers: {

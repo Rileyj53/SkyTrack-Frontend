@@ -76,12 +76,12 @@ export function SettingsPrograms() {
       setLoading(true)
       setError(null)
       
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        throw new Error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
       }
 
       if (!apiKey) {
@@ -89,7 +89,7 @@ export function SettingsPrograms() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/programs`,
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs`,
         {
           headers: {
             "Accept": "application/json",
@@ -161,12 +161,12 @@ export function SettingsPrograms() {
 
     try {
       setSaving(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found")
         return
       }
 
@@ -175,7 +175,7 @@ export function SettingsPrograms() {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/programs/${editedProgram._id}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs/${editedProgram._id}`
       
       console.log('Updating program:', apiUrl)
       
@@ -239,12 +239,12 @@ export function SettingsPrograms() {
 
     try {
       setIsDeleting(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        toast.error("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        toast.error("Organization ID or authentication token not found")
         return
       }
 
@@ -253,7 +253,7 @@ export function SettingsPrograms() {
         return
       }
 
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/programs/${selectedProgram._id}`
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs/${selectedProgram._id}`
       
       console.log('Deleting program:', apiUrl)
       
