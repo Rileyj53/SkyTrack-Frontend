@@ -26,12 +26,16 @@ import {
   IconCalendar,
   IconClock,
 } from '@tabler/icons-react';
-import { useStatsPreferences, type StatConfig } from '@/hooks/useStatsPreferences';
+import { type StatConfig } from '@/components/StatsGrid';
 
 interface StatsCustomizationModalProps {
   opened: boolean;
   onClose: () => void;
   onSave?: () => void;
+  // New props for reusability
+  configs: StatConfig[];
+  onSaveConfigs: (newConfigs: StatConfig[]) => void;
+  defaultConfigs?: StatConfig[];
 }
 
 const iconMap = {
@@ -52,21 +56,26 @@ const formatLabels = {
   duration: 'Duration',
 } as const;
 
-export function StatsCustomizationModal({ opened, onClose, onSave }: StatsCustomizationModalProps) {
-  const { preferences, getAllStats, updateStatConfig, toggleStat, resetToDefault, savePreferences } = useStatsPreferences();
+export function StatsCustomizationModal({ 
+  opened, 
+  onClose, 
+  onSave, 
+  configs, 
+  onSaveConfigs, 
+  defaultConfigs 
+}: StatsCustomizationModalProps) {
   const [localConfigs, setLocalConfigs] = useState<StatConfig[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
   React.useEffect(() => {
     if (opened) {
       console.log('StatsCustomizationModal - Modal opened');
-      console.log('StatsCustomizationModal - Current preferences:', preferences);
-      console.log('StatsCustomizationModal - getAllStats():', getAllStats());
+      console.log('StatsCustomizationModal - Current configs:', configs);
       
-      setLocalConfigs(getAllStats());
+      setLocalConfigs([...configs]);
       setHasChanges(false);
     }
-  }, [opened, getAllStats, preferences]);
+  }, [opened, configs]);
 
   const handleToggle = (statId: string) => {
     console.log('StatsCustomizationModal - Toggling stat:', statId);
@@ -82,13 +91,13 @@ export function StatsCustomizationModal({ opened, onClose, onSave }: StatsCustom
   };
 
   const handleSave = () => {
-    console.log('Saving preferences...');
+    console.log('Saving configs...');
     console.log('localConfigs:', localConfigs);
-    console.log('current preferences:', preferences);
+    console.log('current configs:', configs);
     
     // Batch all changes into a single update
     const newConfigs = localConfigs.map(config => {
-      const original = preferences.configs.find(c => c.id === config.id);
+      const original = configs.find(c => c.id === config.id);
       if (original) {
         return {
           ...original,
@@ -101,18 +110,12 @@ export function StatsCustomizationModal({ opened, onClose, onSave }: StatsCustom
 
     console.log('newConfigs:', newConfigs);
 
-    // Save all preferences at once
-    const newPreferences = {
-      configs: newConfigs,
-      lastUpdated: new Date().toISOString()
-    };
-    
-    console.log('Saving newPreferences:', newPreferences);
-    savePreferences(newPreferences);
+    // Save configs using the provided function
+    onSaveConfigs(newConfigs);
 
     setHasChanges(false);
     
-    // Small delay to ensure localStorage is written before notifying parent
+    // Small delay to ensure changes are processed before notifying parent
     setTimeout(() => {
       onSave?.(); // Call the onSave callback to notify parent
     }, 50);
@@ -121,13 +124,14 @@ export function StatsCustomizationModal({ opened, onClose, onSave }: StatsCustom
   };
 
   const handleReset = () => {
-    resetToDefault();
-    setLocalConfigs(getAllStats());
-    setHasChanges(false);
+    if (defaultConfigs) {
+      setLocalConfigs([...defaultConfigs]);
+      setHasChanges(false);
+    }
   };
 
   const handleCancel = () => {
-    setLocalConfigs(getAllStats());
+    setLocalConfigs([...configs]);
     setHasChanges(false);
     onClose();
   };

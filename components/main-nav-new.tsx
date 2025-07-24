@@ -212,13 +212,18 @@ export function MainNav() {
         {/* Left: Logo */}
         <div className="flex items-center space-x-2 flex-1 justify-start">
           <Link href="/dashboard" className="flex items-center space-x-2">
-            <Image 
-              src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png" 
-              alt="Albatross Logo" 
-              width={50} 
-              height={50} 
-              className="w-12 h-12"
-            />
+            <div className="relative">
+              <Image 
+                src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png" 
+                alt="Albatross Logo" 
+                width={50} 
+                height={50} 
+                className={cn(
+                  "w-12 h-12 transition-all duration-200",
+                  theme === "light" ? "brightness-0" : "brightness-100"
+                )}
+              />
+            </div>
             <span className="hidden font-bold sm:inline-block">
               Albatross
               <span className="hidden 2xl:inline">
@@ -327,7 +332,10 @@ export function MainNav() {
                     alt="Albatross Logo" 
                     width={20} 
                     height={20} 
-                    className="w-5 h-5"
+                    className={cn(
+                      "w-5 h-5 transition-all duration-200",
+                      theme === "light" ? "brightness-0" : "brightness-100"
+                    )}
                   />
                 </div>
                 <div className="flex flex-col">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Plane, School, SettingsIcon, Users, GraduationCap } from "lucide-react"
+import { Plane, School, SettingsIcon, Users, GraduationCap, BarChart3 } from "lucide-react"
 
 import { MainNav } from "@/components/main-nav-new"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,6 +11,7 @@ import { SettingsAircraft } from "@/components/settings-aircraft"
 import { SettingsStudents } from "@/components/settings-students"
 import { SettingsGeneral } from "@/components/settings-general"
 import { SettingsPrograms } from "@/components/settings-programs"
+import { SettingsStatistics } from "@/components/settings-statistics"
 
 export function SettingsPage() {
   const router = useRouter()
@@ -82,7 +83,7 @@ export function SettingsPage() {
         <div className="flex flex-col space-y-4">
 
           <Tabs defaultValue="general" className="space-y-4" onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-5 md:w-[700px]">
+            <TabsList className="grid grid-cols-6 md:w-[800px]">
               <TabsTrigger value="general">
                 <SettingsIcon className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline-block">General</span>
@@ -102,6 +103,10 @@ export function SettingsPage() {
               <TabsTrigger value="programs">
                 <GraduationCap className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline-block">Programs</span>
+              </TabsTrigger>
+              <TabsTrigger value="statistics">
+                <BarChart3 className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline-block">Statistics</span>
               </TabsTrigger>
             </TabsList>
 
@@ -123,6 +128,10 @@ export function SettingsPage() {
 
             <TabsContent value="programs">
               <SettingsPrograms />
+            </TabsContent>
+
+            <TabsContent value="statistics">
+              <SettingsStatistics />
             </TabsContent>
           </Tabs>
         </div>

@@ -1,15 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { MoreHorizontal, Plane, User, ArrowLeft, X, Pencil, Save, AlertTriangle, ArrowUpDown, Filter, ChevronDown, ChevronUp, Check, ChevronsUpDown, Search, HelpCircle, Trash2 } from "lucide-react"
+import { useEffect, useState, useCallback, useMemo, useRef } from "react"
+import { Plane, User, X, Pencil, Save, AlertTriangle, Trash2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { DatePicker } from "@/components/ui/date-picker"
-import { TimePicker } from "@/components/ui/time-picker"
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,16 +17,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Pagination, PaginationContent, PaginationItem, PaginationEllipsis, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +35,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import { ReusableTable, TableColumn, FilterConfig, PaginationConfig, ServerSideConfig } from "@/components/reusable-table"
 
 interface Student {
   _id: string
@@ -115,117 +110,89 @@ interface FlightLogTableProps {
   className?: string
 }
 
+interface PaginationInfo {
+  totalCount: number
+  totalPages: number
+  currentPage: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+  limit: number
+}
+
 export default function FlightLogTable({ className }: FlightLogTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [searchQuery, setSearchQuery] = useState("")
+  
+  // Core data state
   const [flights, setFlights] = useState<FlightLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true) // Separate state for initial load
+  const [filterLoading, setFilterLoading] = useState(false) // Loading state for filters/search
   const [error, setError] = useState<string | null>(null)
+  
+  // Request tracking to prevent race conditions
+  const currentRequestId = useRef<string>('')
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    totalCount: 0,
+    totalPages: 1,
+    currentPage: 1,
+    hasNextPage: false,
+    hasPrevPage: false,
+    limit: 10
+  })
+
+  // Details view state
   const [selectedFlight, setSelectedFlight] = useState<FlightLog | null>(null)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [startTime, setStartTime] = useState<string | null>(null)
-  const [endTime, setEndTime] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editedFlight, setEditedFlight] = useState<FlightLog | null>(null)
   const [showWarning, setShowWarning] = useState(false)
-  const [students, setStudents] = useState<Student[]>([])
-  const [loadingStudents, setLoadingStudents] = useState(false)
-  const [instructors, setInstructors] = useState<Instructor[]>([])
-  const [loadingInstructors, setLoadingInstructors] = useState(false)
-  const [aircraft, setAircraft] = useState<Aircraft[]>([])
-  const [loadingAircraft, setLoadingAircraft] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
-  // Filter state
-  const [selectedStatus, setSelectedStatus] = useState<string>("all")
-  const [selectedAircraft, setSelectedAircraft] = useState<string>("all")
-  const [selectedInstructor, setSelectedInstructor] = useState<string>("all")
-  const [selectedStudent, setSelectedStudent] = useState<string>("all")
-  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
-  
-  // Pagination state
+
+  // Filter and search state  
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(10)
-  const [totalItems, setTotalItems] = useState(0)
-  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [filters, setFilters] = useState<Record<string, string>>({
+    start_date: (() => {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    })(), // Default to today in local timezone
+    end_date: (() => {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    })(), // Default to today in local timezone
+    start_time: "",
+    end_time: "",
+    status: "all",
+    aircraft: "all", 
+    instructor: "all",
+    student: "all"
+  })
 
-  // Handle end date validation
-  const handleEndDateChange = (date: Date | null) => {
-    if (date && selectedDate && date < selectedDate) {
-      // If end date is before start date, reset it
-      toast.error("End date cannot be before start date")
-      setSelectedEndDate(null)
-    } else {
-      setSelectedEndDate(date)
-    }
-  }
+  // Note: Date and time filters are now handled through the main filters system
 
-  // Handle start date validation
-  const handleStartDateChange = (date: Date | null) => {
-    setSelectedDate(date)
-    // If there's an existing end date and it's now before the new start date, reset end date
-    if (date && selectedEndDate && selectedEndDate < date) {
-      setSelectedEndDate(null)
-      toast.info("End date reset because it was before the new start date")
-    }
-  }
-  
-  // Combobox open states
-  const [aircraftOpen, setAircraftOpen] = useState(false)
-  const [instructorOpen, setInstructorOpen] = useState(false)
-  const [studentOpen, setStudentOpen] = useState(false)
-  
-  // Search help tooltip state
-  const [searchHelpOpen, setSearchHelpOpen] = useState(false)
-  
-  const [sortConfig, setSortConfig] = useState<{
-    key: string;
-    direction: 'ascending' | 'descending';
-  } | null>(null);
+  // Supporting data
+  const [students, setStudents] = useState<Student[]>([])
+  const [instructors, setInstructors] = useState<Instructor[]>([])
+  const [aircraft, setAircraft] = useState<Aircraft[]>([])
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
+  // Format helpers
   const formatDate = (dateString: string) => {
     try {
-      // Extract just the date part (YYYY-MM-DD) from the ISO string
       const datePart = dateString.split('T')[0]
       const [year, month, day] = datePart.split('-')
-      
-      // Return in MM/DD/YYYY format
       return `${month}/${day}/${year}`
     } catch (err) {
       console.error('Error formatting date:', err)
-      return dateString // Return original date if parsing fails
+      return dateString
     }
-  }
-
-  const formatDateForAPI = (date: Date | null) => {
-    if (!date) return null
-    // Convert local date to UTC to ensure we get the full day range
-    // When user selects a date, we want all flights for that date in their timezone
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
-  // Get UTC date range for a local date to ensure we capture all flights for that day
-  const getUTCDateRange = (localDate: Date | null) => {
-    if (!localDate) return { startDate: null, endDate: null }
-    
-    // Start of day in local timezone
-    const startOfDay = new Date(localDate)
-    startOfDay.setHours(0, 0, 0, 0)
-    
-    // End of day in local timezone  
-    const endOfDay = new Date(localDate)
-    endOfDay.setHours(23, 59, 59, 999)
-    
-    // Convert to UTC ISO strings and extract date parts
-    const startDateUTC = startOfDay.toISOString().split('T')[0]
-    const endDateUTC = endOfDay.toISOString().split('T')[0]
-    
-    return { startDate: startDateUTC, endDate: endDateUTC }
   }
 
   const formatTime = (time: string) => {
@@ -241,116 +208,254 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       })
     } catch (err) {
       console.error('Error formatting time:', err)
-      return time // Return original time if parsing fails
+      return time
     }
   }
 
-  const formatTimeForAPI = (time: string | null) => {
-    if (!time) return null
-    return time // Already in HH:MM format
-  }
-
-  // Helper functions to get display names for selected values
-  const getAircraftDisplayName = (aircraftId: string) => {
-    if (aircraftId === "all") return "All aircraft"
-    const plane = aircraft.find(p => p.id === aircraftId)
-    if (plane) {
-      const typeModel = [plane.type, plane.aircraftModel || plane.model].filter(Boolean).join(' ')
-      return `${plane.registration} - ${typeModel}`
+  const capitalizeStatus = (status: string): string => {
+    if (status.toLowerCase() === 'in-progress') {
+      return 'In-Progress'
     }
-    return "Select aircraft"
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
   }
 
-  const getInstructorDisplayName = (instructorId: string) => {
-    if (instructorId === "all") return "All instructors"
-    const instructor = instructors.find(i => i._id === instructorId)
-    return instructor ? `${instructor.user_id.first_name} ${instructor.user_id.last_name}` : "Select instructor"
+  const getUTCDateRange = (localDate: Date | null) => {
+    if (!localDate) return { startDate: null, endDate: null }
+    
+    const startOfDay = new Date(localDate)
+    startOfDay.setHours(0, 0, 0, 0)
+    
+    const endOfDay = new Date(localDate)
+    endOfDay.setHours(23, 59, 59, 999)
+    
+    const startDateUTC = startOfDay.toISOString().split('T')[0]
+    const endDateUTC = endOfDay.toISOString().split('T')[0]
+    
+    return { startDate: startDateUTC, endDate: endDateUTC }
   }
 
-  const getStudentDisplayName = (studentId: string) => {
-    if (studentId === "all") return "All students"
-    const student = students.find(s => s._id === studentId)
-    return student ? `${student.user_id.first_name} ${student.user_id.last_name}` : "Select student"
+  const convertTimeToMinutes = (timeString: string): number => {
+    const [hours, minutes] = timeString.split(':').map(Number)
+    return hours * 60 + minutes
   }
 
-  const fetchFlightLogs = async () => {
+  const convertLocalToUTC = (localDate: string, localTime: string): string => {
+    const localDateTime = new Date(`${localDate}T${localTime}:00`)
+    return localDateTime.toISOString()
+  }
+
+  // Authentication check
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/login')
+        return
+      }
+
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          headers: {
+            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || '',
+            'X-CSRF-Token': localStorage.getItem('csrfToken') || '',
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          throw new Error('Not authenticated')
+        }
+
+        const data = await response.json()
+        if (data.success && data.data) {
+          if (data.data.user && data.data.user.organizationId) {
+            localStorage.setItem('organizationId', data.data.user.organizationId)
+          } else if (data.data.user && data.data.user.school_id) {
+            localStorage.setItem('schoolId', data.data.user.school_id)
+          }
+          setIsAuthenticated(true)
+        } else {
+          throw new Error(data.message || 'Failed to fetch user data')
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error)
+        router.push('/login')
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  // Fetch supporting data
+  const fetchStudents = useCallback(async () => {
+    if (!isAuthenticated) return
+    
     try {
-      setLoading(true)
-      console.log('🚁 Fetching flight logs - Starting...')
       const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      console.log('🚁 Auth check:', { organizationId: !!organizationId, token: !!token, apiKey: !!apiKey })
-      
-      if (!organizationId || !token) {
-        setError("Organization ID or authentication token not found")
-        setLoading(false)
-        return
-      }
+      if (!organizationId || !token || !apiKey) return
 
-      if (!apiKey) {
-        setError("API key is not configured")
-        setLoading(false)
-        return
-      }
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
 
-      let apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule`
-      
-      // Build query parameters
-      const params = new URLSearchParams()
-      
-      // Add pagination parameters
-      params.append("page", currentPage.toString())
-      params.append("limit", itemsPerPage.toString())
-      
-      // Add date filters
-      if (selectedDate) {
-        const { startDate, endDate } = getUTCDateRange(selectedDate)
-        if (startDate && endDate) {
-          params.append("start_date", startDate)
-          if (selectedEndDate) {
-            const { endDate: endDateRange } = getUTCDateRange(selectedEndDate)
-            if (endDateRange) {
-              params.append("end_date", endDateRange)
-            }
-          } else {
-            params.append("end_date", endDate)
-          }
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data?.students) {
+          setStudents(data.data.students)
         }
       }
+    } catch (err) {
+      console.error("Error fetching students:", err)
+    }
+  }, [isAuthenticated])
+
+  const fetchInstructors = useCallback(async () => {
+    if (!isAuthenticated) return
+    
+    try {
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      // Add search query
-      if (searchQuery.trim()) {
-        params.append("search", searchQuery.trim())
+      if (!organizationId || !token || !apiKey) return
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/instructors`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data?.instructors) {
+          setInstructors(data.data.instructors)
+        } else if (data.success && Array.isArray(data.data)) {
+          setInstructors(data.data)
+        }
       }
+    } catch (err) {
+      console.error("Error fetching instructors:", err)
+    }
+  }, [isAuthenticated])
+
+  const fetchAircraft = useCallback(async () => {
+    if (!isAuthenticated) return
+    
+    try {
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      // Add other filters
-      if (selectedStatus && selectedStatus !== "all") {
-        params.append("status", selectedStatus.toLowerCase())
+      if (!organizationId || !token || !apiKey) return
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data?.planes) {
+          setAircraft(data.data.planes)
+        } else if (data.success && Array.isArray(data.data)) {
+          setAircraft(data.data)
+        }
       }
-      if (selectedAircraft && selectedAircraft !== "all") {
-        params.append("plane_id", selectedAircraft)
+    } catch (err) {
+      console.error("Error fetching aircraft:", err)
+    }
+  }, [isAuthenticated])
+
+  // Fetch flights function
+  const fetchFlightLogs = useCallback(async (
+    page?: number,
+    limit?: number,
+    search?: string,
+    filterParams?: Record<string, string>
+  ) => {
+    if (!isAuthenticated) return
+
+    const actualPage = page ?? currentPage
+    const actualLimit = limit ?? pageSize
+    const actualSearch = search ?? searchQuery
+    const actualFilters = filterParams ?? filters
+    
+    // Create a unique request ID to track this specific request
+    const requestId = `${actualPage}-${actualLimit}-${actualSearch}-${JSON.stringify(actualFilters)}`
+    currentRequestId.current = requestId
+
+    try {
+      // Set appropriate loading state
+      if (initialLoading) {
+        setLoading(true)
+        setInitialLoading(true)
+      } else {
+        setFilterLoading(true)
+        // Don't clear flights immediately - keep current data until new data arrives
       }
-      if (selectedInstructor && selectedInstructor !== "all") {
-        params.append("instructor_id", selectedInstructor)
-      }
-      if (selectedStudent && selectedStudent !== "all") {
-        params.append("student_id", selectedStudent)
-      }
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      // Add time range if specified - note: the new API doesn't support time filtering
-      // but we can filter locally after fetching data
-      
-      // Append query parameters to URL
-      if (params.toString()) {
-        apiUrl += `?${params.toString()}`
+      if (!organizationId || !token || !apiKey) {
+        throw new Error("Missing authentication credentials")
       }
+
+      const params = new URLSearchParams({
+        page: actualPage.toString(),
+        limit: actualLimit.toString()
+      })
+
+      // Add search
+      if (actualSearch) {
+        params.append('search', actualSearch)
+      }
+
+      // Add filters (excluding date/time filters which are handled separately)
+      Object.entries(actualFilters).forEach(([key, value]) => {
+        if (value && value !== "all" && !['start_date', 'end_date', 'start_time', 'end_time'].includes(key)) {
+          // Map filter keys to API parameters
+          const apiKey = key === 'aircraft' ? 'plane_id' : 
+                        key === 'instructor' ? 'instructor_id' :
+                        key === 'student' ? 'student_id' : key
+          params.append(apiKey, value)
+        }
+      })
+
+      // Add date filters from main filters
+      if (actualFilters.start_date && actualFilters.start_date !== '') {
+        params.append("start_date", actualFilters.start_date)
+      }
+      if (actualFilters.end_date && actualFilters.end_date !== '') {
+        params.append("end_date", actualFilters.end_date)
+      }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule?${params.toString()}`
+      console.log('🌐 API URL:', url)
       
-      console.log('Fetching flight logs from:', apiUrl)
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
+      const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -362,47 +467,66 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          error: errorData
-        })
-        throw new Error(`Failed to fetch flight logs: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to fetch flight logs: ${response.status}`)
       }
 
       const data = await response.json()
-              console.log('Flight logs data:', data)
-        
-        if (data.success && data.data && data.data.schedules && Array.isArray(data.data.schedules)) {
-          console.log('Raw schedules count:', data.data.schedules.length)
-          
-          // Update pagination metadata
-          if (data.data.pagination) {
-            setTotalItems(data.data.pagination.totalCount || 0)
-            setTotalPages(data.data.pagination.pages || 1)
-          } else {
-            // Fallback if no pagination metadata
-            setTotalItems(data.data.schedules.length)
-            setTotalPages(Math.ceil(data.data.schedules.length / itemsPerPage))
-          }
-          
-          // Transform the schedule data to match our FlightLog interface
-          const transformedFlights: FlightLog[] = data.data.schedules.map((schedule: any) => {
-          // Parse UTC time and convert to local time for display
+      console.log('📊 API Response:', data)
+      
+      // Check if this response is still relevant (prevent race conditions)
+      if (currentRequestId.current !== requestId) {
+        console.log('🔄 Ignoring outdated response for request:', requestId)
+        return
+      }
+      
+      if (data.success && data.data?.schedules) {
+        // Update pagination
+        if (data.data.pagination) {
+          setPagination({
+            totalCount: data.data.pagination.total || data.data.pagination.totalCount || 0,
+            totalPages: data.data.pagination.pages || 1,
+            currentPage: data.data.pagination.page || actualPage,
+            hasNextPage: data.data.pagination.hasNext || false,
+            hasPrevPage: data.data.pagination.hasPrev || false,
+            limit: actualLimit
+          })
+        }
+
+        // Transform data with proper timezone conversion
+        let transformedFlights = data.data.schedules.map((schedule: any) => {
+          // Convert UTC datetime to local timezone
           const utcDateTime = schedule.scheduled_start_time ? new Date(schedule.scheduled_start_time) : null
           
-          return {
+          // Get local date and time (JavaScript automatically converts UTC to local timezone)
+          let localDate = '';
+          let localTime = '';
+          
+          if (utcDateTime) {
+            // Format date as YYYY-MM-DD in local timezone
+            const year = utcDateTime.getFullYear()
+            const month = String(utcDateTime.getMonth() + 1).padStart(2, '0')
+            const day = String(utcDateTime.getDate()).padStart(2, '0')
+            localDate = `${year}-${month}-${day}`
+            
+            // Format time as HH:MM in local timezone
+            const hours = String(utcDateTime.getHours()).padStart(2, '0')
+            const minutes = String(utcDateTime.getMinutes()).padStart(2, '0')
+            localTime = `${hours}:${minutes}`
+          }
+          
+          // Debug: Log the structure of student_id and instructor_id for the first few flights
+          if (data.data.schedules.indexOf(schedule) < 3) {
+            console.log('🔍 Flight data structure:', {
+              id: schedule._id,
+              student_id: schedule.student_id,
+              instructor_id: schedule.instructor_id
+            })
+          }
+
+          const transformedFlight = {
             _id: schedule._id,
-            date: utcDateTime ? utcDateTime.toLocaleDateString('en-CA') : '', // YYYY-MM-DD format in local time
-            start_time: utcDateTime ? 
-              utcDateTime.toLocaleTimeString('en-US', { 
-                hour12: false, 
-                hour: '2-digit', 
-                minute: '2-digit',
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-              }) : '',
+            date: localDate,
+            start_time: localTime,
             plane_reg: schedule.plane_id?.registration || 'N/A',
             plane_id: schedule.plane_id?._id || '',
             student_name: schedule.student_id ? 
@@ -418,305 +542,77 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
             created_at: schedule.created_at || '',
             updated_at: schedule.updated_at || ''
           }
+          
+
+          
+          return transformedFlight
         })
-        
-        console.log('Transformed flights:', transformedFlights)
-        console.log('Selected date:', selectedDate?.toLocaleDateString('en-CA'))
-        console.log('Selected end date:', selectedEndDate?.toLocaleDateString('en-CA'))
-        
-        // Apply local date and time filtering
-        let filteredFlights = transformedFlights
-        
-        // Filter by date range (if we have both selectedDate and selectedEndDate, use range; otherwise use single date)
-        if (selectedDate) {
-          if (selectedEndDate) {
-            // Date range filtering
-            const startDateStr = selectedDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
-            const endDateStr = selectedEndDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
-            filteredFlights = filteredFlights.filter(flight => {
-              return flight.date >= startDateStr && flight.date <= endDateStr
-            })
-          } else {
-            // Single date filtering
-            const selectedDateStr = selectedDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
-            filteredFlights = filteredFlights.filter(flight => flight.date === selectedDateStr)
-          }
-        }
-        
-        // Apply time filtering if specified
-        if (startTime || endTime) {
-          filteredFlights = filteredFlights.filter(flight => {
+
+        // Apply local time filtering if specified
+        if (actualFilters.start_time || actualFilters.end_time) {
+          transformedFlights = transformedFlights.filter((flight: FlightLog) => {
             const flightTime = flight.start_time
             if (!flightTime) return true
             
             const flightMinutes = convertTimeToMinutes(flightTime)
             
-            if (startTime) {
-              const startMinutes = convertTimeToMinutes(startTime)
+            if (actualFilters.start_time) {
+              const startMinutes = convertTimeToMinutes(actualFilters.start_time)
               if (flightMinutes < startMinutes) return false
             }
             
-            if (endTime) {
-              const endMinutes = convertTimeToMinutes(endTime)
+            if (actualFilters.end_time) {
+              const endMinutes = convertTimeToMinutes(actualFilters.end_time)
               if (flightMinutes > endMinutes) return false
             }
             
             return true
           })
         }
-        
-        console.log('🚁 Final filtered flights:', filteredFlights)
-        console.log('🚁 Setting flights state with', filteredFlights.length, 'flights')
-        setFlights(filteredFlights)
-      } else {
-        console.error('Invalid response format:', data)
-        if (!data.success) {
-          setError(`API Error: ${data.message || 'Unknown error occurred'}`)
-        } else {
-          setError("Invalid data format received from API - schedules not found")
+
+        setFlights(transformedFlights)
+        setError(null)
+        // Clear loading states
+        if (initialLoading) {
+          setInitialLoading(false)
         }
+        setFilterLoading(false)
+      } else {
+        throw new Error(data.message || 'Failed to fetch flights')
       }
     } catch (err) {
-      console.error("Error fetching flight logs:", err)
-      setError(err instanceof Error ? err.message : "An unknown error occurred")
+      console.error('Error fetching flights:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch flights'
+      setError(errorMessage)
+      toast.error(errorMessage)
+      // Clear loading states even on error
+      if (initialLoading) {
+        setInitialLoading(false)
+      }
+      setFilterLoading(false)
     } finally {
       setLoading(false)
     }
-  }
+  }, [isAuthenticated])
 
-  // Helper function to convert time string to minutes for comparison
-  const convertTimeToMinutes = (timeString: string): number => {
-    const [hours, minutes] = timeString.split(':').map(Number)
-    return hours * 60 + minutes
-  }
-
-  // Helper function to capitalize status for display
-  const capitalizeStatus = (status: string): string => {
-    if (status.toLowerCase() === 'in-progress') {
-      return 'In-Progress'
-    }
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
-  }
-
-  // Convert local date and time to UTC ISO string
-  const convertLocalToUTC = (localDate: string, localTime: string): string => {
-    // Create a date object from local date and time
-    const localDateTime = new Date(`${localDate}T${localTime}:00`)
-    return localDateTime.toISOString()
-  }
-
-  const fetchStudents = async () => {
-    try {
-      setLoadingStudents(true)
-      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
-      const token = localStorage.getItem("token")
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY
-      
-      if (!organizationId || !token) {
-        toast.error("Organization ID or authentication token not found")
-        return
-      }
-
-      if (!apiKey) {
-        toast.error("API key is not configured")
-        return
-      }
-
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`
-      
-      console.log('Fetching students from:', apiUrl)
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'Authorization': `Bearer ${token}`,
-          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-        },
-        credentials: 'include'
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          error: errorData
-        })
-        throw new Error(`Failed to fetch students: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log('Students data:', data)
-      
-      if (data.success && data.data && data.data.students && Array.isArray(data.data.students)) {
-        setStudents(data.data.students)
-      } else {
-        console.error('Invalid students response format:', data)
-        if (!data.success) {
-          toast.error(`API Error: ${data.message || 'Failed to fetch students'}`)
-        } else {
-          toast.error("Invalid data format received from API - students not found")
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching students:", err)
-      toast.error(err instanceof Error ? err.message : "An unknown error occurred")
-    } finally {
-      setLoadingStudents(false)
-    }
-  }
-
-  const fetchInstructors = async () => {
-    try {
-      setLoadingInstructors(true);
-      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
-      const token = localStorage.getItem("token");
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
-      
-      if (!organizationId || !token) {
-        toast.error("Organization ID or authentication token not found");
-        return;
-      }
-
-      if (!apiKey) {
-        toast.error("API key is not configured");
-        return;
-      }
-
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/instructors`;
-      
-      console.log('Fetching instructors from:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'Authorization': `Bearer ${token}`,
-          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-        },
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          error: errorData
-        });
-        throw new Error(`Failed to fetch instructors: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Instructors data:', data);
-      
-      if (data.success && data.data && data.data.instructors && Array.isArray(data.data.instructors)) {
-        setInstructors(data.data.instructors);
-      } else if (data.success && data.data && Array.isArray(data.data)) {
-        // Fallback: if the data array is directly under data
-        setInstructors(data.data);
-      } else {
-        console.error('Invalid instructors response format:', data)
-        if (!data.success) {
-          toast.error(`API Error: ${data.message || 'Failed to fetch instructors'}`)
-        } else {
-          toast.error("Invalid data format received from API - instructors not found")
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching instructors:", err);
-      toast.error(err instanceof Error ? err.message : "An unknown error occurred");
-    } finally {
-      setLoadingInstructors(false);
-    }
-  };
-
-  const fetchAircraft = async () => {
-    try {
-      setLoadingAircraft(true);
-      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
-      const token = localStorage.getItem("token");
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
-      
-      if (!organizationId || !token) {
-        toast.error("Organization ID or authentication token not found");
-        return;
-      }
-
-      if (!apiKey) {
-        toast.error("API key is not configured");
-        return;
-      }
-
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes`;
-      
-      console.log('Fetching aircraft from:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'Authorization': `Bearer ${token}`,
-          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-        },
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          error: errorData
-        });
-        throw new Error(`Failed to fetch aircraft: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Aircraft data:', data);
-      
-      if (data.success && data.data && data.data.planes && Array.isArray(data.data.planes)) {
-        setAircraft(data.data.planes);
-      } else if (data.success && data.data && Array.isArray(data.data)) {
-        // Fallback: if the data array is directly under data
-        setAircraft(data.data);
-      } else {
-        console.error('Invalid aircraft response format:', data)
-        if (!data.success) {
-          toast.error(`API Error: ${data.message || 'Failed to fetch aircraft'}`)
-        } else {
-          toast.error("Invalid data format received from API - aircraft not found")
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching aircraft:", err);
-      toast.error(err instanceof Error ? err.message : "An unknown error occurred");
-    } finally {
-      setLoadingAircraft(false);
-    }
-  };
-
+  // Load supporting data when authenticated
   useEffect(() => {
-    fetchStudents()
-    fetchInstructors()
-    fetchAircraft()
-  }, [])
+    if (isAuthenticated) {
+      fetchStudents()
+      fetchInstructors()
+      fetchAircraft()
+    }
+  }, [isAuthenticated, fetchStudents, fetchInstructors, fetchAircraft])
 
+  // Load initial flights data (only once when authenticated)
   useEffect(() => {
-    fetchFlightLogs()
-  }, [selectedDate, selectedEndDate, selectedStatus, selectedAircraft, selectedInstructor, selectedStudent, startTime, endTime, currentPage, itemsPerPage, searchQuery])
+    if (isAuthenticated) {
+      // Use the current filters state for initial load
+      fetchFlightLogs(1, 25, '', filters)
+    }
+  }, [isAuthenticated, fetchFlightLogs]) // Remove filters from dependency to prevent infinite loop
 
-  // Check for edit parameter in URL and enter edit mode if found
+  // Handle URL edit parameter
   useEffect(() => {
     const editFlightId = searchParams.get('edit')
     if (editFlightId && flights.length > 0) {
@@ -726,114 +622,274 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         setEditedFlight({...flightToEdit})
         setIsEditing(true)
         
-        // Fetch students, instructors, and aircraft when entering edit mode
-        fetchStudents()
-        fetchInstructors()
-        fetchAircraft()
-        
-        // Remove the edit parameter from the URL without refreshing the page
         const newUrl = window.location.pathname + window.location.search.replace(/[?&]edit=[^&]+(&|$)/, '$1')
         window.history.replaceState({}, '', newUrl)
       }
     }
   }, [searchParams, flights])
 
-  // Enhanced search function with multiple improvements
-  const enhancedSearch = (flight: FlightLog, query: string) => {
-    if (!query.trim()) return true;
-    
-    const searchTerms = query.toLowerCase().trim().split(/\s+/);
-    const searchableText = [
-      flight._id,
-      flight.student_name,
-      flight.plane_reg,
-      flight.instructor,
-      flight.type,
-      flight.status,
-      flight.date,
-      flight.start_time,
-      `${flight.duration}h`,
-      `${flight.duration} hours`,
-      formatDate(flight.date), // Formatted date like "06/06/2025"
-      formatTime(flight.start_time), // Formatted time like "3:00 AM"
-    ].join(' ').toLowerCase();
-    
-    // Support for different search modes
-    if (query.startsWith('"') && query.endsWith('"')) {
-      // Exact phrase search
-      const phrase = query.slice(1, -1).toLowerCase();
-      return searchableText.includes(phrase);
-    }
-    
-    if (query.includes(' AND ')) {
-      // AND search: all terms must match
-      const andTerms = query.toLowerCase().split(' and ').map(t => t.trim());
-      return andTerms.every(term => searchableText.includes(term));
-    }
-    
-    if (query.includes(' OR ')) {
-      // OR search: any term can match
-      const orTerms = query.toLowerCase().split(' or ').map(t => t.trim());
-      return orTerms.some(term => searchableText.includes(term));
-    }
-    
-    // Default: any search term can match (partial matching)
-    return searchTerms.some(term => searchableText.includes(term));
-  };
+  // Memoized server-side config handlers
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+    fetchFlightLogs(page, pageSize, searchQuery, filters)
+  }, [fetchFlightLogs, pageSize, searchQuery, filters])
 
-  // Sort flights based on enhanced search and sort configuration
-  const filteredAndSortedFlights = flights
-    .filter((flight) => enhancedSearch(flight, searchQuery))
-    .sort((a, b) => {
-      if (!sortConfig) return 0;
-      
-      const { key, direction } = sortConfig;
-      
-      // Handle different data types
-      if (key === 'date') {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return direction === 'ascending' ? dateA - dateB : dateB - dateA;
-      }
-      
-      if (key === 'start_time') {
-        const [hoursA, minutesA] = a.start_time.split(':').map(Number);
-        const [hoursB, minutesB] = b.start_time.split(':').map(Number);
-        const timeA = hoursA * 60 + minutesA;
-        const timeB = hoursB * 60 + minutesB;
-        return direction === 'ascending' ? timeA - timeB : timeB - timeA;
-      }
-      
-      if (key === 'duration') {
-        return direction === 'ascending' 
-          ? a.duration - b.duration 
-          : b.duration - a.duration;
-      }
-      
-      // For string values
-      const valueA = a[key as keyof FlightLog]?.toString().toLowerCase() || '';
-      const valueB = b[key as keyof FlightLog]?.toString().toLowerCase() || '';
-      
-      if (valueA < valueB) return direction === 'ascending' ? -1 : 1;
-      if (valueA > valueB) return direction === 'ascending' ? 1 : -1;
-      return 0;
-    });
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize)
+    setCurrentPage(1)
+    fetchFlightLogs(1, newPageSize, searchQuery, filters)
+  }, [fetchFlightLogs, searchQuery, filters])
 
-  const handleSort = (key: string) => {
-    setSortConfig((currentConfig) => {
-      if (currentConfig?.key === key) {
-        // Toggle direction if same key
-        return {
-          key,
-          direction: currentConfig.direction === 'ascending' ? 'descending' : 'ascending',
-        };
-      }
-      // Default to ascending for new sort
-      return { key, direction: 'ascending' };
-    });
-  };
+  const handleFiltersChange = useCallback((newFilters: Record<string, string>) => {
+    console.log('🔄 Filter change received:', newFilters)
+    setFilters(newFilters)
+    setCurrentPage(1)
+    fetchFlightLogs(1, pageSize, searchQuery, newFilters)
+  }, [fetchFlightLogs, pageSize, searchQuery])
 
-  const handleViewDetails = (flight: FlightLog) => {
+  const handleSearchChange = useCallback((newSearchQuery: string) => {
+    setSearchQuery(newSearchQuery)
+    setCurrentPage(1)
+    fetchFlightLogs(1, pageSize, newSearchQuery, filters)
+  }, [fetchFlightLogs, pageSize, filters])
+
+  // Table configuration
+  const columns: TableColumn<FlightLog>[] = useMemo(() => [
+    {
+      key: 'date',
+      header: 'Date',
+      width: '110px',
+      render: (flight) => <span className="font-medium">{formatDate(flight.date)}</span>,
+      sortable: true
+    },
+    {
+      key: 'start_time',
+      header: 'Time',
+      width: '90px',
+      render: (flight) => formatTime(flight.start_time),
+      sortable: true
+    },
+    {
+      key: 'plane_reg',
+      header: 'Aircraft',
+      width: '130px',
+      render: (flight) => (
+        <div className="flex items-center gap-2">
+          <Plane className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={2.5} />
+          <span className="font-mono text-sm truncate">{flight.plane_reg}</span>
+        </div>
+      ),
+      sortable: true
+    },
+    {
+      key: 'student_name',
+      header: 'Student',
+      width: '150px',
+      render: (flight) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="truncate text-sm">{flight.student_name}</span>
+        </div>
+      ),
+      sortable: true
+    },
+    {
+      key: 'instructor',
+      header: 'Instructor',
+      width: '150px',
+      render: (flight) => (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="truncate text-sm">{flight.instructor}</span>
+        </div>
+      ),
+      sortable: true
+    },
+    {
+      key: 'duration',
+      header: 'Duration',
+      width: '100px',
+      render: (flight) => {
+        // Format duration to show reasonable decimal places
+        const formattedDuration = flight.duration % 1 === 0 
+          ? flight.duration.toString() 
+          : flight.duration.toFixed(1)
+        return <span className="font-medium">{formattedDuration} hrs</span>
+      },
+      sortable: true
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '130px',
+      render: (flight) => (
+        <div
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
+            flight.status === "Completed" 
+              ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
+              : flight.status === "In-Progress"
+                ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+                : flight.status === "Preparing"
+                  ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
+                : flight.status === "Scheduled"
+                  ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
+                : flight.status === "Cancelled" || flight.status === "Canceled"
+                  ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
+          }`}
+        >
+          {flight.status}
+        </div>
+      ),
+      sortable: true
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      width: '140px',
+      render: (flight) => (
+        <span className="text-sm truncate block" title={flight.type}>
+          {flight.type}
+        </span>
+      ),
+      sortable: true
+    }
+  ], [])
+
+  const filterConfigs: FilterConfig[] = useMemo(() => {
+    console.log('🔧 Building filter configs...')
+    return [
+    {
+      key: 'start_date',
+      label: 'Start Date',
+      type: 'date',
+      defaultValue: (() => {
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      })(), // Default to today in local timezone
+      serverSide: true
+    },
+    {
+      key: 'end_date',
+      label: 'End Date',
+      type: 'date',
+      defaultValue: (() => {
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      })(), // Default to today in local timezone
+      serverSide: true
+    },
+    {
+      key: 'start_time',
+      label: 'Start Time',
+      type: 'time',
+      defaultValue: '',
+      serverSide: true
+    },
+    {
+      key: 'end_time',
+      label: 'End Time',
+      type: 'time',
+      defaultValue: '',
+      serverSide: true
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { value: 'all', label: 'All Statuses' },
+        { value: 'scheduled', label: 'Scheduled' },
+        { value: 'preparing', label: 'Preparing' },
+        { value: 'in-progress', label: 'In-Progress' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'cancelled', label: 'Cancelled' }
+      ],
+      defaultValue: 'all',
+      serverSide: true
+    },
+    {
+      key: 'aircraft',
+      label: 'Aircraft',
+      type: 'select',
+      options: [
+        { value: 'all', label: 'All Aircraft' },
+        ...aircraft.map(plane => ({
+          value: plane.id,
+          label: `${plane.registration} - ${plane.type}`
+        }))
+      ],
+      defaultValue: 'all',
+      serverSide: true
+    },
+    {
+      key: 'instructor',
+      label: 'Instructor',
+      type: 'select',
+      options: [
+        { value: 'all', label: 'All Instructors' },
+        ...instructors
+          .filter(instructor => instructor.user_id?.first_name && instructor.user_id?.last_name)
+          .map(instructor => ({
+            value: instructor._id,
+            label: `${instructor.user_id.first_name} ${instructor.user_id.last_name}`
+          }))
+      ],
+      defaultValue: 'all',
+      serverSide: true
+    },
+    {
+      key: 'student',
+      label: 'Student',
+      type: 'select',
+      options: [
+        { value: 'all', label: 'All Students' },
+        ...students
+          .filter(student => student.user_id?.first_name && student.user_id?.last_name)
+          .map(student => ({
+            value: student._id,
+            label: `${student.user_id.first_name} ${student.user_id.last_name}`
+          }))
+      ],
+      defaultValue: 'all',
+      serverSide: true
+    }
+  ]
+  }, [aircraft, instructors, students])
+
+  const paginationConfig: PaginationConfig = {
+    enabled: true,
+    serverSide: true,
+    showPageSizeSelector: true,
+    pageSizeOptions: [5, 10, 25, 50, 100]
+  }
+
+  const serverSideConfig: ServerSideConfig = useMemo(() => ({
+    totalItems: pagination.totalCount,
+    currentPage: pagination.currentPage,
+    totalPages: pagination.totalPages,
+    onPageChange: handlePageChange,
+    onPageSizeChange: handlePageSizeChange,
+    onFiltersChange: handleFiltersChange,
+    onSearchChange: handleSearchChange
+  }), [
+    pagination.totalCount,
+    pagination.currentPage,
+    pagination.totalPages,
+    handlePageChange,
+    handlePageSizeChange,
+    handleFiltersChange,
+    handleSearchChange
+  ])
+
+  // Row click handler
+  const handleRowClick = (flight: FlightLog) => {
     if (isEditing) {
       if (selectedFlight && flight._id !== selectedFlight._id) {
         setShowWarning(true)
@@ -845,44 +901,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     setShowWarning(false)
   }
 
-  const handleBackToList = () => {
-    setSelectedFlight(null)
-  }
-
-  const handleApplyFilters = () => {
-    fetchFlightLogs()
-  }
-
-  const handleResetFilters = () => {
-    setSelectedDate(null)
-    setSelectedEndDate(null)
-    setStartTime(null)
-    setEndTime(null)
-    setSelectedStatus("all")
-    setSelectedAircraft("all")
-    setSelectedInstructor("all")
-    setSelectedStudent("all")
-    setCurrentPage(1) // Reset to first page
-    // Close any open comboboxes
-    setAircraftOpen(false)
-    setInstructorOpen(false)
-    setStudentOpen(false)
-  }
-
-  // Reset to first page when filters change
-  const handleFilterChange = (callback: () => void) => {
-    callback()
-    setCurrentPage(1)
-  }
-
+  // Edit handlers
   const handleEditClick = () => {
     if (selectedFlight) {
       setEditedFlight({...selectedFlight})
       setIsEditing(true)
       setShowWarning(false)
-      fetchStudents() // Fetch students when entering edit mode
-      fetchInstructors() // Fetch instructors when entering edit mode
-      fetchAircraft() // Fetch aircraft when entering edit mode
     }
   }
 
@@ -894,21 +918,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!organizationId || !token) {
-        toast.error("Organization ID or authentication token not found")
+      if (!organizationId || !token || !apiKey) {
+        toast.error("Missing authentication credentials")
         return
       }
 
-      if (!apiKey) {
-        toast.error("API key is not configured")
-        return
-      }
-
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${editedFlight._id}`
-      
-      console.log('Updating flight log:', apiUrl)
-      
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${editedFlight._id}`, {
         method: 'PUT',
         headers: {
           'Accept': 'application/json',
@@ -930,35 +945,20 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          error: errorData
-        })
-        throw new Error(`Failed to update flight log: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to update flight: ${response.status}`)
       }
 
-      const data = await response.json()
-      console.log('Updated flight log:', data)
-      
-      // Update the flight in the list
       setFlights(flights.map(flight => 
         flight._id === editedFlight._id ? editedFlight : flight
       ))
-      
-      // Update the selected flight
       setSelectedFlight(editedFlight)
-      
-      // Exit edit mode
       setIsEditing(false)
       setShowWarning(false)
       
-      toast.success("Flight log updated successfully")
+      toast.success("Flight updated successfully")
     } catch (err) {
-      console.error("Error updating flight log:", err)
-      toast.error(err instanceof Error ? err.message : "An unknown error occurred")
+      console.error("Error updating flight:", err)
+      toast.error(err instanceof Error ? err.message : "Failed to update flight")
     }
   }
 
@@ -977,21 +977,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!organizationId || !token) {
-        toast.error("Organization ID or authentication token not found")
+      if (!organizationId || !token || !apiKey) {
+        toast.error("Missing authentication credentials")
         return
       }
 
-      if (!apiKey) {
-        toast.error("API key is not configured")
-        return
-      }
-
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`
-      
-      console.log('Deleting flight log:', apiUrl)
-      
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`, {
         method: 'DELETE',
         headers: {
           'Accept': 'application/json',
@@ -1004,990 +995,89 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          error: errorData
-        })
-        throw new Error(`Failed to delete flight log: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to delete flight: ${response.status}`)
       }
 
-      console.log('Flight log deleted successfully')
-      
-      // Remove the flight from the list
       setFlights(flights.filter(flight => flight._id !== selectedFlight._id))
-      
-      // Go back to list view
       setSelectedFlight(null)
       setIsEditing(false)
       setEditedFlight(null)
       setShowWarning(false)
       
-      toast.success("Flight log deleted successfully")
+      toast.success("Flight deleted successfully")
     } catch (err) {
-      console.error("Error deleting flight log:", err)
-      toast.error(err instanceof Error ? err.message : "An unknown error occurred")
+      console.error("Error deleting flight:", err)
+      toast.error(err instanceof Error ? err.message : "Failed to delete flight")
     } finally {
       setIsDeleting(false)
     }
   }
 
-  const handleInputChange = (field: keyof FlightLog, value: any) => {
-    if (editedFlight) {
-      setEditedFlight({
-        ...editedFlight,
-        [field]: value
-      })
-    }
-  }
-
-  const handleStudentChange = (studentId: string) => {
-    if (!editedFlight) return
-    
-    const selectedStudent = students.find(student => student._id === studentId)
-    if (selectedStudent) {
-      setEditedFlight({
-        ...editedFlight,
-        student_id: selectedStudent._id,
-        student_name: `${selectedStudent.user_id.first_name} ${selectedStudent.user_id.last_name}`
-      })
-    }
-  }
-
-  const handleInstructorChange = (instructorId: string) => {
-    if (!editedFlight) return
-    
-    const selectedInstructor = instructors.find(instructor => instructor._id === instructorId)
-    if (selectedInstructor && selectedInstructor.user_id?.first_name && selectedInstructor.user_id?.last_name) {
-      setEditedFlight({
-        ...editedFlight,
-        instructor_id: selectedInstructor._id,
-        instructor: `${selectedInstructor.user_id.first_name} ${selectedInstructor.user_id.last_name}`
-      })
-    }
-  }
-
-  const handleAircraftChange = (aircraftId: string) => {
-    if (!editedFlight) return
-    
-    const selectedAircraft = aircraft.find(plane => plane.id === aircraftId)
-    if (selectedAircraft) {
-      setEditedFlight({
-        ...editedFlight,
-        plane_id: selectedAircraft.id,
-        plane_reg: selectedAircraft.registration
-      })
-    }
-  }
-
-  // Helper function to get the correct plane_id for the dropdown
-  const getSelectedPlaneId = (flight: FlightLog | null) => {
-    if (!flight || aircraft.length === 0) return ''
-    
-    // First try to match by plane_id
-    if (flight.plane_id && aircraft.find(plane => plane.id === flight.plane_id)) {
-      return flight.plane_id
-    }
-    
-    // Fallback: try to match by registration
-    if (flight.plane_reg) {
-      const matchedPlane = aircraft.find(plane => plane.registration === flight.plane_reg)
-      if (matchedPlane) {
-        return matchedPlane.id
-      }
-    }
-    
-    return ''
-  }
-
-  // Helper function to get the display text for the selected aircraft
-  const getSelectedPlaneDisplay = (flight: FlightLog | null) => {
-    if (!flight || aircraft.length === 0) return null
-    
-    const selectedId = getSelectedPlaneId(flight)
-    if (selectedId) {
-      const selectedPlane = aircraft.find(p => p.id === selectedId)
-      if (selectedPlane) {
-                                          const typeModel = [selectedPlane.type, selectedPlane.aircraftModel || selectedPlane.model].filter(Boolean).join(' ')
-                                  return `${selectedPlane.registration} - ${typeModel}`
-      }
-    }
-    
-    // Fallback to showing the registration from the flight data
-    if (flight.plane_reg && flight.plane_reg !== 'N/A') {
-      return flight.plane_reg
-    }
-    
-    return null
-  }
-
-  const handleStatusChange = async (newStatus: string) => {
-    if (!selectedFlight) return;
-    
-    try {
-      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId");
-      const token = localStorage.getItem("token");
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
-      
-      if (!organizationId || !token) {
-        toast.error("Organization ID or authentication token not found");
-        return;
-      }
-
-      if (!apiKey) {
-        toast.error("API key is not configured");
-        return;
-      }
-
-      const updatedFlight = { ...selectedFlight, status: newStatus };
-      
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`;
-      
-      console.log('Updating flight status:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        method: 'PUT',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'Authorization': `Bearer ${token}`,
-          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-        },
-        body: JSON.stringify({
-          status: newStatus.toLowerCase()
-        }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          error: errorData
-        });
-        throw new Error(`Failed to update flight status: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Updated flight status:', data);
-      
-      // Update the flight in the list
-      setFlights(flights.map(flight => 
-        flight._id === selectedFlight._id ? updatedFlight : flight
-      ));
-      
-      // Update the selected flight
-      setSelectedFlight(updatedFlight);
-      
-      toast.success("Flight status updated successfully");
-    } catch (err) {
-      console.error("Error updating flight status:", err);
-      toast.error(err instanceof Error ? err.message : "An unknown error occurred");
-    }
-  };
-
-  // Debug logging for render state
-  console.log('🚁 FlightLogTable render:', { 
-    loading, 
-    error, 
-    flightsCount: flights.length, 
-    selectedDate, 
-    filteredAndSortedFlightsCount: filteredAndSortedFlights.length 
-  })
-
-  // Render the component structure immediately to prevent blank screen
-  // Show loading state only within the table body area
+  // Date and time filtering is now handled through the main filters system
 
   if (error) {
     return (
-      <Card className={`w-full h-full ${className}`}>
-        <CardHeader>
-          <CardTitle>Flight Log</CardTitle>
-          <CardDescription>Error loading flight data</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center py-8">
-          <div className="text-center text-[#f90606]">{error}</div>
-        </CardContent>
-      </Card>
+      <div className={`w-full h-full ${className}`}>
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Flight Log</CardTitle>
+            <CardDescription>Error loading flight data</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center py-8">
+            <div className="text-center text-destructive">{error}</div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
   return (
     <div className={`w-full h-full ${className}`}>
-      {/* Main container with responsive layout */}
       <div className={`h-full ${selectedFlight ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}`}>
-        <Card className="h-full flex flex-col border-0 shadow-none">
-          <CardHeader className="pb-1 pt-2 px-3 flex-shrink-0">
-            <CardTitle className="text-lg">Flight Log</CardTitle>
-            <CardDescription className="text-sm">Complete flight log for the school</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col overflow-hidden p-0 m-0">
-            {showWarning && (
-              <Alert variant="destructive" className="mb-4 flex-shrink-0">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Editing in progress</AlertTitle>
-                <AlertDescription>
-                  You are currently editing a flight. Please save or cancel your changes before selecting another flight.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="flex-1 flex flex-col overflow-hidden px-3">
-              {/* Search and Filters Header */}
-              <div className="flex-shrink-0 mb-1">
-                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:flex-none">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search flights..."
-                        value={searchQuery}
-                        onChange={(e) => {
-                          setSearchQuery(e.target.value)
-                          setCurrentPage(1) // Reset to first page when searching
-                        }}
-                        className="h-8 w-full sm:w-[280px] lg:w-[320px] pl-10 pr-10 text-sm"
-                      />
-                      {searchQuery && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSearchQuery("")}
-                          className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 hover:bg-muted"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <TooltipProvider>
-                      <Tooltip open={searchHelpOpen} onOpenChange={setSearchHelpOpen}>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 w-8 p-0 flex-shrink-0"
-                            onClick={() => setSearchHelpOpen(!searchHelpOpen)}
-                            onMouseEnter={() => setSearchHelpOpen(true)}
-                            onMouseLeave={() => setSearchHelpOpen(false)}
-                          >
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <div className="space-y-2 text-sm">
-                            <div className="font-medium">Search Tips:</div>
-                            <div>• Search by: student name, aircraft, instructor, status, date, time</div>
-                            <div>• <code>"exact phrase"</code> - for exact matches</div>
-                            <div>• <code>term AND term</code> - both must match</div>
-                            <div>• <code>term OR term</code> - either can match</div>
-                            <div>• Examples: <code>David N166</code>, <code>"Solo"</code>, <code>Scheduled OR Completed</code></div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    
-                    {!selectedFlight && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="h-8 px-3 gap-2 whitespace-nowrap flex-shrink-0"
-                      >
-                        <Filter className="h-4 w-4" />
-                        <span className="hidden xs:inline">Filters</span>
-                        {showFilters ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="text-sm text-muted-foreground whitespace-nowrap">
-                      {searchQuery || selectedDate || selectedStatus !== "all" || selectedAircraft !== "all" || selectedInstructor !== "all" || selectedStudent !== "all" || startTime || endTime ? (
-                        <>
-                          Showing {flights.length} of {totalItems} flight{totalItems !== 1 ? 's' : ''} 
-                          <span className="text-[#3366ff]"> (filtered)</span>
-                        </>
-                      ) : (
-                        `Showing ${flights.length} of ${totalItems} flight${totalItems !== 1 ? 's' : ''}`
-                      )}
-                    </div>
-                    
-                    {!selectedFlight && (
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs text-muted-foreground whitespace-nowrap">Per page:</Label>
-                        <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-                          setItemsPerPage(parseInt(value))
-                          setCurrentPage(1) // Reset to first page when changing items per page
-                        }}>
-                          <SelectTrigger className="h-8 w-16 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="5">5</SelectItem>
-                            <SelectItem value="10">10</SelectItem>
-                            <SelectItem value="25">25</SelectItem>
-                            <SelectItem value="50">50</SelectItem>
-                            <SelectItem value="100">100</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+        {/* Main Table */}
+        <div className="h-full">
+          {showWarning && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Editing in progress</AlertTitle>
+              <AlertDescription>
+                You are currently editing a flight. Please save or cancel your changes before selecting another flight.
+              </AlertDescription>
+            </Alert>
+          )}
 
-              {/* Responsive Filters */}
-              {!selectedFlight && showFilters && (
-                <div className="space-y-3 p-3 border rounded-lg dark:border-muted-foreground/20 bg-muted/20 animate-in slide-in-from-top-2 flex-shrink-0 mb-1">
-                  {/* Row 1: Dates and Status */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">Start Date</Label>
-                      <DatePicker
-                        date={selectedDate}
-                        setDate={handleStartDateChange}
-                        className="dark:bg-muted/50 h-8 w-full"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">End Date</Label>
-                      <DatePicker
-                        date={selectedEndDate}
-                        setDate={handleEndDateChange}
-                        className="dark:bg-muted/50 h-8 w-full"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">Status</Label>
-                      <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                        <SelectTrigger className="h-8 dark:bg-muted/50 text-xs">
-                          <SelectValue placeholder="All" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All statuses</SelectItem>
-                          <SelectItem value="scheduled">Scheduled</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                          <SelectItem value="preparing">Preparing</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">Time Range</Label>
-                      <div className="flex items-center gap-1">
-                        <TimePicker
-                          time={startTime}
-                          setTime={setStartTime}
-                          onApply={handleApplyFilters}
-                          className="h-8 text-xs flex-1"
-                        />
-                        <span className="text-xs text-muted-foreground px-1">-</span>
-                        <TimePicker
-                          time={endTime}
-                          setTime={setEndTime}
-                          onApply={handleApplyFilters}
-                          className="h-8 text-xs flex-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Row 2: People and Aircraft */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">Aircraft</Label>
-                      <Popover open={aircraftOpen} onOpenChange={setAircraftOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={aircraftOpen}
-                            className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal"
-                          >
-                            <span className="truncate text-left">{getAircraftDisplayName(selectedAircraft)}</span>
-                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search aircraft..." className="h-9" />
-                            <CommandEmpty>No aircraft found.</CommandEmpty>
-                            <CommandList>
-                              <CommandGroup>
-                                <CommandItem
-                                  key="all-aircraft"
-                                  value="all"
-                                  onSelect={() => {
-                                    setSelectedAircraft("all")
-                                    setAircraftOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedAircraft === "all" ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  All aircraft
-                                </CommandItem>
-                                {aircraft.map((plane, index) => (
-                                  <CommandItem
-                                    key={plane.id || `aircraft-${index}`}
-                                    value={`${plane.registration} ${plane.type} ${plane.aircraftModel || plane.model}`}
-                                    onSelect={() => {
-                                      setSelectedAircraft(plane.id)
-                                      setAircraftOpen(false)
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        selectedAircraft === plane.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {plane.registration} - {plane.type}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">Instructor</Label>
-                      <Popover open={instructorOpen} onOpenChange={setInstructorOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={instructorOpen}
-                            className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal"
-                          >
-                            <span className="truncate text-left">{getInstructorDisplayName(selectedInstructor)}</span>
-                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search instructors..." className="h-9" />
-                            <CommandEmpty>No instructors found.</CommandEmpty>
-                            <CommandList>
-                              <CommandGroup>
-                                <CommandItem
-                                  key="all-instructors"
-                                  value="all"
-                                  onSelect={() => {
-                                    setSelectedInstructor("all")
-                                    setInstructorOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedInstructor === "all" ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  All instructors
-                                </CommandItem>
-                                {instructors
-                                  .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
-                                  .map((instructor, index) => (
-                                    <CommandItem
-                                      key={instructor._id || `instructor-${index}`}
-                                      value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
-                                      onSelect={() => {
-                                        setSelectedInstructor(instructor._id)
-                                        setInstructorOpen(false)
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          selectedInstructor === instructor._id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {instructor.user_id.first_name} {instructor.user_id.last_name}
-                                    </CommandItem>
-                                  ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">Student</Label>
-                      <Popover open={studentOpen} onOpenChange={setStudentOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={studentOpen}
-                            className="h-8 w-full justify-between dark:bg-muted/50 text-xs font-normal"
-                          >
-                            <span className="truncate text-left">{getStudentDisplayName(selectedStudent)}</span>
-                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search students..." className="h-9" />
-                            <CommandEmpty>No students found.</CommandEmpty>
-                            <CommandList>
-                              <CommandGroup>
-                                <CommandItem
-                                  key="all-students"
-                                  value="all"
-                                  onSelect={() => {
-                                    setSelectedStudent("all")
-                                    setStudentOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedStudent === "all" ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  All students
-                                </CommandItem>
-                                {students
-                                  .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
-                                  .map((student, index) => (
-                                    <CommandItem
-                                      key={student._id || `student-${index}`}
-                                      value={`${student.user_id.first_name} ${student.user_id.last_name}`}
-                                      onSelect={() => {
-                                        setSelectedStudent(student._id)
-                                        setStudentOpen(false)
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          selectedStudent === student._id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {student.user_id.first_name} {student.user_id.last_name}
-                                    </CommandItem>
-                                  ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
 
-                  {/* Actions Row */}
-                  <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                    <div className="text-xs text-muted-foreground">
-                      Use filters to narrow down results
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleResetFilters}
-                      className="h-7 text-xs px-3"
-                    >
-                      Reset All
-                    </Button>
-                  </div>
-                </div>
-              )}
+          <ReusableTable
+            data={flights}
+            columns={columns}
+            loading={initialLoading}
+            filterLoading={filterLoading}
+            error={error}
+            searchConfig={{
+              enabled: true,
+              placeholder: "Search flights...",
+              searchFields: ['student_name', 'plane_reg', 'instructor', 'type', 'status'],
+              serverSide: true,
+              debounceMs: 500
+            }}
+            filters={filterConfigs}
+            pagination={paginationConfig}
+            serverSide={serverSideConfig}
+            onRowClick={handleRowClick}
+            emptyState={{
+              title: 'No flights found',
+              description: 'There are no flight logs to display at the moment.',
+              searchTitle: 'No results found',
+              searchDescription: 'No flights match your search criteria.'
+            }}
+          />
+        </div>
 
-              {/* Responsive Table Container */}
-              <div className="flex-1 overflow-hidden -mx-3">
-                <div className="h-full border rounded-lg dark:border-muted-foreground/20 bg-card mx-3">
-                  <div className="h-full overflow-auto">
-                    <div className="min-w-[800px] h-full">
-                      <Table className="h-full">
-                        <TableHeader className="sticky top-0 bg-card dark:bg-card z-10 border-b">
-                          <TableRow>
-                            <TableHead 
-                              className="cursor-pointer w-[100px] bg-card dark:bg-card"
-                              onClick={() => handleSort('date')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Date
-                                {sortConfig?.key === 'date' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'date' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'date' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer w-[80px] bg-card dark:bg-card"
-                              onClick={() => handleSort('start_time')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Time
-                                {sortConfig?.key === 'start_time' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'start_time' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'start_time' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer w-[120px] bg-card dark:bg-card"
-                              onClick={() => handleSort('plane_reg')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Aircraft
-                                {sortConfig?.key === 'plane_reg' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'plane_reg' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'plane_reg' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer min-w-[140px] bg-card dark:bg-card"
-                              onClick={() => handleSort('student_name')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Student
-                                {sortConfig?.key === 'student_name' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'student_name' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'student_name' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer min-w-[140px] bg-card dark:bg-card"
-                              onClick={() => handleSort('instructor')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Instructor
-                                {sortConfig?.key === 'instructor' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'instructor' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'instructor' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer w-[100px] bg-card dark:bg-card"
-                              onClick={() => handleSort('duration')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Duration
-                                {sortConfig?.key === 'duration' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'duration' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'duration' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer w-[120px] bg-card dark:bg-card"
-                              onClick={() => handleSort('status')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Status
-                                {sortConfig?.key === 'status' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'status' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'status' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead 
-                              className="cursor-pointer w-[100px] bg-card dark:bg-card"
-                              onClick={() => handleSort('type')}
-                            >
-                              <div className="flex items-center gap-1">
-                                Type
-                                {sortConfig?.key === 'type' && (
-                                  <ArrowUpDown className="h-3 w-3" />
-                                )}
-                                {sortConfig?.key === 'type' && sortConfig.direction === 'ascending' && (
-                                  <span className="text-xs">↑</span>
-                                )}
-                                {sortConfig?.key === 'type' && sortConfig.direction === 'descending' && (
-                                  <span className="text-xs">↓</span>
-                                )}
-                              </div>
-                            </TableHead>
-                            <TableHead className="w-[50px] bg-card dark:bg-card"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {loading ? (
-                            <>
-                              {Array.from({ length: 10 }).map((_, i) => (
-                                <TableRow key={i}>
-                                  <TableCell>
-                                    <Skeleton className="h-4 w-20" />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Skeleton className="h-4 w-16" />
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Skeleton className="h-4 w-4 rounded" />
-                                      <Skeleton className="h-4 w-16" />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Skeleton className="h-4 w-4 rounded" />
-                                      <Skeleton className="h-4 w-24" />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Skeleton className="h-4 w-4 rounded" />
-                                      <Skeleton className="h-4 w-28" />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Skeleton className="h-4 w-14" />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Skeleton className="h-6 w-16 rounded-full" />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Skeleton className="h-4 w-12" />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Skeleton className="h-4 w-4" />
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </>
-                          ) : flights.length > 0 ? (
-                            flights.map((flight) => (
-                              <TableRow 
-                                key={flight._id}
-                                className={`cursor-pointer hover:bg-muted/50 ${
-                                  selectedFlight?._id === flight._id ? 'bg-muted/50' : ''
-                                }`}
-                                onClick={() => handleViewDetails(flight)}
-                              >
-                                <TableCell className="font-medium">{formatDate(flight.date)}</TableCell>
-                                <TableCell>{formatTime(flight.start_time)}</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <Plane className="h-4 w-4 text-primary" strokeWidth={2.5} />
-                                    <span className="font-mono text-sm">{flight.plane_reg}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <User className="h-4 w-4 text-muted-foreground" />
-                                    <span className="truncate">{flight.student_name}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <User className="h-4 w-4 text-muted-foreground" />
-                                    <span className="truncate">{flight.instructor}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="font-medium">{flight.duration} hrs</TableCell>
-                                <TableCell>
-                                  <div
-                                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                                      flight.status === "Completed" 
-                                        ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
-                                        : flight.status === "In-Progress"
-                                          ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
-                                          : flight.status === "Preparing"
-                                            ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
-                                          : flight.status === "Scheduled"
-                                            ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
-                                          : flight.status === "Cancelled" || flight.status === "Canceled"
-                                            ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
-                                            : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
-                                    }`}
-                                  >
-                                    {flight.status}
-                                  </div>
-                                </TableCell>
-                                <TableCell>{flight.type}</TableCell>
-                                <TableCell></TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={10} className="h-32 text-center">
-                                <div className="flex flex-col items-center justify-center gap-2">
-                                  <Plane className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.5} />
-                                  <p className="text-lg font-medium text-muted-foreground">No flights found</p>
-                                  <p className="text-sm text-muted-foreground/80">Try adjusting your filters or search criteria</p>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Pagination Controls */}
-              {!selectedFlight && totalPages > 1 && (
-                <div className="flex-shrink-0 mt-4 mx-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Page {currentPage} of {totalPages} ({totalItems} total flights)
-                    </div>
-                    
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious 
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              if (currentPage > 1) {
-                                setCurrentPage(currentPage - 1)
-                              }
-                            }}
-                            className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
-                          />
-                        </PaginationItem>
-
-                        {/* Always show first page */}
-                        {totalPages > 0 && (
-                          <PaginationItem>
-                            <PaginationLink
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                setCurrentPage(1)
-                              }}
-                              isActive={currentPage === 1}
-                            >
-                              1
-                            </PaginationLink>
-                          </PaginationItem>
-                        )}
-
-                        {/* Show ellipsis if there's a gap */}
-                        {currentPage > 3 && totalPages > 4 && (
-                          <PaginationItem>
-                            <PaginationEllipsis />
-                          </PaginationItem>
-                        )}
-
-                        {/* Show pages around current page */}
-                        {(() => {
-                          const start = Math.max(2, currentPage - 1);
-                          const end = Math.min(totalPages - 1, currentPage + 1);
-                          const items = [];
-
-                          for (let page = start; page <= end; page++) {
-                            items.push(
-                              <PaginationItem key={page}>
-                                <PaginationLink
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    setCurrentPage(page)
-                                  }}
-                                  isActive={currentPage === page}
-                                >
-                                  {page}
-                                </PaginationLink>
-                              </PaginationItem>
-                            );
-                          }
-
-                          return items;
-                        })()}
-
-                        {/* Show ellipsis if there's a gap at the end */}
-                        {currentPage < totalPages - 2 && totalPages > 4 && (
-                          <PaginationItem>
-                            <PaginationEllipsis />
-                          </PaginationItem>
-                        )}
-
-                        {/* Always show last page if more than 1 page */}
-                        {totalPages > 1 && (
-                          <PaginationItem>
-                            <PaginationLink
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                setCurrentPage(totalPages)
-                              }}
-                              isActive={currentPage === totalPages}
-                            >
-                              {totalPages}
-                            </PaginationLink>
-                          </PaginationItem>
-                        )}
-                        
-                        <PaginationItem>
-                          <PaginationNext
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              if (currentPage < totalPages) {
-                                setCurrentPage(currentPage + 1)
-                              }
-                            }}
-                            className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
+        {/* Details Panel */}
         {selectedFlight && (
           <Card className="h-full">
-            <CardHeader className="border-b dark:border-muted-foreground/20 pb-3">
+            <CardHeader className="border-b pb-3">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-xl">Flight Details</CardTitle>
@@ -2003,117 +1093,45 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
                           <Button 
                             variant="destructive" 
                             size="sm"
-                            className="flex items-center gap-2"
                             disabled={isDeleting}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent className="max-w-md">
+                        <AlertDialogContent>
                           <AlertDialogHeader>
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
-                                <Trash2 className="h-5 w-5 text-destructive" />
-                              </div>
-                              <div>
-                                <AlertDialogTitle className="text-lg font-semibold">Delete Flight Log</AlertDialogTitle>
-                              </div>
-                            </div>
-                            <AlertDialogDescription className="text-sm text-muted-foreground mt-4">
-                              Are you sure you want to delete this flight log? This action cannot be undone and will permanently remove all flight data.
+                            <AlertDialogTitle>Delete Flight Log</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this flight log? This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          
-                          {/* Flight Details Card */}
-                          <div className="my-4 p-4 rounded-lg bg-muted/30 border border-muted">
-                            <h4 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                              <Plane className="h-4 w-4 text-muted-foreground" />
-                              Flight Details
-                            </h4>
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Date:</span>
-                                <span className="font-medium">{selectedFlight ? formatDate(selectedFlight.date) : ''}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Time:</span>
-                                <span className="font-medium">{selectedFlight ? formatTime(selectedFlight.start_time) : ''}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Aircraft:</span>
-                                <span className="font-medium font-mono">{selectedFlight?.plane_reg || ''}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Student:</span>
-                                <span className="font-medium">{selectedFlight?.student_name || ''}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Instructor:</span>
-                                <span className="font-medium">{selectedFlight?.instructor || ''}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <AlertDialogFooter className="gap-2">
-                            <AlertDialogCancel className="flex-1">
-                              Cancel
-                            </AlertDialogCancel>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={handleDeleteFlight}
-                              className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive/50"
-                              disabled={isDeleting}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >
-                              {isDeleting ? (
-                                <>
-                                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                  Deleting...
-                                </>
-                              ) : (
-                                <>
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete Flight
-                                </>
-                              )}
+                              Delete Flight
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleCancelEdit}
-                        className="dark:border-muted-foreground/20"
-                      >
+                      <Button variant="outline" size="sm" onClick={handleCancelEdit}>
                         Cancel
                       </Button>
-                      <Button 
-                        variant="default" 
-                        size="sm"
-                        className="flex items-center gap-2"
-                        onClick={handleSaveEdit}
-                      >
-                        <Save className="h-4 w-4" />
+                      <Button size="sm" onClick={handleSaveEdit}>
+                        <Save className="h-4 w-4 mr-2" />
                         Save
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="flex items-center gap-2 dark:border-muted-foreground/20"
-                        onClick={handleEditClick}
-                      >
-                        <Pencil className="h-4 w-4" />
+                      <Button variant="outline" size="sm" onClick={handleEditClick}>
+                        <Pencil className="h-4 w-4 mr-2" />
                         Edit
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={handleBackToList}
-                        className="hover:bg-muted dark:hover:bg-muted/30"
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => setSelectedFlight(null)}>
                         <X className="h-5 w-5" />
                       </Button>
                     </>
@@ -2124,485 +1142,59 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
             <CardContent className="pt-4">
               {isEditing ? (
                 <div className="space-y-4">
-                  {/* Flight Information Header */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
-                        <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
-                        <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Edit flight details</p>
-                      </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Input
+                        type="date"
+                        value={editedFlight?.date || ''}
+                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, date: e.target.value} : null)}
+                      />
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-[#3366ff]"></div>
-                          <Label htmlFor="date" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</Label>
-                        </div>
-                        <Input
-                          id="date"
-                          type="date"
-                          value={editedFlight?.date || ''}
-                          onChange={(e) => handleInputChange('date', e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-2 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-[#809fff]"></div>
-                          <Label htmlFor="start_time" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</Label>
-                        </div>
-                        <Input
-                          id="start_time"
-                          type="time"
-                          value={editedFlight?.start_time || ''}
-                          onChange={(e) => handleInputChange('start_time', e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-2 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
-                          <Label htmlFor="duration" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration (HRS)</Label>
-                        </div>
-                        <Input
-                          id="duration"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          value={editedFlight?.duration || 0}
-                          onChange={(e) => handleInputChange('duration', parseFloat(e.target.value))}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-2 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-[#cc00ff]"></div>
-                          <Label htmlFor="type" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</Label>
-                        </div>
-                        <Input
-                          id="type"
-                          value={editedFlight?.type || ''}
-                          onChange={(e) => handleInputChange('type', e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      <Input
+                        type="time"
+                        value={editedFlight?.start_time || ''}
+                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, start_time: e.target.value} : null)}
+                      />
                     </div>
-                  </div>
-                  
-                  {/* Aircraft Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#c2f0c2]/20 to-[#99e699]/20 dark:from-[#33cc33]/20 dark:to-[#33cc33]/10 rounded-lg border border-[#99e699]/30 dark:border-[#33cc33]/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#33cc33]/10 dark:bg-[#33cc33]/20">
-                        <Plane className="h-4 w-4 text-[#33cc33] dark:text-[#33cc33]" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-[#33cc33] dark:text-[#c2f0c2]">Aircraft</h3>
-                        <p className="text-xs text-[#33cc33]/80 dark:text-[#99e699]">Aircraft registration details</p>
-                      </div>
+                    <div className="space-y-2">
+                      <Label>Duration (hrs)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editedFlight?.duration || 0}
+                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, duration: parseFloat(e.target.value)} : null)}
+                      />
                     </div>
-                    
-                    <div className="space-y-2 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#33cc33]"></div>
-                        <Label htmlFor="aircraft" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</Label>
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="h-8 w-full justify-between text-sm font-mono font-normal"
-                          >
-                            <span className="truncate">
-                              {getSelectedPlaneDisplay(editedFlight) || (loadingAircraft ? "Loading aircraft..." : "Select aircraft")}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search aircraft..." className="h-9" />
-                            <CommandEmpty>No aircraft found.</CommandEmpty>
-                            <CommandList>
-                              <CommandGroup>
-                                {loadingAircraft ? (
-                                  <CommandItem value="loading" disabled>
-                                    Loading aircraft...
-                                  </CommandItem>
-                                ) : aircraft.length === 0 ? (
-                                  <CommandItem value="no-aircraft" disabled>
-                                    No aircraft available
-                                  </CommandItem>
-                                ) : (
-                                  aircraft.map((plane) => {
-                                    const typeModel = [plane.type, plane.aircraftModel || plane.model].filter(Boolean).join(' ')
-                                    const displayText = `${plane.registration} - ${typeModel}`
-                                    return (
-                                      <CommandItem
-                                        key={plane.id}
-                                        value={displayText}
-                                        onSelect={() => handleAircraftChange(plane.id)}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            getSelectedPlaneId(editedFlight) === plane.id ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {displayText}
-                                      </CommandItem>
-                                    )
-                                  })
-                                )}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-                  
-                  {/* Flight Crew Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#ffe0b3]/20 to-[#ffcc80]/20 dark:from-[#ff9900]/20 dark:to-[#ff9900]/10 rounded-lg border border-[#ffcc80]/30 dark:border-[#ff9900]/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#ff9900]/10 dark:bg-[#ff9900]/20">
-                        <User className="h-4 w-4 text-[#ff9900] dark:text-[#ff9900]" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-[#ff9900] dark:text-[#ffe0b3]">Flight Crew</h3>
-                        <p className="text-xs text-[#ff9900]/80 dark:text-[#ffcc80]">Student and instructor assignment</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-[#ff9900]"></div>
-                          <Label htmlFor="student" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</Label>
-                        </div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className="h-8 w-full justify-between text-sm font-normal"
-                            >
-                              <span className="truncate">
-                                {editedFlight?.student_id ? 
-                                  students.find(s => s._id === editedFlight.student_id)?.user_id ? 
-                                    `${students.find(s => s._id === editedFlight.student_id)?.user_id.first_name} ${students.find(s => s._id === editedFlight.student_id)?.user_id.last_name}`
-                                    : "Select a student"
-                                  : "Select a student"
-                                }
-                              </span>
-                              <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Search students..." className="h-9" />
-                              <CommandEmpty>No students found.</CommandEmpty>
-                              <CommandList>
-                                <CommandGroup>
-                                  {students.map((student) => (
-                                    <CommandItem
-                                      key={student._id}
-                                      value={`${student.user_id.first_name} ${student.user_id.last_name}`}
-                                      onSelect={() => handleStudentChange(student._id)}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          editedFlight?.student_id === student._id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {student.user_id.first_name} {student.user_id.last_name}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      
-                      <div className="space-y-2 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-[#ffcc80]"></div>
-                          <Label htmlFor="instructor" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</Label>
-                        </div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className="h-8 w-full justify-between text-sm font-normal"
-                            >
-                              <span className="truncate">
-                                {editedFlight?.instructor_id ? 
-                                  instructors.find(i => i._id === editedFlight.instructor_id)?.user_id ? 
-                                    `${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.first_name} ${instructors.find(i => i._id === editedFlight.instructor_id)?.user_id.last_name}`
-                                    : "Select an instructor"
-                                  : "Select an instructor"
-                                }
-                              </span>
-                              <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Search instructors..." className="h-9" />
-                              <CommandEmpty>No instructors found.</CommandEmpty>
-                              <CommandList>
-                                <CommandGroup>
-                                  {instructors
-                                    .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
-                                    .map((instructor) => (
-                                      <CommandItem
-                                        key={instructor._id}
-                                        value={`${instructor.user_id.first_name} ${instructor.user_id.last_name}`}
-                                        onSelect={() => handleInstructorChange(instructor._id)}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            editedFlight?.instructor_id === instructor._id ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {instructor.user_id.first_name} {instructor.user_id.last_name}
-                                      </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Status Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
-                        <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
-                        <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 rounded-md bg-card border">
-                      <div className="space-y-1">
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
-                        <div
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                            editedFlight?.status === "Completed" 
-                              ? "bg-[#b3c6ff] text-[#3366ff] hover:bg-[#809fff] border border-[#809fff]" 
-                              : editedFlight?.status === "In-Progress"
-                                ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
-
-                                : editedFlight?.status === "Preparing"
-                                  ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
-                                : editedFlight?.status === "Scheduled"
-                                  ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
-                                : editedFlight?.status === "Cancelled" || editedFlight?.status === "Canceled"
-                                  ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
-                                : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
-                          }`}
-                        >
-                          {editedFlight?.status}
-                        </div>
-                      </div>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="text-xs">
-                            Change Status
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleInputChange('status', "Scheduled")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleInputChange('status', "Preparing")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleInputChange('status', "In-Progress")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem onClick={() => handleInputChange('status', "Completed")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleInputChange('status', "Canceled")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <Input
+                        value={editedFlight?.type || ''}
+                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, type: e.target.value} : null)}
+                      />
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Flight Information Header */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-[#b3c6ff]/20 to-[#809fff]/20 dark:from-[#3366ff]/20 dark:to-[#3366ff]/10 rounded-lg border border-[#809fff]/30 dark:border-[#3366ff]/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3366ff]/10 dark:bg-[#3366ff]/20">
-                        <Plane className="h-4 w-4 text-[#3366ff] dark:text-[#3366ff]" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-[#3366ff] dark:text-[#b3c6ff]">Flight Information</h3>
-                        <p className="text-xs text-[#3366ff]/80 dark:text-[#809fff]">Primary flight details</p>
-                      </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground">Student</h4>
+                      <p className="text-sm font-semibold">{selectedFlight.student_name}</p>
                     </div>
-                    
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="space-y-1 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Time</h4>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{formatTime(selectedFlight.start_time)}</p>
-                      </div>
-                      <div className="space-y-1 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Duration</h4>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{selectedFlight.duration} hrs</p>
-                      </div>
-                      <div className="space-y-1 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</h4>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{selectedFlight.type}</p>
-                      </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground">Instructor</h4>
+                      <p className="text-sm font-semibold">{selectedFlight.instructor}</p>
                     </div>
-                  </div>
-                  
-                  {/* Aircraft Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-lg border border-emerald-100 dark:border-emerald-800/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-400/10">
-                        <Plane className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-emerald-900 dark:text-emerald-100">Aircraft</h3>
-                        <p className="text-xs text-emerald-700 dark:text-emerald-300">Aircraft registration details</p>
-                      </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground">Duration</h4>
+                      <p className="text-sm font-semibold">{selectedFlight.duration} hrs</p>
                     </div>
-                    
-                    <div className="space-y-1 p-3 rounded-md bg-card border">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration</h4>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground font-mono">{selectedFlight.plane_reg}</p>
-                    </div>
-                  </div>
-                  
-                  {/* People Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg border border-amber-100 dark:border-amber-800/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10 dark:bg-amber-400/10">
-                        <User className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">Flight Crew</h3>
-                        <p className="text-xs text-amber-700 dark:text-amber-300">Student and instructor information</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="space-y-1 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-amber-500"></div>
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Student</h4>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{selectedFlight.student_name}</p>
-                      </div>
-                      
-                      <div className="space-y-1 p-3 rounded-md bg-card border">
-                        <div className="flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Instructor</h4>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{selectedFlight.instructor}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Status Section */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 rounded-lg border border-violet-100 dark:border-violet-800/30">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-500/10 dark:bg-violet-400/10">
-                        <AlertTriangle className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-violet-900 dark:text-violet-100">Flight Status</h3>
-                        <p className="text-xs text-violet-700 dark:text-violet-300">Current status and actions</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 rounded-md bg-card border">
-                      <div className="space-y-1">
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Status</h4>
-                        <div
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                            selectedFlight.status === "Completed" 
-                              ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
-                              : selectedFlight.status === "In-Progress"
-                                ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
-
-                                : selectedFlight.status === "Preparing"
-                                  ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
-                                : selectedFlight.status === "Scheduled"
-                                  ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
-                                : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
-                                  ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
-                                : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
-                          }`}
-                        >
-                          {selectedFlight.status}
-                        </div>
-                      </div>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="text-xs">
-                            Change Status
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel className="text-xs">Update Flight Status</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleStatusChange("Scheduled")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#f0b3ff] text-black border-[#e580ff] text-xs">Scheduled</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange("Preparing")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#fbfbb6] text-black border-[#f9f986] text-xs">Preparing</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange("In-Progress")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#c2f0c2] text-black border-[#99e699] text-xs">In-Progress</Badge>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem onClick={() => handleStatusChange("Completed")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#b3c6ff] text-black border-[#809fff] text-xs">Completed</Badge>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange("Canceled")} className="flex items-center gap-2 py-1.5">
-                            <Badge className="bg-[#fc9c9c] text-black border-[#fb6a6a] text-xs">Canceled</Badge>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground">Type</h4>
+                      <p className="text-sm font-semibold">{selectedFlight.type}</p>
                     </div>
                   </div>
                 </div>

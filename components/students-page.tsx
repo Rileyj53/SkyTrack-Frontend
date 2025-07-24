@@ -1,24 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Search, Filter, Download, Eye } from "lucide-react"
-
-import { Table, Group, Avatar, Text, Badge, ActionIcon, Box } from '@mantine/core';
+import { Plus } from "lucide-react"
 
 import { Badge as UIBadge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { MainNav } from "@/components/main-nav-new"
-import { Progress } from "@/components/ui/progress"
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"
 import { 
   Dialog,
   DialogContent,
@@ -28,12 +17,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Loading } from "@/components/ui/loading"
+import { Input } from "@/components/ui/input"
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"
+import { ReusableTable, TableColumn, FilterConfig, TableCellRenderers, PaginationConfig, ServerSideConfig } from "@/components/reusable-table"
+import { StatsGrid, type StatConfig } from "@/components/StatsGrid"
 import { toast } from "sonner"
 
 interface Student {
   _id: string
-  school_id: string
+  organization_id: string
   user_id: {
     _id: string
     email: string
@@ -114,13 +112,158 @@ interface Program {
   updated_at: string
 }
 
-const statusColors: Record<string, string> = {
-  active: '#33cc33',
-  graduated: '#3366ff',
-  'on hold': '#cc00ff',
-  discontinued: '#f90606',
-  pending: '#f2f20d',
-};
+interface PaginationInfo {
+  currentPage: number
+  totalPages: number
+  totalCount: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+  limit: number
+}
+
+// Student-specific statistics configuration with comprehensive coverage
+const STUDENT_STATS_CONFIG: StatConfig[] = [
+  // Overview Statistics
+  {
+    id: 'total_students',
+    title: 'Total Students',
+    icon: 'user',
+    enabled: true,
+    order: 1,
+    dataPath: 'overview.total_students',
+    format: 'number'
+  },
+  {
+    id: 'active_students',
+    title: 'Active Students',
+    icon: 'user',
+    enabled: true,
+    order: 2,
+    dataPath: 'overview.active_students',
+    format: 'number'
+  },
+  {
+    id: 'new_enrollments_period',
+    title: 'New Enrollments',
+    icon: 'user',
+    enabled: true,
+    order: 3,
+    dataPath: 'overview.new_enrollments_period',
+    format: 'number'
+  },
+  {
+    id: 'graduated_students_period',
+    title: 'Graduated This Period',
+    icon: 'user',
+    enabled: true,
+    order: 4,
+    dataPath: 'overview.graduated_students_period',
+    format: 'number'
+  },
+  {
+    id: 'completion_rate',
+    title: 'Completion Rate',
+    icon: 'chart',
+    enabled: false,
+    order: 5,
+    dataPath: 'overview.completion_rate',
+    format: 'percentage',
+    suffix: '%'
+  },
+  {
+    id: 'retention_rate',
+    title: 'Retention Rate',
+    icon: 'chart',
+    enabled: false,
+    order: 6,
+    dataPath: 'overview.retention_rate',
+    format: 'percentage',
+    suffix: '%'
+  },
+  
+  // Flight Activity
+  {
+    id: 'total_flights_period',
+    title: 'Total Flights',
+    icon: 'plane',
+    enabled: false,
+    order: 7,
+    dataPath: 'flight_activity.total_flights_period',
+    format: 'number'
+  },
+  {
+    id: 'completed_flights_period',
+    title: 'Completed Flights',
+    icon: 'plane',
+    enabled: false,
+    order: 8,
+    dataPath: 'flight_activity.completed_flights_period',
+    format: 'number'
+  },
+  {
+    id: 'total_hours_period',
+    title: 'Total Flight Hours',
+    icon: 'clock',
+    enabled: false,
+    order: 9,
+    dataPath: 'flight_activity.total_hours_period',
+    format: 'number',
+    suffix: ' hrs'
+  },
+  
+  // Performance Metrics
+  {
+    id: 'overall_on_time_rate',
+    title: 'On-Time Rate',
+    icon: 'chart',
+    enabled: false,
+    order: 10,
+    dataPath: 'performance_metrics.overall_on_time_rate',
+    format: 'percentage',
+    suffix: '%'
+  },
+  {
+    id: 'avg_flights_per_student',
+    title: 'Avg Flights/Student',
+    icon: 'chart',
+    enabled: false,
+    order: 11,
+    dataPath: 'performance_metrics.avg_flights_per_student',
+    format: 'number'
+  },
+  
+  // Progress Tracking
+  {
+    id: 'overall_progress',
+    title: 'Overall Progress',
+    icon: 'chart',
+    enabled: false,
+    order: 12,
+    dataPath: 'progress_tracking.overall_progress',
+    format: 'percentage',
+    suffix: '%'
+  },
+  
+  // Certification Breakdown
+  {
+    id: 'private_certifications',
+    title: 'Private Certifications',
+    icon: 'user',
+    enabled: false,
+    order: 13,
+    dataPath: 'certification_breakdown.private',
+    format: 'number'
+  },
+  {
+    id: 'instrument_certifications',
+    title: 'Instrument Certifications',
+    icon: 'user',
+    enabled: false,
+    order: 14,
+    dataPath: 'certification_breakdown.instrument',
+    format: 'number'
+  }
+];
 
 const statusBadgeStyles: Record<string, React.CSSProperties> = {
   active: {
@@ -153,11 +296,39 @@ const statusBadgeStyles: Record<string, React.CSSProperties> = {
     color: '#111',
     fontWeight: 500,
   },
-};
+}
 
 export function StudentsPage() {
   const router = useRouter()
+  
+  // State for students and pagination
   const [students, setStudents] = useState<Student[]>([])
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+    limit: 10
+  })
+  
+  // State for API parameters
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [filters, setFilters] = useState<Record<string, string>>({
+    status: "all",
+    program: "all",
+    stage: "all"
+  })
+  
+  // Loading and error states
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  
+  // Programs for the add student dialog
   const [programs, setPrograms] = useState<Program[]>([
     { 
       _id: 'default-1', 
@@ -199,20 +370,180 @@ export function StudentsPage() {
       updated_at: ''
     }
   ])
-  const [loading, setLoading] = useState(true)
-  const [programsLoading, setProgramsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [programFilter, setProgramFilter] = useState<string>("all")
-  const [stageFilter, setStageFilter] = useState<string>("all")
-  const [userRole, setUserRole] = useState<string | null>(null)
+  
+  // Add student dialog state
   const [isAddingStudent, setIsAddingStudent] = useState(false)
+  const [programsLoading, setProgramsLoading] = useState(false)
   const [newStudent, setNewStudent] = useState({
     contact_email: "",
     program: ""
   })
+  const [statsData, setStatsData] = useState<any>(null)
 
+  // Memoized fetch functions to prevent dependency loops
+  const fetchStudents = useCallback(async (
+    page?: number,
+    limit?: number,
+    search?: string,
+    filterParams?: Record<string, string>
+  ) => {
+    if (!isAuthenticated) return
+
+    // Use passed parameters or current state
+    const actualPage = page ?? currentPage
+    const actualLimit = limit ?? pageSize
+    const actualSearch = search ?? searchQuery
+    const actualFilters = filterParams ?? filters
+
+    try {
+      setLoading(true)
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
+      }
+
+      // Build query parameters
+      const queryParams = new URLSearchParams({
+        page: actualPage.toString(),
+        limit: actualLimit.toString()
+      })
+
+      if (actualSearch) {
+        queryParams.append('search', actualSearch)
+      }
+
+      // Add server-side filters (only non-"all" values)
+      Object.entries(actualFilters).forEach(([key, value]) => {
+        if (value && value !== "all") {
+          queryParams.append(key, value)
+        }
+      })
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students?${queryParams.toString()}`
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch students: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setStudents(data.data?.students || [])
+        setPagination(data.data?.pagination || {
+          currentPage: 1,
+          totalPages: 1,
+          totalCount: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+          limit: actualLimit
+        })
+        setError(null)
+      } else {
+        throw new Error(data.message || 'Failed to fetch students')
+      }
+    } catch (err) {
+      console.error('Error fetching students:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch students'
+      setError(errorMessage)
+      toast.error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated]) // Only depend on isAuthenticated
+
+  // Memoized fetch stats function
+  const fetchStats = useCallback(async () => {
+    try {
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      
+      if (!organizationId || !token) {
+        throw new Error("Organization ID or authentication token not found")
+      }
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/stats?include_financials=true&include_progress=true&range=30`
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stats: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setStatsData(data.data?.stats || null)
+      } else {
+        throw new Error(data.message || 'Failed to fetch stats')
+      }
+    } catch (err) {
+      console.error('Error fetching stats:', err)
+    }
+  }, [])
+
+  // Memoized fetch programs function
+  const fetchPrograms = useCallback(async () => {
+    try {
+      setProgramsLoading(true)
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      
+      if (!organizationId || !token) {
+        return // Keep default programs
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
+            'Authorization': `Bearer ${token}`,
+            'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+          },
+          credentials: 'include'
+        }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        const programsArray = Array.isArray(data) ? data : (data.data?.programs || data.programs || [])
+        
+        if (programsArray.length > 0) {
+          setPrograms(programsArray)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching programs:', err)
+    } finally {
+      setProgramsLoading(false)
+    }
+  }, [])
+
+  // Check authentication - run only once on mount
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("token")
@@ -232,7 +563,7 @@ export function StudentsPage() {
         })
 
         if (!response.ok) {
-          throw new Error("Not authenticated")
+          throw new Error(`Authentication failed: ${response.status} ${response.statusText}`)
         }
 
         const data = await response.json()
@@ -241,7 +572,6 @@ export function StudentsPage() {
         if (data.data?.user && data.data.user.organizationId) {
           localStorage.setItem("organizationId", data.data.user.organizationId)
         } else if (data.data?.user && data.data.user.school_id) {
-          // Fallback for legacy data
           localStorage.setItem("schoolId", data.data.user.school_id)
         } else if (data.user && data.user.organizationId) {
           localStorage.setItem("organizationId", data.user.organizationId)
@@ -264,178 +594,95 @@ export function StudentsPage() {
           }
         }
 
-        await fetchStudents()
-        await fetchPrograms()
+        setIsAuthenticated(true)
+        setError(null)
       } catch (error) {
         console.error("Auth check failed:", error)
+        const errorMessage = error instanceof Error ? error.message : 'Authentication failed'
+        setError(errorMessage)
+        toast.error(errorMessage)
         router.push("/login")
       }
     }
 
     checkAuth()
-  }, [router])
+  }, [router]) // Only depend on router
 
-  // Add effect to refresh data when returning to the page
+  // Fetch initial data when authenticated - only once
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Only refresh if page becomes visible and we have existing data
-      if (!document.hidden && !loading && students.length > 0) {
-        fetchStudents()
-      }
+    if (isAuthenticated) {
+      fetchStudents() // Use current state values
+      fetchPrograms()
+      fetchStats()
     }
+  }, [isAuthenticated]) // ONLY depend on isAuthenticated
 
-    // Listen for page visibility changes (better than focus for tab switching)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [loading, students.length])
+  // Helper function to calculate progress percentage
+  const calculateProgress = useCallback((student: Student): number => {
+    if (!student.progress?.requirements?.length) return 0
+    
+    const totalFlightTime = student.progress.requirements.find(req => req.name === "Total Flight Time" || req.name === "Total Instrument Time")
+    if (!totalFlightTime || totalFlightTime.total_hours === 0) return 0
+    
+    return Math.min(Math.round((totalFlightTime.completed_hours / totalFlightTime.total_hours) * 100), 100)
+  }, [])
 
-  // Also add a way to manually refresh data (useful for debugging)
-  const refreshStudents = () => {
-    fetchStudents()
-  }
+  // Helper function to calculate flight hours
+  const calculateFlightHours = useCallback((student: Student): number => {
+    if (!student.progress?.requirements?.length) return 0
+    
+    const totalHoursReq = student.progress.requirements.find(req => req.name === "Total Flight Time" || req.name === "Total Instrument Time")
+    return totalHoursReq?.completed_hours || 0
+  }, [])
 
-  // Helper function to get the current stage from progress data
-  const getCurrentStage = (student: Student): string => {
+  // Helper function to get current stage
+  const getCurrentStage = useCallback((student: Student): string => {
     if (!student.progress?.stages?.length) {
       return student.stage || 'Not Set'
     }
 
-    // Find the highest completed stage or the first incomplete stage
     const sortedStages = [...student.progress.stages].sort((a, b) => a.order - b.order)
-    
-    // Find the last completed stage
     let currentStage = sortedStages.find(stage => !stage.completed)
     
-    // If all stages are completed, return the last stage
     if (!currentStage) {
       currentStage = sortedStages[sortedStages.length - 1]
     }
     
     return currentStage?.name || student.stage || 'Not Set'
-  }
+  }, [])
 
-  const fetchStudents = async () => {
-    try {
-      setLoading(true)
-      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
-      const token = localStorage.getItem("token")
-      
-      if (!organizationId || !token) {
-        throw new Error("Organization ID or authentication token not found")
-      }
+  // Memoized callback functions to prevent recreation
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+    fetchStudents(page, pageSize, searchQuery, filters)
+  }, [fetchStudents, pageSize, searchQuery, filters])
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students`,
-        {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-            'Authorization': `Bearer ${token}`,
-            'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-          },
-          credentials: 'include'
-        }
-      )
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize)
+    setCurrentPage(1)
+    fetchStudents(1, newPageSize, searchQuery, filters)
+  }, [fetchStudents, searchQuery, filters])
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch students')
-      }
+  const handleFiltersChange = useCallback((newFilters: Record<string, string>) => {
+    setFilters(newFilters)
+    setCurrentPage(1)
+    fetchStudents(1, pageSize, searchQuery, newFilters)
+  }, [fetchStudents, pageSize, searchQuery])
 
-      const data = await response.json()
-      setStudents(data.data?.students || data.students || [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch students')
-      toast.error('Failed to fetch students')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query)
+    setCurrentPage(1)
+    fetchStudents(1, pageSize, query, filters)
+  }, [fetchStudents, pageSize, filters])
 
-  const fetchPrograms = async () => {
-    try {
-      setProgramsLoading(true)
-      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
-      const token = localStorage.getItem("token")
-      
-      if (!organizationId || !token) {
-        console.log('Missing organizationId or token for fetching programs')
-        return // Keep default programs
-      }
-
-      console.log('Fetching programs for organization:', organizationId)
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/programs`,
-        {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_API_KEY || "",
-            'Authorization': `Bearer ${token}`,
-            'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
-          },
-          credentials: 'include'
-        }
-      )
-
-      console.log('Programs API response status:', response.status)
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Programs API response data:', data)
-        
-        // Handle different possible response structures
-        const programsArray = Array.isArray(data) ? data : (data.data?.programs || data.programs || [])
-        console.log('Extracted programs array:', programsArray)
-        
-        // Only update programs if we got valid data from API
-        if (programsArray.length > 0) {
-          setPrograms(programsArray)
-          console.log('Successfully loaded programs from API')
-        } else {
-          console.log('API returned empty programs, keeping defaults')
-        }
-      } else {
-        console.error('Failed to fetch programs:', response.status, response.statusText)
-        const errorText = await response.text().catch(() => 'Unknown error')
-        console.error('Error response:', errorText)
-        console.log('Keeping default programs due to API error')
-      }
-    } catch (err) {
-      console.error('Error fetching programs:', err)
-      console.log('Keeping default programs due to fetch error')
-    } finally {
-      setProgramsLoading(false)
-    }
-  }
-
-  const calculateProgress = (student: Student): number => {
-    if (!student.progress?.requirements?.length) return 0
-    
-    // Find the "Total Flight Time" requirement for overall progress
-    const totalFlightTime = student.progress.requirements.find(req => req.name === "Total Flight Time")
-    if (!totalFlightTime || totalFlightTime.total_hours === 0) return 0
-    
-    return Math.min(Math.round((totalFlightTime.completed_hours / totalFlightTime.total_hours) * 100), 100)
-  }
-
-  const calculateFlightHours = (student: Student): number => {
-    if (!student.progress?.requirements?.length) return 0
-    
-    const totalHoursReq = student.progress.requirements.find(req => req.name === "Total Flight Time")
-    return totalHoursReq?.completed_hours || 0
-  }
-
+  // Handle add student
   const handleAddStudent = async () => {
     try {
-      // Validate required fields
       if (!newStudent.contact_email || !newStudent.program) {
         toast.error("Please fill in all required fields")
         return
       }
 
-      // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(newStudent.contact_email)) {
         toast.error("Please enter a valid email address")
@@ -473,7 +720,7 @@ export function StudentsPage() {
         throw new Error(errorData.message || 'Failed to send student invitation')
       }
 
-      await fetchStudents()
+      await fetchStudents() // Refresh with current state
       setIsAddingStudent(false)
       setNewStudent({ contact_email: "", program: "" })
       toast.success("Student invitation sent successfully")
@@ -482,345 +729,274 @@ export function StudentsPage() {
     }
   }
 
-  // Filter students based on search query and filters
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch = 
-      (student.user_id ? `${student.user_id.first_name} ${student.user_id.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
-      (student.program || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (student.nextMilestone || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (student.license_number || '').toLowerCase().includes(searchQuery.toLowerCase())
+  // Table configuration
+  const columns: TableColumn<Student>[] = [
+    {
+      key: 'student',
+      header: 'Student',
+      width: '20%',
+      render: (student) => (
+        <TableCellRenderers.Avatar 
+          name={student.user_id ? `${student.user_id.first_name} ${student.user_id.last_name}` : undefined}
+          email={student.user_id?.email || student.contact_email}
+        />
+      )
+    },
+    {
+      key: 'license_number',
+      header: 'License #',
+      width: '10%',
+      render: (student) => (
+        <TableCellRenderers.MonospaceText value={student.license_number || 'N/A'} />
+      )
+    },
+    {
+      key: 'program',
+      header: 'Program',
+      width: '15%'
+    },
+    {
+      key: 'stage',
+      header: 'Stage', 
+      width: '10%',
+      render: (student) => (
+        <UIBadge variant="outline">{getCurrentStage(student)}</UIBadge>
+      )
+    },
+    {
+      key: 'progress',
+      header: 'Progress',
+      width: '15%',
+      align: 'center',
+      render: (student) => (
+        <TableCellRenderers.Progress value={calculateProgress(student)} />
+      )
+    },
+    {
+      key: 'flightHours',
+      header: 'Flight Hours',
+      width: '10%',
+      align: 'center',
+      render: (student) => (
+        <TableCellRenderers.MonospaceText value={`${calculateFlightHours(student).toFixed(1)} hrs`} />
+      )
+    },
+    {
+      key: 'nextMilestone',
+      header: 'Next Milestone',
+      width: '15%'
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      width: '10%',
+      align: 'center',
+      render: (student) => (
+        <UIBadge
+          style={statusBadgeStyles[student.status.toLowerCase()] || statusBadgeStyles['pending']}
+          variant="outline"
+        >
+          {student.status}
+        </UIBadge>
+      )
+    }
+  ]
 
-    const matchesStatus = statusFilter === "all" || student.status === statusFilter
-    const matchesProgram = programFilter === "all" || student.program === programFilter
-    const currentStage = getCurrentStage(student)
-    const matchesStage = stageFilter === "all" || currentStage === stageFilter
-
-    return matchesSearch && matchesStatus && matchesProgram && matchesStage
-  })
-
-
-
+  // Get unique values for filters
   const uniqueStatuses = [...new Set(students.map(s => s.status))]
   const uniquePrograms = [...new Set(students.map(s => s.program))]
   const uniqueStages = [...new Set(students.map(s => getCurrentStage(s)))]
 
-  if (loading) {
-    return (
-      <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
-        <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <MainNav />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
-          <Loading />
-        </div>
-      </div>
-    )
+  // Filter configuration
+  const filterConfigs: FilterConfig[] = [
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { value: 'all', label: 'All Statuses' },
+        { value: 'Active', label: 'Active' },
+        { value: 'Graduated', label: 'Graduated' },
+        { value: 'On Hold', label: 'On Hold' },
+        { value: 'Discontinued', label: 'Discontinued' },
+        { value: 'Pending', label: 'Pending' }
+      ],
+      defaultValue: 'all',
+      serverSide: true
+    },
+    {
+      key: 'program',
+      label: 'Program',
+      type: 'select',
+      options: [
+        { value: 'all', label: 'All Programs' },
+        ...programs.map(p => ({ value: p.program_name, label: p.program_name }))
+      ],
+      defaultValue: 'all',
+      serverSide: true
+    },
+    {
+      key: 'stage',
+      label: 'Stage',
+      type: 'select',
+      options: [
+        { value: 'all', label: 'All Stages' },
+        ...uniqueStages.map(stage => ({ value: stage, label: stage }))
+      ],
+      defaultValue: 'all',
+      serverSide: false // Client-side filter for stages
+    }
+  ]
+
+  // Pagination configuration
+  const paginationConfig: PaginationConfig = {
+    enabled: true,
+    pageSize: pageSize,
+    serverSide: true,
+    showPageSizeSelector: true,
+    pageSizeOptions: [5, 10, 25, 50]
   }
 
-  if (error) {
-    return (
-      <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
-        <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <MainNav />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
-          <div className="flex flex-col space-y-4">
-            <h1 className="text-2xl font-bold tracking-tight">Students</h1>
-            <Card>
-              <CardContent className="pt-6">
-                <p style={{ color: '#f90606' }}>Error: {error}</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    )
+  // Memoized server-side configuration to prevent recreation
+  const serverSideConfig: ServerSideConfig = useMemo(() => ({
+    totalItems: pagination.totalCount,
+    currentPage: pagination.currentPage,
+    totalPages: pagination.totalPages,
+    onPageChange: handlePageChange,
+    onPageSizeChange: handlePageSizeChange,
+    onFiltersChange: handleFiltersChange,
+    onSearchChange: handleSearchChange
+  }), [
+    pagination.totalCount,
+    pagination.currentPage,
+    pagination.totalPages,
+    handlePageChange,
+    handlePageSizeChange,
+    handleFiltersChange,
+    handleSearchChange
+  ])
+
+  const handleRowClick = (student: Student) => {
+    router.push(`/students/${student._id}`)
   }
 
   return (
-    <div style={{ padding: 'var(--mantine-spacing-md)', height: '100vh' }}>
+    <div className="min-h-screen bg-background">
       <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <MainNav />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
-        <div className="flex flex-col space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Students</h1>
-              <p className="text-muted-foreground">
-                Manage student records, track progress, and monitor training requirements.
-              </p>
-            </div>
-            {(userRole === 'school_admin' || userRole === 'sys_admin') && (
-              <Dialog open={isAddingStudent} onOpenChange={(open) => {
-                setIsAddingStudent(open)
-                if (open) {
-                  // Try to fetch programs when dialog opens (but we have defaults as fallback)
-                  fetchPrograms()
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button style={{ backgroundColor: '#3366ff', color: 'white' }} className="hover:opacity-90 transition-opacity">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Student
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Student</DialogTitle>
-                    <DialogDescription>
-                      Enter the student's email and program to create their account.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="student@example.com"
-                        value={newStudent.contact_email}
-                        onChange={(e) => setNewStudent({ ...newStudent, contact_email: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="program">Program</Label>
-                      <Select 
-                        value={newStudent.program} 
-                        onValueChange={(value) => setNewStudent({ ...newStudent, program: value })}
-                        disabled={programsLoading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={programsLoading ? "Loading programs..." : "Select a program"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {programsLoading ? (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading programs...</div>
-                          ) : (
-                            programs.map((program) => (
-                              <SelectItem key={program._id} value={program.program_name}>
-                                {program.program_name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setIsAddingStudent(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleAddStudent} style={{ backgroundColor: '#3366ff', color: 'white' }} className="hover:opacity-90 transition-opacity">
+      
+      <div className="pt-20 pb-12 px-4">
+        <div className="w-full">
+          <div className="flex flex-col space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Students</h1>
+              </div>
+              {(userRole === 'school_admin' || userRole === 'sys_admin') && (
+                <Dialog open={isAddingStudent} onOpenChange={(open) => {
+                  setIsAddingStudent(open)
+                  if (open) {
+                    fetchPrograms()
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button style={{ backgroundColor: '#3366ff', color: 'white' }} className="hover:opacity-90 transition-opacity">
+                      <Plus className="mr-2 h-4 w-4" />
                       Add Student
                     </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-
-          {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card style={{ borderLeftColor: '#3366ff' }} className="border-l-4 bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle style={{ color: '#3366ff' }} className="text-sm font-medium dark:opacity-80">Total Students</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div style={{ color: '#3366ff' }} className="text-2xl font-bold dark:opacity-70">{students.length}</div>
-              </CardContent>
-            </Card>
-            <Card style={{ borderLeftColor: '#33cc33' }} className="border-l-4 bg-gradient-to-r from-green-50 to-white dark:from-green-950/20 dark:to-background">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle style={{ color: '#33cc33' }} className="text-sm font-medium dark:opacity-80">Active Students</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div style={{ color: '#33cc33' }} className="text-2xl font-bold dark:opacity-70">
-                  {students.filter(s => s.status === 'Active').length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card style={{ borderLeftColor: '#ff9900' }} className="border-l-4 bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/20 dark:to-background">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle style={{ color: '#ff9900' }} className="text-sm font-medium dark:opacity-80">Pre-Solo</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div style={{ color: '#ff9900' }} className="text-2xl font-bold dark:opacity-70">
-                  {students.filter(s => getCurrentStage(s) === 'Pre-Solo').length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card style={{ borderLeftColor: '#cc00ff' }} className="border-l-4 bg-gradient-to-r from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle style={{ color: '#cc00ff' }} className="text-sm font-medium dark:opacity-80">Graduates This Year</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div style={{ color: '#cc00ff' }} className="text-2xl font-bold dark:opacity-70">
-                  {students.filter(s => s.status === 'Graduated').length}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                <div className="flex flex-1 items-center space-x-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search students..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{ '--tw-ring-color': '#3366ff' } as any}
-                      className="pl-8 max-w-sm border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[130px] border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      {uniqueStatuses.map(status => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={programFilter} onValueChange={setProgramFilter}>
-                    <SelectTrigger className="w-[160px] border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]">
-                      <SelectValue placeholder="Program" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Programs</SelectItem>
-                      {programs.map(program => (
-                        <SelectItem key={program._id} value={program.program_name}>{program.program_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={stageFilter} onValueChange={setStageFilter}>
-                    <SelectTrigger className="w-[140px] border-slate-200 focus:border-[#3366ff] dark:border-slate-700 dark:focus:border-[#3366ff]">
-                      <SelectValue placeholder="Stage" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Stages</SelectItem>
-                      {uniqueStages.map(stage => (
-                        <SelectItem key={stage} value={stage}>{stage}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table.ScrollContainer minWidth={800}>
-                <Table verticalSpacing="sm" style={{ tableLayout: 'fixed', width: '100%' }}>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th style={{ width: '20%' }}>Student</Table.Th>
-                      <Table.Th style={{ width: '10%' }}>License #</Table.Th>
-                      <Table.Th style={{ width: '15%' }}>Program</Table.Th>
-                      <Table.Th style={{ width: '10%' }}>Stage</Table.Th>
-                      <Table.Th style={{ width: '15%', textAlign: 'center' }}>Progress</Table.Th>
-                      <Table.Th style={{ width: '10%', textAlign: 'center' }}>Flight Hours</Table.Th>
-                      <Table.Th style={{ width: '15%' }}>Next Milestone</Table.Th>
-                      <Table.Th style={{ width: '10%', textAlign: 'center' }}>Status</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {filteredStudents.length === 0 ? (
-                      <Table.Tr>
-                        <Table.Td colSpan={8}>
-                          <div className="flex flex-col items-center justify-center gap-4 py-8">
-                            <div className="space-y-2 text-center">
-                              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                {searchQuery ? 'No students found' : 'No students enrolled'}
-                              </h3>
-                              <p className="text-sm text-muted-foreground max-w-sm">
-                                {searchQuery
-                                  ? `No students match "${searchQuery}". Try adjusting your search terms.`
-                                  : 'Get started by enrolling your first student in a training program.'}
-                              </p>
-                            </div>
-                          </div>
-                        </Table.Td>
-                      </Table.Tr>
-                    ) : (
-                      filteredStudents.map((student) => (
-                        <Table.Tr 
-                          key={student._id}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => router.push(`/students/${student._id}`)}
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Student</DialogTitle>
+                      <DialogDescription>
+                        Enter the student's email and program to create their account.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="student@example.com"
+                          value={newStudent.contact_email}
+                          onChange={(e) => setNewStudent({ ...newStudent, contact_email: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="program">Program</Label>
+                        <Select 
+                          value={newStudent.program} 
+                          onValueChange={(value) => setNewStudent({ ...newStudent, program: value })}
+                          disabled={programsLoading}
                         >
-                          <Table.Td style={{ width: '20%' }}>
-                            <Group gap="xs">
-                              <Avatar size={32} radius={32} color="blue">
-                                {student.user_id 
-                                  ? `${student.user_id.first_name?.[0] || ''}${student.user_id.last_name?.[0] || ''}`
-                                  : student.contact_email?.[0]?.toUpperCase() || '?'}
-                              </Avatar>
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <Text fz="sm" fw={500} truncate>
-                                  {student.user_id 
-                                    ? `${student.user_id.first_name} ${student.user_id.last_name}`
-                                    : student.contact_email}
-                                </Text>
-                                <Text c="dimmed" fz="xs" truncate>
-                                  {student.user_id?.email || student.contact_email}
-                                </Text>
-                              </div>
-                            </Group>
-                          </Table.Td>
-                          <Table.Td style={{ width: '10%' }}>
-                            <Text fz="sm" style={{ fontFamily: 'monospace' }}>
-                              {student.license_number || 'N/A'}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: '15%' }}>
-                            <Text fz="sm" truncate>
-                              {student.program}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: '10%' }}>
-                            <UIBadge variant="outline">{getCurrentStage(student)}</UIBadge>
-                          </Table.Td>
-                          <Table.Td style={{ width: '15%', textAlign: 'center' }}>
-                            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                              <Progress value={calculateProgress(student)} className="w-[60px]" />
-                              <Text fz="xs" style={{ minWidth: '30px' }}>
-                                {calculateProgress(student)}%
-                              </Text>
-                            </Box>
-                          </Table.Td>
-                          <Table.Td style={{ width: '10%', textAlign: 'center' }}>
-                            <Text fz="sm" style={{ fontFamily: 'monospace' }}>
-                              {calculateFlightHours(student).toFixed(1)} hrs
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: '15%' }}>
-                            <Text fz="sm" truncate>
-                              {student.nextMilestone}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: '10%', textAlign: 'center' }}>
-                            <Badge
-                              style={statusBadgeStyles[student.status.toLowerCase()] || statusBadgeStyles['pending']}
-                              variant="outline"
-                              size="sm"
-                            >
-                              {student.status}
-                            </Badge>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))
-                    )}
-                  </Table.Tbody>
-                </Table>
-              </Table.ScrollContainer>
-            </CardContent>
-          </Card>
+                          <SelectTrigger>
+                            <SelectValue placeholder={programsLoading ? "Loading programs..." : "Select a program"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {programsLoading ? (
+                              <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading programs...</div>
+                            ) : (
+                              programs.map((program) => (
+                                <SelectItem key={program._id} value={program.program_name}>
+                                  {program.program_name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={() => setIsAddingStudent(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleAddStudent} style={{ backgroundColor: '#3366ff', color: 'white' }} className="hover:opacity-90 transition-opacity">
+                        Add Student
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+
+            {/* Student Statistics */}
+            <StatsGrid 
+              title="Student Statistics"
+              storageKey="skytrack-student-stats-preferences"
+              defaultConfigs={STUDENT_STATS_CONFIG}
+              apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/students/stats?include_financials=true&include_progress=true&range=30`}
+              dataPath="data.stats"
+              useEnhancedModal={true}
+              rawData={statsData}
+            />
+
+            {/* Reusable Table */}
+            <ReusableTable
+              data={students}
+              columns={columns}
+              loading={loading}
+              error={error}
+              searchConfig={{
+                enabled: true,
+                placeholder: "Search students...",
+                searchFields: ['user_id.first_name', 'user_id.last_name', 'user_id.email', 'contact_email', 'program', 'nextMilestone', 'license_number'],
+                serverSide: true,
+                debounceMs: 500
+              }}
+              filters={filterConfigs}
+              pagination={paginationConfig}
+              serverSide={serverSideConfig}
+              onRowClick={handleRowClick}
+              emptyState={{
+                title: 'No students found',
+                description: 'There are no students enrolled in any programs.',
+                searchTitle: 'No students match your search',
+                searchDescription: 'Try adjusting your search terms or filters.'
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

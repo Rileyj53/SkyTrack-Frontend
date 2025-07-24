@@ -35,6 +35,59 @@ const FlightTrackingMap = dynamic(() => import('@/components/flight-tracking-map
 });
 
 export default function LeadGrid() {
+  const [statsData, setStatsData] = React.useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+
+  // Fetch organization stats
+  const fetchStats = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const organizationId = localStorage.getItem('organizationId') || localStorage.getItem('schoolId');
+      if (!organizationId) return;
+
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+      
+      if (!apiKey) {
+        console.error('API key is not configured');
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/stats`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || "",
+        },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Dashboard - Fetched API response:', data);
+        console.log('Dashboard - Setting statsData to:', data.data.stats);
+        setStatsData(data.data.stats);
+      } else {
+        console.error('Failed to fetch organization stats');
+      }
+    } catch (error) {
+      console.error('Error fetching organization stats:', error);
+    }
+  }, []);
+
+  // Check authentication and fetch stats
+  React.useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsAuthenticated(true);
+      fetchStats();
+    }
+  }, [fetchStats]);
+
   return (
     <Box p="md" style={{ height: '100vh' }}>
       <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -43,7 +96,14 @@ export default function LeadGrid() {
 
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         {/* Future header/stats section can go here */}
-        <StatsGrid />
+        <StatsGrid 
+          title="Dashboard Statistics"
+          storageKey="skytrack-dashboard-stats-preferences"
+          apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/stats`}
+          dataPath="data.stats"
+          useEnhancedModal={true}
+          rawData={statsData}
+        />
         {/* Main content area - flexible for future layout changes */}
         <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
           {/* Flight tracking map - takes full width */}
