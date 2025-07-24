@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 
 import FlightLogTable from '@/components/flight-log-table';
@@ -21,6 +21,24 @@ interface UserData {
       };
     };
   };
+}
+
+// Loading fallback component
+function FlightLogTableSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="w-1/3">
+          <Skeleton className="h-10 w-full" />
+        </div>
+        <div className="flex space-x-2">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+      </div>
+      <Skeleton className="h-[500px] w-full" />
+    </div>
+  );
 }
 
 export default function FlightLogPage() {
@@ -76,8 +94,6 @@ export default function FlightLogPage() {
     checkAuth();
   }, [router]);
 
-  // Don't show page-level loading since ReusableTable handles its own loading state
-
   return (
     <div style={{ height: '100vh' }}>
       <div className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -88,7 +104,9 @@ export default function FlightLogPage() {
           <div className="mb-6">
             <h1 className="text-3xl font-bold tracking-tight">Flight Log</h1>
           </div>
-          <FlightLogTable />
+          <Suspense fallback={<FlightLogTableSkeleton />}>
+            <FlightLogTable />
+          </Suspense>
         </div>
       </div>
     </div>

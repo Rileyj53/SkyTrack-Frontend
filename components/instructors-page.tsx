@@ -54,8 +54,7 @@ const INSTRUCTOR_STATS_CONFIG: StatConfig[] = [
     enabled: true,
     order: 4,
     dataPath: 'hourly_rate_analysis.avgPrimaryRate',
-    format: 'currency',
-    prefix: '$'
+    format: 'currency'
   },
   
   // Additional metrics

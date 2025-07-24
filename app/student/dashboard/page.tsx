@@ -1,6 +1,7 @@
 "use client"
 
 import { StatsGrid, type StatConfig } from "@/components/StatsGrid"
+import { useState, useEffect } from "react"
 
 // Student-specific statistics configuration
 const STUDENT_STATS_CONFIG: StatConfig[] = [
@@ -65,8 +66,27 @@ const STUDENT_STATS_CONFIG: StatConfig[] = [
 ];
 
 export default function StudentDashboard() {
+  // State to store client-side values
+  const [userId, setUserId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Initialize client-side values after component mounts
+  useEffect(() => {
+    setUserId(localStorage.getItem("userId"));
+    setToken(localStorage.getItem("token"));
+    setCsrfToken(localStorage.getItem("csrfToken") || "");
+    setOrganizationId(localStorage.getItem("organizationId") || localStorage.getItem("schoolId") || "");
+    setIsClient(true);
+  }, []);
+
   // Custom fetch function for student-specific data
   const fetchStudentStats = async () => {
+    // Only run on client-side
+    if (typeof window === 'undefined') return { success: false };
+    
     const studentId = localStorage.getItem("userId");
     const token = localStorage.getItem("token");
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
@@ -116,6 +136,11 @@ export default function StudentDashboard() {
     };
   };
 
+  // Don't render stats components until we're on the client side
+  if (!isClient) {
+    return <div>Loading dashboard...</div>;
+  }
+
   return (
     <div style={{ padding: '1rem' }}>
       <h1>Student Dashboard</h1>
@@ -137,7 +162,7 @@ export default function StudentDashboard() {
         <StatsGrid 
           title="School Overview"
           storageKey="skytrack-student-school-stats-preferences"
-          apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${localStorage.getItem("organizationId")}/stats`}
+          apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/stats`}
           dataPath="data.stats"
           showRefreshButton={false}
           showCustomizeButton={false}
