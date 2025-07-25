@@ -3,6 +3,7 @@
 import { Box, Grid, GridCol, SimpleGrid, Skeleton } from '@mantine/core';
 import dynamic from 'next/dynamic';
 import { StudentProgress } from '@/components/student-progress-new';
+import { StudentProgressOverview } from '@/components/student/progress-overview';
 import { Progress } from '@/components/ui/progress';
 import React from 'react';
 import { MainNav } from '@/components/main-nav-new';
@@ -37,6 +38,40 @@ const FlightTrackingMap = dynamic(() => import('@/components/flight-tracking-map
 export default function LeadGrid() {
   const [statsData, setStatsData] = React.useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [userData, setUserData] = React.useState<any>(null);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
+
+  // Fetch user data to determine role
+  const fetchUserData = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+        headers: {
+          "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
+          "Authorization": `Bearer ${token}`,
+          "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
+        },
+        credentials: "include"
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        const data = responseData.data;
+        setUserData(data);
+        setUserRole(data.user.role);
+        console.log('Dashboard - User role:', data.user.role);
+        console.log('Dashboard - User data:', data);
+        console.log('Dashboard - Has student data:', !!data.user.student);
+        console.log('Dashboard - Student ID:', data.user.student?._id);
+      } else {
+        console.error('Failed to fetch user data');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  }, []);
 
   // Fetch organization stats
   const fetchStats = React.useCallback(async () => {
@@ -84,9 +119,10 @@ export default function LeadGrid() {
     const token = localStorage.getItem('token');
     if (token) {
       setIsAuthenticated(true);
+      fetchUserData();
       fetchStats();
     }
-  }, [fetchStats]);
+  }, [fetchStats, fetchUserData]);
 
   return (
     <Box p="md" style={{ height: '100vh' }}>
@@ -96,14 +132,16 @@ export default function LeadGrid() {
 
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         {/* Future header/stats section can go here */}
-        <StatsGrid 
-          title="Dashboard Statistics"
-          storageKey="skytrack-dashboard-stats-preferences"
-          apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/stats`}
-          dataPath="data.stats"
-          useEnhancedModal={true}
-          rawData={statsData}
-        />
+        {userRole !== 'student' && (
+          <StatsGrid 
+            title="Dashboard Statistics"
+            storageKey="skytrack-dashboard-stats-preferences"
+            apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/stats`}
+            dataPath="data.stats"
+            useEnhancedModal={true}
+            rawData={statsData}
+          />
+        )}
         {/* Main content area - flexible for future layout changes */}
         <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
           {/* Flight tracking map - takes full width */}
@@ -119,7 +157,26 @@ export default function LeadGrid() {
               <FlightLogOverview className="h-full" />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 5 }} style={{ height: '100%' }}>
-              <StudentProgress className="h-full" />
+              {(() => {
+                console.log('Dashboard Render - userRole:', userRole);
+                console.log('Dashboard Render - userData:', userData);
+                const shouldShowStudentComponent = userRole === 'student' && userData?.user;
+                console.log('Dashboard Render - Should show student component:', shouldShowStudentComponent);
+                
+                if (shouldShowStudentComponent) {
+                  return (
+                    <div className="h-full">
+                      <StudentProgressOverview 
+                        studentId={userData.user._id}
+                        organizationId={userData.user.organization_id || userData.user.school_id}
+                        compact={true}
+                      />
+                    </div>
+                  );
+                } else {
+                  return <StudentProgress className="h-full" />;
+                }
+              })()}
             </Grid.Col>
           </Grid>
         </div>

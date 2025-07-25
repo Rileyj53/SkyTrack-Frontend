@@ -45,6 +45,8 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedFlight, setSelectedFlight] = useState<FlightLog | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const formatTime = (time: string) => {
     try {
@@ -80,15 +82,45 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
     return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
   }
 
+  // Fetch user data to determine role
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+        headers: {
+          "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
+          "Authorization": `Bearer ${token}`,
+          "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
+        },
+        credentials: "include"
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        const data = responseData.data;
+        setUserRole(data.user.role);
+        setUserId(data.user._id);
+        console.log('FlightLogOverview - User role:', data.user.role);
+        console.log('FlightLogOverview - User ID:', data.user._id);
+      } else {
+        console.error('Failed to fetch user data');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
   const fetchFlightLogs = async () => {
     try {
       setLoading(true)
-      const schoolId = localStorage.getItem("schoolId")
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
       
-      if (!schoolId || !token) {
-        setError("School ID or authentication token not found")
+      if (!organizationId || !token) {
+        setError("Organization ID or authentication token not found")
         setLoading(false)
         return
       }
@@ -109,7 +141,17 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
       const startDateUTC = startOfDay.toISOString().split('T')[0]
       const endDateUTC = endOfDay.toISOString().split('T')[0]
       
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${schoolId}/flight_schedule?start_date=${startDateUTC}&end_date=${endDateUTC}`
+      // Use different API endpoint based on user role
+      let apiUrl: string
+      if (userRole === 'student' && userId) {
+        // For students, use the organization endpoint with user_id parameter
+        apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule?user_id=${userId}&start_date=${startDateUTC}&end_date=${endDateUTC}`
+        console.log('FlightLogOverview - Using student-specific endpoint:', apiUrl)
+      } else {
+        // For admins/instructors, use the school endpoint (original behavior)
+        apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/schools/${organizationId}/flight_schedule?start_date=${startDateUTC}&end_date=${endDateUTC}`
+        console.log('FlightLogOverview - Using admin/instructor endpoint:', apiUrl)
+      }
       
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -164,7 +206,7 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
             duration: schedule.scheduled_duration || 0,
             type: schedule.flight_type || 'Training',
             status: capitalizeStatus(schedule.status || 'scheduled'),
-            school_id: schedule.school_id?._id || schoolId,
+            school_id: schedule.school_id?._id || organizationId,
             created_at: schedule.created_at || '',
             updated_at: schedule.updated_at || ''
           }
@@ -187,8 +229,14 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   }
 
   useEffect(() => {
-    fetchFlightLogs()
+    fetchUserData()
   }, [])
+
+  useEffect(() => {
+    if (userRole && userId) {
+      fetchFlightLogs()
+    }
+  }, [userRole, userId])
 
   const handleViewAllFlights = () => {
     // Navigate to the flight log page

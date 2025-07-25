@@ -180,7 +180,7 @@ export default function LoginPage() {
     switch (userRole) {
       case 'student':
         console.log('Redirecting to student dashboard')
-        router.push('/student')
+        router.push('/dashboard')
         break
       case 'sys_admin':
         console.log('Redirecting to admin dashboard')

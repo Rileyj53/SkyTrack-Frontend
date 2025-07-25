@@ -1,9 +1,14 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainNav } from "@/components/main-nav-new"
 import { ReusableTable, TableColumn, FilterConfig, TableCellRenderers, PaginationConfig, ServerSideConfig } from "@/components/reusable-table"
 import { Badge } from "@/components/ui/badge"
+import { StudentProgressOverview } from "@/components/student/progress-overview"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // Sample data for demonstration
 interface SampleStudent {
@@ -194,6 +199,26 @@ export default function DashboardDev() {
   const [pageSize, setPageSize] = useState(5)
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [searchQuery, setSearchQuery] = useState("")
+  
+  // State for student progress demo
+  const [studentId, setStudentId] = useState("687c4f0c071a9fe822d33620")
+  const [organizationId, setOrganizationId] = useState("687c208d97e9217fc09e7c40")
+  const [useRealApi, setUseRealApi] = useState(true) // Set to true by default
+  const [apiError, setApiError] = useState<string | null>(null)
+
+  // Listen for errors from the StudentProgressOverview component
+  useEffect(() => {
+    const handleApiError = (event: CustomEvent) => {
+      setApiError(event.detail.message)
+    }
+    
+    // Add event listener for custom error events
+    window.addEventListener('student-progress-error' as any, handleApiError)
+    
+    return () => {
+      window.removeEventListener('student-progress-error' as any, handleApiError)
+    }
+  }, [])
 
   // Simulate server-side filtering and pagination
   const simulateServerSideData = () => {
@@ -395,66 +420,174 @@ export default function DashboardDev() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-4">Development Page</h1>
             <p className="text-muted-foreground mb-4">
-              Testing the new reusable table component with pagination and API filtering capabilities.
+              Testing the new components and features.
             </p>
+          </div>
+
+          <Tabs defaultValue="progress" className="mb-8">
+            <TabsList>
+              <TabsTrigger value="progress">Student Progress Component</TabsTrigger>
+              <TabsTrigger value="table">Reusable Table</TabsTrigger>
+            </TabsList>
             
-            {/* Feature highlights */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Pagination</h3>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Server-side pagination with page size selector (showing {pageSize} items per page)
-                </p>
+            <TabsContent value="progress" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border md:col-span-3">
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100">Student Progress Overview Component</h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Testing the new student progress overview component with demo data and API integration
+                  </p>
+                </div>
               </div>
-              <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border">
-                <h3 className="font-semibold text-green-900 dark:text-green-100">API Filtering</h3>
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  Status & Program filters trigger "API calls", Stage filter is client-side
-                </p>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Student Progress Demo Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Organization ID</label>
+                      <Input 
+                        value={organizationId}
+                        onChange={(e) => setOrganizationId(e.target.value)}
+                        placeholder="Enter organization ID"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Student ID</label>
+                      <Input 
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        placeholder="Enter student ID"
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-md">
+                        <h4 className="text-sm font-medium mb-1">API Configuration</h4>
+                        <ul className="text-xs space-y-1 text-muted-foreground">
+                          <li>
+                            <strong>API URL:</strong> {process.env.NEXT_PUBLIC_API_URL || 'Not configured'}
+                          </li>
+                          <li>
+                            <strong>API Key:</strong> {process.env.NEXT_PUBLIC_API_KEY ? 'Configured' : 'Not configured'}
+                          </li>
+                          <li>
+                            <strong>Endpoint:</strong> /organizations/{organizationId}/students/{studentId}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    {apiError && (
+                      <div className="md:col-span-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-md">
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          <strong>API Error:</strong> {apiError}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="md:col-span-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          setApiError(null)
+                          // Force a re-fetch
+                          const currentId = studentId
+                          setStudentId("")
+                          setTimeout(() => setStudentId(currentId), 10)
+                        }}
+                      >
+                        Refresh Data
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Compact view */}
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Compact View</h3>
+                  <StudentProgressOverview 
+                    studentId={studentId} 
+                    organizationId={organizationId}
+                    compact={true}
+                  />
+                </div>
+                
+                {/* Full view */}
+                <div className="lg:col-span-2">
+                  <h3 className="text-lg font-medium mb-3">Full View</h3>
+                  <StudentProgressOverview 
+                    studentId={studentId} 
+                    organizationId={organizationId}
+                  />
+                </div>
               </div>
-              <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border">
-                <h3 className="font-semibold text-purple-900 dark:text-purple-100">Search</h3>
-                <p className="text-sm text-purple-700 dark:text-purple-300">
-                  Debounced server-side search with 500ms delay
-                </p>
+            </TabsContent>
+            
+            <TabsContent value="table">
+              {/* Feature highlights */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border">
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100">Pagination</h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Server-side pagination with page size selector (showing {pageSize} items per page)
+                  </p>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border">
+                  <h3 className="font-semibold text-green-900 dark:text-green-100">API Filtering</h3>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Status & Program filters trigger "API calls", Stage filter is client-side
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border">
+                  <h3 className="font-semibold text-purple-900 dark:text-purple-100">Search</h3>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    Debounced server-side search with 500ms delay
+                  </p>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <ReusableTable
-            data={serverSideResult.data}
-            columns={columns}
-            searchConfig={{
-              enabled: true,
-              placeholder: "Search students...",
-              searchFields: ['name', 'email', 'program', 'nextMilestone', 'licenseNumber'],
-              serverSide: true, // Enable server-side search
-              debounceMs: 500
-            }}
-            filters={filterConfigs}
-            pagination={paginationConfig}
-            serverSide={serverSideConfig}
-            onRowClick={handleRowClick}
-            emptyState={{
-              title: 'No students found',
-              description: 'There are no students enrolled in any programs.',
-              searchTitle: 'No students match your search',
-              searchDescription: 'Try adjusting your search terms or filters.'
-            }}
-          />
+              <ReusableTable
+                data={serverSideResult.data}
+                columns={columns}
+                searchConfig={{
+                  enabled: true,
+                  placeholder: "Search students...",
+                  searchFields: ['name', 'email', 'program', 'nextMilestone', 'licenseNumber'],
+                  serverSide: true, // Enable server-side search
+                  debounceMs: 500
+                }}
+                filters={filterConfigs}
+                pagination={paginationConfig}
+                serverSide={serverSideConfig}
+                onRowClick={handleRowClick}
+                emptyState={{
+                  title: 'No students found',
+                  description: 'There are no students enrolled in any programs.',
+                  searchTitle: 'No students match your search',
+                  searchDescription: 'Try adjusting your search terms or filters.'
+                }}
+              />
 
-          {/* Debug information */}
-          <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <h3 className="font-semibold mb-2">Debug Information</h3>
-            <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-              <p>Current Page: {currentPage}</p>
-              <p>Page Size: {pageSize}</p>
-              <p>Total Items: {serverSideResult.totalItems}</p>
-              <p>Total Pages: {serverSideResult.totalPages}</p>
-              <p>Active Filters: {JSON.stringify(filters)}</p>
-              <p>Search Query: "{searchQuery}"</p>
-            </div>
-          </div>
+              {/* Debug information */}
+              <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <h3 className="font-semibold mb-2">Debug Information</h3>
+                <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                  <p>Current Page: {currentPage}</p>
+                  <p>Page Size: {pageSize}</p>
+                  <p>Total Items: {serverSideResult.totalItems}</p>
+                  <p>Total Pages: {serverSideResult.totalPages}</p>
+                  <p>Active Filters: {JSON.stringify(filters)}</p>
+                  <p>Search Query: "{searchQuery}"</p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

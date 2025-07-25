@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, LogOut, Settings, User, LayoutDashboard, BookOpen, Calendar, GraduationCap, Plane, Users, Receipt, UserCog } from "lucide-react"
+import { Menu, X, LogOut, Settings, User, LayoutDashboard, BookOpen, Calendar, GraduationCap, Plane, Users, Receipt, UserCog, School, Wrench, UserCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -21,16 +21,56 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useTheme } from "@/components/theme-provider"
 
-const links = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/flight-log', label: 'Flight Log', icon: BookOpen },
-  { href: '/schedule', label: 'Schedule', icon: Calendar },
-  { href: '/students', label: 'Students', icon: GraduationCap },
-  { href: '/aircraft', label: 'Aircraft', icon: Plane },
-  { href: '/instructors', label: 'Instructors', icon: Users },
-  { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/invoices', label: 'Invoices', icon: Receipt },
-]
+// Define navigation links by role
+const navigationByRole = {
+  school_admin: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/flight-log', label: 'Flight Log', icon: BookOpen },
+    { href: '/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/students', label: 'Students', icon: GraduationCap },
+    { href: '/aircraft', label: 'Aircraft', icon: Plane },
+    { href: '/instructors', label: 'Instructors', icon: Users },
+    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: '/invoices', label: 'Invoices', icon: Receipt },
+  ],
+  instructor: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/flight-log', label: 'Flight Log', icon: BookOpen },
+    { href: '/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/students', label: 'Students', icon: GraduationCap },
+    { href: '/aircraft', label: 'Aircraft', icon: Plane },
+    { href: '/instructors', label: 'Instructors', icon: Users },
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ],
+  student: [
+    { href: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/student/flight-log', label: 'Flight Log', icon: BookOpen },
+    { href: '/student/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/student/invoices', label: 'Invoices', icon: Receipt },
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ],
+  mechanic: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/aircraft', label: 'Aircraft', icon: Plane },
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ],
+  member: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/flight-log', label: 'Flight Log', icon: BookOpen },
+    { href: '/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ],
+  sys_admin: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin', label: 'Admin', icon: School },
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ],
+  // Default fallback if role is unknown
+  default: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ]
+}
 
 interface UserData {
   user: {
@@ -103,6 +143,14 @@ export function MainNav() {
     fetchUserData()
   }, [router])
 
+  // Get navigation links based on user role
+  const getNavLinks = () => {
+    if (!userData) return navigationByRole.default
+    
+    const role = userData.user.role
+    return navigationByRole[role as keyof typeof navigationByRole] || navigationByRole.default
+  }
+
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem("token")
@@ -154,8 +202,6 @@ export function MainNav() {
     }
   }
 
-
-
   const getThemeLabel = () => {
     switch(theme) {
       case "light": return "Light"
@@ -169,10 +215,13 @@ export function MainNav() {
     if (href === '/students') {
       return pathname === '/students' || pathname.startsWith('/students/')
     }
-    return pathname === href
+    return pathname === href || pathname.startsWith(href + '/')
   }
 
-  const navItems = links.map((link) => (
+  // Get current navigation links based on user role
+  const navLinks = getNavLinks()
+  
+  const navItems = navLinks.map((link) => (
     <Link
       key={link.label}
       href={link.href}
@@ -211,7 +260,7 @@ export function MainNav() {
       <div className="flex h-14 items-center px-4 lg:px-6">
         {/* Left: Logo */}
         <div className="flex items-center space-x-2 flex-1 justify-start">
-          <Link href="/dashboard" className="flex items-center space-x-2">
+          <Link href={userData?.user.role === 'student' ? '/student/dashboard' : '/dashboard'} className="flex items-center space-x-2">
             <div className="relative">
               <Image 
                 src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png" 
@@ -356,7 +405,7 @@ export function MainNav() {
             {/* Mobile Navigation Links */}
             <nav className="flex-1 p-4">
               <div className="space-y-1">
-                {links.map((link, index) => {
+                {navLinks.map((link, index) => {
                   const IconComponent = link.icon
                   return (
                     <Link
@@ -409,7 +458,7 @@ export function MainNav() {
                 {/* User Actions */}
                 <div className="space-y-1">
                   <Link
-                    href="/account-settings"
+                    href="/settings"
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-background/60 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
                     onClick={() => setMobileMenuOpen(false)}
                   >
