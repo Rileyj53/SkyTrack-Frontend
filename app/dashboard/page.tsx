@@ -114,15 +114,21 @@ export default function LeadGrid() {
     }
   }, []);
 
-  // Check authentication and fetch stats
+  // Check authentication and fetch user data
   React.useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       setIsAuthenticated(true);
       fetchUserData();
+    }
+  }, [fetchUserData]);
+
+  // Fetch stats only for non-student, non-member, and non-club_admin users
+  React.useEffect(() => {
+    if (userRole && userRole !== 'student' && userRole !== 'member' && userRole !== 'club_admin') {
       fetchStats();
     }
-  }, [fetchStats, fetchUserData]);
+  }, [userRole, fetchStats]);
 
   return (
     <Box p="md" style={{ height: '100vh' }}>
@@ -132,7 +138,7 @@ export default function LeadGrid() {
 
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 2rem)', gap: 'var(--mantine-spacing-sm)', paddingTop: '3rem' }}>
         {/* Future header/stats section can go here */}
-        {userRole !== 'student' && (
+        {userRole && userRole !== 'student' && userRole !== 'member' && userRole !== 'club_admin' && (
           <StatsGrid 
             title="Dashboard Statistics"
             storageKey="skytrack-dashboard-stats-preferences"
@@ -142,44 +148,65 @@ export default function LeadGrid() {
             rawData={statsData}
           />
         )}
-        {/* Main content area - flexible for future layout changes */}
-        <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
-          {/* Flight tracking map - takes full width */}
-          <div style={{ flex: '1', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
-            <FlightTrackingMap className="flex-1" dashboard={true} />
-          </div>
-        </div>
-
-        {/* Bottom widgets section */}
-        <div style={{ height: '400px' }}>
-          <Grid style={{ height: '100%' }} gutter="md">
-            <Grid.Col span={{ base: 12, md: 7 }} style={{ height: '100%' }}>
+        
+        {/* Member/Club Admin view - simplified layout */}
+        {userRole === 'member' || userRole === 'club_admin' ? (
+          <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: 'var(--mantine-spacing-sm)' }}>
+            {/* Flight tracking map - takes full width */}
+            <div style={{ flex: '1', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
+              <FlightTrackingMap className="flex-1" dashboard={true} />
+            </div>
+            
+            {/* Flight log table - takes full width */}
+            <div style={{ height: '400px' }}>
               <FlightLogOverview className="h-full" />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 5 }} style={{ height: '100%' }}>
-              {(() => {
-                console.log('Dashboard Render - userRole:', userRole);
-                console.log('Dashboard Render - userData:', userData);
-                const shouldShowStudentComponent = userRole === 'student' && userData?.user;
-                console.log('Dashboard Render - Should show student component:', shouldShowStudentComponent);
-                
-                if (shouldShowStudentComponent) {
-                  return (
-                    <div className="h-full">
-                      <StudentProgressOverview 
-                        studentId={userData.user._id}
-                        organizationId={userData.user.organization_id || userData.user.school_id}
-                        compact={true}
-                      />
-                    </div>
-                  );
-                } else {
-                  return <StudentProgress className="h-full" />;
-                }
-              })()}
-            </Grid.Col>
-          </Grid>
-        </div>
+            </div>
+          </div>
+        ) : (
+          /* Regular view for other roles */
+          <>
+            {/* Main content area - flexible for future layout changes */}
+            <div style={{ flex: '1', display: 'flex', flexDirection: 'column' }}>
+              {/* Flight tracking map - takes full width */}
+              <div style={{ flex: '1', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
+                <FlightTrackingMap className="flex-1" dashboard={true} />
+              </div>
+            </div>
+
+            {/* Bottom widgets section */}
+            <div style={{ height: '400px' }}>
+              <Grid style={{ height: '100%' }} gutter="md">
+                <Grid.Col span={{ base: 12, md: 7 }} style={{ height: '100%' }}>
+                  <FlightLogOverview className="h-full" />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, md: 5 }} style={{ height: '100%' }}>
+                  {(() => {
+                    console.log('Dashboard Render - userRole:', userRole);
+                    console.log('Dashboard Render - userData:', userData);
+                    const shouldShowStudentComponent = userRole === 'student' && userData?.user;
+                    console.log('Dashboard Render - Should show student component:', shouldShowStudentComponent);
+                    
+                    if (shouldShowStudentComponent) {
+                      return (
+                        <div className="h-full">
+                          <StudentProgressOverview 
+                            studentId={userData.user._id}
+                            organizationId={userData.user.organization_id || userData.user.school_id}
+                            compact={true}
+                          />
+                        </div>
+                      );
+                    } else if (userRole && userRole !== 'student' && userRole !== 'member' && userRole !== 'club_admin') {
+                      return <StudentProgress className="h-full" />;
+                    } else {
+                      return null;
+                    }
+                  })()}
+                </Grid.Col>
+              </Grid>
+            </div>
+          </>
+        )}
       </div>
     </Box>
   );

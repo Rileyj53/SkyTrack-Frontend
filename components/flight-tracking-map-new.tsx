@@ -1365,9 +1365,12 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                 height: "100%", 
                 width: "100%", 
                 zIndex: 0,
-                filter: "brightness(0.85) contrast(1.1) saturate(0.9)"
+                filter: "brightness(0.85) contrast(1.1) saturate(0.9)",
+                willChange: "transform",
+                transform: "translate3d(0, 0, 0)",
+                backfaceVisibility: "hidden"
               }}
-              scrollWheelZoom={true}
+              scrollWheelZoom={false}
               minZoom={5}
               maxZoom={currentLayer.maxZoom}
               ref={mapRef}
@@ -1459,9 +1462,12 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                 height: "100%", 
                 width: "100%", 
                 zIndex: 0,
-                filter: "brightness(0.85) contrast(1.1) saturate(0.9)"
+                filter: "brightness(0.85) contrast(1.1) saturate(0.9)",
+                willChange: "transform",
+                transform: "translate3d(0, 0, 0)",
+                backfaceVisibility: "hidden"
               }}
-              scrollWheelZoom={true}
+              scrollWheelZoom={false}
               minZoom={5}
               maxZoom={currentLayer.maxZoom}
               ref={mapRef}

@@ -33,6 +33,15 @@ const navigationByRole = {
     { href: '/settings', label: 'Settings', icon: Settings },
     { href: '/invoices', label: 'Invoices', icon: Receipt },
   ],
+  club_admin: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/flight-log', label: 'Flight Log', icon: BookOpen },
+    { href: '/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/members', label: 'Members', icon: GraduationCap },
+    { href: '/aircraft', label: 'Aircraft', icon: Plane },
+    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: '/invoices', label: 'Invoices', icon: Receipt },
+  ],
   instructor: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/flight-log', label: 'Flight Log', icon: BookOpen },
@@ -43,10 +52,10 @@ const navigationByRole = {
     { href: '/settings', label: 'Settings', icon: Settings },
   ],
   student: [
-    { href: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/student/flight-log', label: 'Flight Log', icon: BookOpen },
-    { href: '/student/schedule', label: 'Schedule', icon: Calendar },
-    { href: '/student/invoices', label: 'Invoices', icon: Receipt },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/flight-log', label: 'Flight Log', icon: BookOpen },
+    { href: '/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/invoices', label: 'Invoices', icon: Receipt },
     { href: '/settings', label: 'Settings', icon: Settings },
   ],
   mechanic: [
@@ -103,6 +112,7 @@ export function MainNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userData, setUserData] = useState<UserData | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const { theme, setTheme } = useTheme()
 
   useEffect(() => {
@@ -118,6 +128,7 @@ export function MainNav() {
 
     const fetchUserData = async () => {
       try {
+        setIsLoading(true)
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
           headers: {
             "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
@@ -134,9 +145,17 @@ export function MainNav() {
         const responseData = await response.json()
         // Extract user data from the new response structure
         const data = responseData.data
+        
+        // Store the role in localStorage for persistence
+        if (data?.user?.role) {
+          localStorage.setItem("userRole", data.user.role)
+        }
+        
         setUserData(data)
       } catch (error) {
         console.error("Error fetching user data:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -145,10 +164,22 @@ export function MainNav() {
 
   // Get navigation links based on user role
   const getNavLinks = () => {
-    if (!userData) return navigationByRole.default
+    // If we have fresh user data, use that role
+    if (userData?.user?.role) {
+      const role = userData.user.role
+      return navigationByRole[role as keyof typeof navigationByRole] || navigationByRole.default
+    }
     
-    const role = userData.user.role
-    return navigationByRole[role as keyof typeof navigationByRole] || navigationByRole.default
+    // Don't use localStorage during SSR to prevent hydration mismatch
+    if (typeof window !== 'undefined' && !isLoading) {
+      const storedRole = localStorage.getItem("userRole")
+      if (storedRole) {
+        return navigationByRole[storedRole as keyof typeof navigationByRole] || navigationByRole.default
+      }
+    }
+    
+    // Fallback to default navigation
+    return navigationByRole.default
   }
 
   const handleLogout = async () => {
@@ -176,6 +207,7 @@ export function MainNav() {
       localStorage.removeItem("csrfToken")
       localStorage.removeItem("role")
       localStorage.removeItem("user")
+      localStorage.removeItem("userRole")
 
       // Redirect to login
       router.push("/login")
@@ -186,6 +218,7 @@ export function MainNav() {
       localStorage.removeItem("csrfToken")
       localStorage.removeItem("role")
       localStorage.removeItem("user")
+      localStorage.removeItem("userRole")
       router.push("/login")
     }
   }
@@ -221,6 +254,33 @@ export function MainNav() {
   // Get current navigation links based on user role
   const navLinks = getNavLinks()
   
+  // Don't render navigation until we have user data or we're on client with stored role
+  if (isLoading || (typeof window === 'undefined' && !userData)) {
+    return (
+      <header className="h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-14 items-center px-4 lg:px-6">
+          <div className="flex items-center space-x-2 flex-1 justify-start">
+            <div className="relative">
+              <Image 
+                src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png" 
+                alt="Albatross Logo" 
+                width={50} 
+                height={50} 
+                className={cn(
+                  "w-12 h-12 transition-all duration-200",
+                  theme === "light" ? "brightness-0" : "brightness-100"
+                )}
+              />
+            </div>
+            <span className="hidden font-bold sm:inline-block">
+              Albatross
+            </span>
+          </div>
+        </div>
+      </header>
+    )
+  }
+  
   const navItems = navLinks.map((link) => (
     <Link
       key={link.label}
@@ -247,6 +307,18 @@ export function MainNav() {
     ? `${userData.user.first_name} ${userData.user.last_name}`
     : userData?.user.email || 'User'
 
+  // Get user role for display, with fallback to stored role
+  const getUserRole = () => {
+    if (userData?.user?.role) {
+      return userData.user.role
+    }
+    // Don't use localStorage during SSR to prevent hydration mismatch
+    if (typeof window !== 'undefined' && !isLoading) {
+      return localStorage.getItem("userRole") || 'user'
+    }
+    return 'user'
+  }
+
   // Format role for better display
   const formatRole = (role: string) => {
     return role
@@ -260,7 +332,7 @@ export function MainNav() {
       <div className="flex h-14 items-center px-4 lg:px-6">
         {/* Left: Logo */}
         <div className="flex items-center space-x-2 flex-1 justify-start">
-          <Link href={userData?.user.role === 'student' ? '/student/dashboard' : '/dashboard'} className="flex items-center space-x-2">
+          <Link href={getUserRole() === 'student' ? '/student/dashboard' : '/dashboard'} className="flex items-center space-x-2">
             <div className="relative">
               <Image 
                 src="https://d2xuqrfsvdwxue.cloudfront.net/images/Albatross.png" 
@@ -319,7 +391,7 @@ export function MainNav() {
                       <div className="flex flex-col flex-1 min-w-0">
                         <p className="text-sm font-semibold leading-none truncate">{fullName}</p>
                         <p className="text-xs text-muted-foreground truncate mt-1">{userData.user.email}</p>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">{formatRole(userData.user.role)}</p>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{formatRole(getUserRole())}</p>
                       </div>
                     </div>
                   </DropdownMenuItem>
@@ -327,7 +399,7 @@ export function MainNav() {
                   <DropdownMenuSeparator />
                   
                   <DropdownMenuItem asChild>
-                    <Link href="/settings" className="cursor-pointer">
+                    <Link href="/account-settings" className="cursor-pointer">
                       <UserCog className="mr-3 h-4 w-4" />
                       <span>Account settings</span>
                     </Link>

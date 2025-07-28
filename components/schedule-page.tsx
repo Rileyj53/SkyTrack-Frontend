@@ -98,6 +98,8 @@ export function SchedulePage() {
     instructor: "all",
     status: "all"
   })
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const weekDays = useMemo(() => {
     if (view === "month") {
@@ -328,6 +330,12 @@ export function SchedulePage() {
         params.append("student_id", filters.student)
       }
       
+      // For students, add user_id parameter to filter their flights only
+      if (userRole === 'student' && userId) {
+        params.append("user_id", userId)
+        console.log('🎓 Schedule Student view: Adding user_id filter:', userId)
+      }
+      
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule?${params.toString()}`
       
       const response = await fetch(apiUrl, {
@@ -444,6 +452,14 @@ export function SchedulePage() {
           // Fallback for legacy data
           localStorage.setItem("schoolId", data.data.user.school_id)
         }
+        
+        // Set user role and ID for role-based filtering
+        if (data.data && data.data.user) {
+          setUserRole(data.data.user.role)
+          setUserId(data.data.user._id)
+          console.log('Schedule - User role:', data.data.user.role)
+          console.log('Schedule - User ID:', data.data.user._id)
+        }
       } catch (error) {
         console.error("Auth check failed:", error)
         router.push("/login")
@@ -457,8 +473,13 @@ export function SchedulePage() {
     if (!isInitialLoad) return
     
     const loadData = async () => {
-      // First load students and instructors
-      await Promise.all([fetchAllStudents(), fetchInstructors()])
+      // For students, members, and club admins, only load instructors (no need for students data)
+      // For admins/instructors, load both students and instructors for full access
+      if (userRole === 'student' || userRole === 'member' || userRole === 'club_admin') {
+        await fetchInstructors()
+      } else {
+        await Promise.all([fetchAllStudents(), fetchInstructors()])
+      }
       
       // Then load schedules for initial load
       const { start, end } = getDateRange(currentDate, view)
@@ -467,7 +488,7 @@ export function SchedulePage() {
     }
     
     loadData()
-  }, [isInitialLoad, getDateRange, currentDate, view]) // Dependencies for initial load
+  }, [isInitialLoad, getDateRange, currentDate, view, userRole, userId]) // Dependencies for initial load including user role
 
   // Separate effect for filter changes (not view/date changes which are handled manually)
   useEffect(() => {
@@ -476,7 +497,7 @@ export function SchedulePage() {
     
     const { start, end } = getDateRange(currentDate, view)
     fetchSchedules(start, end, false, true)
-  }, [filters, isInitialLoad, currentDate, view, getDateRange])
+  }, [filters, isInitialLoad, currentDate, view, getDateRange, userRole, userId])
 
   const handleDateChange = (newDate: Date) => {
     setCurrentDate(newDate)
@@ -529,6 +550,7 @@ export function SchedulePage() {
           onFlightCreated={handleFlightCreated}
           filters={filters}
           onFilterChange={handleFilterChange}
+          userRole={userRole || undefined}
         />
 
         {/* Main content area - flexible */}

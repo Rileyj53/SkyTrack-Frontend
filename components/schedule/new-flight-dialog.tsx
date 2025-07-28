@@ -85,6 +85,7 @@ interface NewFlightDialogProps {
   students: Student[]
   instructors: Instructor[]
   initialDate?: Date
+  userRole?: string
 }
 
 export function NewFlightDialog({ 
@@ -93,7 +94,8 @@ export function NewFlightDialog({
   onFlightCreated,
   students,
   instructors,
-  initialDate
+  initialDate,
+  userRole
 }: NewFlightDialogProps) {
   const [loading, setLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(false)
@@ -110,12 +112,71 @@ export function NewFlightDialog({
   const [isPlanePopoverOpen, setIsPlanePopoverOpen] = useState(false)
   const [isStudentPopoverOpen, setIsStudentPopoverOpen] = useState(false)
   const [isInstructorPopoverOpen, setIsInstructorPopoverOpen] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [studentId, setStudentId] = useState<string | null>(null)
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
+      fetchUserData()
       fetchPlanes()
     }
   }, [open, students, instructors])
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+        headers: {
+          "x-api-key": process.env.NEXT_PUBLIC_API_KEY || "",
+          "Authorization": `Bearer ${token}`,
+          "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
+        },
+        credentials: "include"
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.data && data.data.user) {
+          setUserId(data.data.user._id)
+          
+          // Store user's name for display
+          if (data.data.user.first_name && data.data.user.last_name) {
+            setCurrentUserName(`${data.data.user.first_name} ${data.data.user.last_name}`)
+          }
+          
+          // For students and members, get their student record directly from the user data
+          if (data.data.user.role === 'student' || data.data.user.role === 'member') {
+            // The API now provides both student_id and student object
+            let studentIdToUse = null;
+            
+            // First try to use the direct student_id field
+            if (data.data.user.student_id) {
+              studentIdToUse = data.data.user.student_id;
+              console.log('🎓 New Flight Dialog - Using direct student_id:', studentIdToUse);
+            }
+            // Fall back to the student object if available
+            else if (data.data.user.student && data.data.user.student._id) {
+              studentIdToUse = data.data.user.student._id;
+              console.log('🎓 New Flight Dialog - Using student._id as fallback:', studentIdToUse);
+            }
+            
+            if (studentIdToUse) {
+              setStudentId(studentIdToUse);
+              setSelectedStudentId(studentIdToUse);
+              console.log('🎓 New Flight Dialog - Setting student ID:', studentIdToUse);
+            } else {
+              console.warn('⚠️ Student user but no student ID found in user data:', data.data.user);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+    }
+  }
 
   const fetchPlanes = async () => {
     try {
@@ -166,7 +227,15 @@ export function NewFlightDialog({
   }
 
   const handleCreate = async () => {
-    if (!date || !selectedPlaneId || !selectedStudentId || !selectedInstructorId || !startTime || !endTime || !flightType) {
+    // For members, skip instructor and flight type validation
+    const isMember = userRole === 'member' || userRole === 'club_admin'
+    const requiredFields = [date, selectedPlaneId, startTime, endTime]
+    
+    if (!isMember) {
+      requiredFields.push(selectedInstructorId, flightType)
+    }
+    
+    if (requiredFields.some(field => !field)) {
       toast.error("Please fill in all required fields")
       return
     }
@@ -176,6 +245,10 @@ export function NewFlightDialog({
       const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
       const token = localStorage.getItem("token")
       const apiKey = process.env.NEXT_PUBLIC_API_KEY
+
+      console.log('Organization ID:', organizationId)
+      console.log('API Key available:', !!apiKey)
+      console.log('Token available:', !!token)
 
       if (!organizationId || !token || !apiKey) {
         throw new Error("Missing required credentials")
@@ -196,49 +269,123 @@ export function NewFlightDialog({
         scheduledEndTime.setDate(scheduledEndTime.getDate() + 1)
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule`,
-        {
-          method: "POST",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "Authorization": `Bearer ${token}`,
-            "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
-          },
-          body: JSON.stringify({
-            plane_id: selectedPlaneId,
-            instructor_id: selectedInstructorId,
-            student_id: selectedStudentId,
-            scheduled_start_time: scheduledStartTime.toISOString(),
-            scheduled_end_time: scheduledEndTime.toISOString(),
-            flight_type: flightType,
-            status: "scheduled",
-            notes: notes
-          }),
-          credentials: "include"
+      // Different endpoints and payloads for students/members vs admins/instructors
+      const isStudent = userRole === 'student'
+      const isMember = userRole === 'member' || userRole === 'club_admin'
+
+      // Ensure API URL is properly defined
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
+      if (!apiBaseUrl) {
+        console.error('NEXT_PUBLIC_API_URL environment variable is not defined')
+        throw new Error('API URL is not configured properly')
+      }
+
+      // Properly format the endpoint with trailing slashes removed
+      const apiUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl
+      const endpoint = (isStudent || isMember)
+        ? `${apiUrl}/organizations/${organizationId}/flight_schedule/requests`
+        : `${apiUrl}/organizations/${organizationId}/flight_schedule`
+
+      console.log(`Using endpoint: ${endpoint} for ${isStudent || isMember ? 'student/member request' : 'admin/instructor creation'}`)
+
+      // Debug current student ID values
+      console.log('Student ID from state:', studentId);
+      console.log('Selected Student ID:', selectedStudentId);
+      console.log('User role:', userRole);
+
+      // Find the student ID for the current user
+      let finalStudentId = selectedStudentId;
+
+      // For student and member users, use the student ID that was set from user data
+      if (isStudent || isMember) {
+        if (studentId) {
+          console.log('Using student ID from user data:', studentId);
+          finalStudentId = studentId;
+        } else if (userId) {
+          console.log('No student ID found, using user ID as fallback:', userId);
+          finalStudentId = userId;
+        } else {
+          console.error('❌ Student/member user but no student ID or user ID found');
+          toast.error("Unable to determine your student record. Please contact support.");
+          return;
         }
-      )
+      }
+
+      console.log('Final student ID to use:', finalStudentId);
+
+      // Log students array for debugging
+      console.log('Available students:', JSON.stringify(students.map(s => ({ 
+        id: s._id, 
+        name: s.user_id ? `${s.user_id.first_name} ${s.user_id.last_name}` : 'unknown' 
+      }))));
+
+      // Determine which field to use in the request
+      const isUsingUserId = (isStudent || isMember) && !studentId && userId && finalStudentId === userId;
+      const requestField = isUsingUserId ? 'user_id' : 'student_id';
+
+      console.log(`Using ${requestField} in request:`, finalStudentId);
+
+      const requestBody = {
+        plane_id: selectedPlaneId,
+        [requestField]: finalStudentId,  // Use the appropriate field name
+        scheduled_start_time: scheduledStartTime.toISOString(),
+        scheduled_end_time: scheduledEndTime.toISOString(),
+        ...(!isMember && { instructor_id: selectedInstructorId }), // Members don't need instructor
+        ...(!isMember && { flight_type: flightType }), // Members don't need flight type
+        ...(isStudent || isMember
+          ? { request_notes: notes } // Students/members send request_notes
+          : { status: "scheduled", notes: notes } // Admins/instructors send status and notes
+        )
+      }
+
+      console.log(`Sending ${isStudent || isMember ? 'flight request' : 'flight creation'} to endpoint: ${endpoint}`)
+      console.log('Request payload:', JSON.stringify(requestBody))
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "Authorization": `Bearer ${token}`,
+          "X-CSRF-Token": localStorage.getItem("csrfToken") || ""
+        },
+        body: JSON.stringify(requestBody),
+        credentials: "include"
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const errorMessage = errorData.message || errorData.error || `Failed to create schedule (${response.status})`
+        console.error(`API request failed with status: ${response.status}`)
+        let errorData = {}
+        try {
+          errorData = await response.json()
+          console.error('Error response:', errorData)
+        } catch (e) {
+          console.error('Could not parse error response as JSON')
+        }
+        const errorMessage = (errorData as any).message || (errorData as any).error || `Failed to ${isStudent || isMember ? 'request' : 'create'} flight (${response.status})`
         throw new Error(errorMessage)
       }
 
-      toast.success("Flight scheduled successfully")
+      const successMessage = (isStudent || isMember)
+        ? "Flight request submitted successfully" 
+        : "Flight scheduled successfully"
+      toast.success(successMessage)
       onFlightCreated()
       onOpenChange(false)
       
       // Reset form
       setSelectedPlaneId("")
-      setSelectedStudentId("")
-      setSelectedInstructorId("")
+      if (!isStudent && !isMember) {
+        setSelectedStudentId("")
+      }
+      if (!isMember) {
+        setSelectedInstructorId("")
+        setFlightType("")
+      }
       setDate(undefined)
       setStartTime("")
       setEndTime("")
-      setFlightType("")
       setNotes("")
     } catch (error) {
       console.error("Error creating schedule:", error)
@@ -253,9 +400,13 @@ export function NewFlightDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Schedule New Flight</DialogTitle>
+          <DialogTitle>{userRole === 'student' || userRole === 'member' || userRole === 'club_admin' ? 'Request New Flight' : 'Schedule New Flight'}</DialogTitle>
           <DialogDescription>
-            {date ? format(date, "EEEE, MMMM d, yyyy") : "Select a date"}
+            {userRole === 'student' || userRole === 'member' || userRole === 'club_admin' ? (
+              "Submit a flight request. An instructor will review and schedule your flight."
+            ) : (
+              "Schedule a new flight for a student or member."
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
@@ -267,129 +418,125 @@ export function NewFlightDialog({
                   <User className="h-4 w-4 text-blue-600" />
                   <Label className="text-sm font-semibold">Student</Label>
                 </div>
-                <Popover open={isStudentPopoverOpen} onOpenChange={setIsStudentPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={isStudentPopoverOpen}
-                      className="w-full justify-between text-sm font-normal"
-                    >
-                      <span className="truncate">
-                        {selectedStudentId ? 
-                          students.find(s => s._id === selectedStudentId && s.user_id?.first_name && s.user_id?.last_name) ? 
-                            `${students.find(s => s._id === selectedStudentId)?.user_id.first_name} ${students.find(s => s._id === selectedStudentId)?.user_id.last_name}`
+                {userRole === 'student' || userRole === 'member' || userRole === 'club_admin' ? (
+                  // Read-only display for students and members
+                  <div className="w-full p-3 bg-muted/50 rounded-md border text-sm">
+                    {currentUserName || "You"}
+                  </div>
+                ) : (
+                  // Editable dropdown for admins/instructors
+                  <Popover open={isStudentPopoverOpen} onOpenChange={setIsStudentPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isStudentPopoverOpen}
+                        className="w-full justify-between text-sm font-normal"
+                      >
+                        <span className="truncate">
+                          {selectedStudentId ? 
+                            students.find(s => s._id === selectedStudentId && s.user_id?.first_name && s.user_id?.last_name) ? 
+                              `${students.find(s => s._id === selectedStudentId)?.user_id.first_name} ${students.find(s => s._id === selectedStudentId)?.user_id.last_name}`
+                              : "Select student"
                             : "Select student"
-                          : "Select student"
-                        }
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search students..." className="h-9" />
-                      <CommandEmpty>No students found.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup>
-                          {students && students.length > 0 ? (
-                            students
-                              .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
-                              .map((student) => (
-                                <CommandItem
-                                  key={`student-${student._id}`}
-                                  value={student.user_id.first_name}
-                                  onSelect={() => {
-                                    setSelectedStudentId(student._id)
-                                    setIsStudentPopoverOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedStudentId === student._id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {student.user_id.first_name} {student.user_id.last_name}
-                                </CommandItem>
-                              ))
-                          ) : (
-                            <CommandItem value="no-students" disabled>
-                              No students available
-                            </CommandItem>
-                          )}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                          }
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search students..." className="h-9" />
+                        <CommandEmpty>No students found.</CommandEmpty>
+                        <CommandList>
+                          <CommandGroup>
+                            {students && students.length > 0 ? (
+                              students
+                                .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
+                                .map((student) => (
+                                  <CommandItem
+                                    key={`student-${student._id}`}
+                                    value={student.user_id.first_name}
+                                    onSelect={() => {
+                                      setSelectedStudentId(student._id)
+                                      setIsStudentPopoverOpen(false)
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedStudentId === student._id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {student.user_id.first_name} {student.user_id.last_name}
+                                  </CommandItem>
+                                ))
+                            ) : (
+                              <CommandItem value="no-students" disabled>
+                                No students available
+                              </CommandItem>
+                            )}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4">
+            {/* Instructor Selection - Hidden for students and members/club admins */}
+            {userRole !== 'student' && userRole !== 'member' && userRole !== 'club_admin' && (
+              <div className="space-y-2">
                 <div className="flex items-center gap-2 mb-3">
-                  <UserCheck className="h-4 w-4 text-green-600" />
+                  <User className="h-4 w-4 text-gray-600" />
                   <Label className="text-sm font-semibold">Instructor</Label>
                 </div>
-                <Popover open={isInstructorPopoverOpen} onOpenChange={setIsInstructorPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={isInstructorPopoverOpen}
-                      className="w-full justify-between text-sm font-normal"
-                    >
-                      <span className="truncate">
-                        {selectedInstructorId ? 
-                          instructors.find(i => i._id === selectedInstructorId && i.user_id?.first_name && i.user_id?.last_name) ? 
-                            `${instructors.find(i => i._id === selectedInstructorId)?.user_id.first_name} ${instructors.find(i => i._id === selectedInstructorId)?.user_id.last_name}`
-                            : "Select instructor"
-                          : "Select instructor"
-                        }
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search instructors..." className="h-9" />
-                      <CommandEmpty>No instructors found.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup>
-                          {instructors && instructors.length > 0 ? (
-                            instructors
-                              .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
-                              .map((instructor) => (
-                                <CommandItem
-                                  key={`instructor-${instructor._id}`}
-                                  value={instructor.user_id.first_name}
-                                  onSelect={() => {
-                                    setSelectedInstructorId(instructor._id)
-                                    setIsInstructorPopoverOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedInstructorId === instructor._id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {instructor.user_id.first_name} {instructor.user_id.last_name}
-                                </CommandItem>
-                              ))
-                          ) : (
-                            <CommandItem value="no-instructors" disabled>
-                              No instructors available
-                            </CommandItem>
-                          )}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </CardContent>
-            </Card>
+                <Select
+                  value={selectedInstructorId}
+                  onValueChange={setSelectedInstructorId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select instructor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instructors
+                      .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                      .map((instructor) => (
+                        <SelectItem key={instructor._id} value={instructor._id}>
+                          {instructor.user_id.first_name} {instructor.user_id.last_name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Flight Type Selection - Hidden for students and members/club admins */}
+            {userRole !== 'student' && userRole !== 'member' && userRole !== 'club_admin' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <Plane className="h-4 w-4 text-gray-600" />
+                  <Label className="text-sm font-semibold">Flight Type</Label>
+                </div>
+                <Select
+                  value={flightType}
+                  onValueChange={setFlightType}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select flight type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Training">Training</SelectItem>
+                    <SelectItem value="Solo">Solo</SelectItem>
+                    <SelectItem value="Cross Country">Cross Country</SelectItem>
+                    <SelectItem value="Night">Night</SelectItem>
+                    <SelectItem value="Instrument">Instrument</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <Card>
               <CardContent className="p-4">
@@ -529,75 +676,45 @@ export function NewFlightDialog({
               </CardContent>
             </Card>
 
+            {/* Notes Section */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Tag className="h-4 w-4 text-pink-600" />
-                  <Label className="text-sm font-semibold">Flight Type</Label>
+                  <FileText className="h-4 w-4 text-gray-600" />
+                  <Label className="text-sm font-semibold">{userRole === 'student' || userRole === 'member' || userRole === 'club_admin' ? 'Request Notes' : 'Notes'}</Label>
                 </div>
-                <div className="space-y-2">
-                  <Input
-                    value={flightType}
-                    onChange={(e) => setFlightType(e.target.value)}
-                    placeholder="Enter flight type..."
-                    className="w-full"
-                  />
-                  <div className="flex flex-wrap gap-1">
-                    {["Training", "Solo", "Checkride", "Cross-Country", "Maintenance"].map((type) => (
-                      <Button
-                        key={type}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFlightType(type)}
-                        className="h-6 px-2 text-xs"
-                      >
-                        {type}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={userRole === 'student' || userRole === 'member' || userRole === 'club_admin' ? "Describe your training needs or special requests..." : "Optional notes"}
+                  rows={3}
+                  className="resize-none"
+                  maxLength={500}
+                />
               </CardContent>
             </Card>
           </div>
         </div>
 
-        {/* Notes Section */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <FileText className="h-4 w-4 text-gray-600" />
-              <Label className="text-sm font-semibold">Notes</Label>
-            </div>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes"
-              rows={3}
-              className="resize-none"
-              maxLength={500}
-            />
-          </CardContent>
-        </Card>
         <DialogFooter>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={loading}
           >
             Cancel
           </Button>
           <Button
-            onClick={handleCreate}
-            disabled={loading || !date || !selectedPlaneId || !selectedStudentId || !selectedInstructorId || !startTime || !endTime || !flightType}
+            type="submit"
+            disabled={loading || !date || !selectedPlaneId || !startTime || !endTime || (userRole !== 'member' && userRole !== 'club_admin' && (!selectedInstructorId || !flightType))}
+            className="w-full"
           >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
+                {userRole === 'student' || userRole === 'member' || userRole === 'club_admin' ? 'Submitting...' : 'Creating...'}
               </>
             ) : (
-              'Create Flight'
+              userRole === 'student' || userRole === 'member' || userRole === 'club_admin' ? 'Submit Request' : 'Create Flight'
             )}
           </Button>
         </DialogFooter>

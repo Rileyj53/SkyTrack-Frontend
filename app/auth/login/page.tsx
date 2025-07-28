@@ -46,7 +46,7 @@ export default function LoginPage() {
       const responseData = await response.json()
 
       // Check if MFA is required first (even with 401 status)
-      if (responseData.data?.requiresMFA) {
+      if (responseData.requiresMFA) {
         console.log('MFA verification required')
         setRequiresMFA(true)
         setIsLoading(false)
@@ -178,16 +178,16 @@ export default function LoginPage() {
 
     // Redirect based on role
     switch (userRole) {
-      case 'student':
-        console.log('Redirecting to student dashboard')
-        router.push('/dashboard')
-        break
       case 'sys_admin':
         console.log('Redirecting to admin dashboard')
         router.push('/admin')
         break
       case 'school_admin':
+      case 'club_admin':
       case 'instructor':
+      case 'student':
+      case 'member':
+      case 'mechanic':
         console.log('Redirecting to Dashboard')
         router.push('/dashboard')
         break

@@ -47,6 +47,7 @@ interface ScheduleHeaderProps {
     instructor: string
     status: string
   }) => void
+  userRole?: string
 }
 
 export function ScheduleHeader({ 
@@ -58,7 +59,8 @@ export function ScheduleHeader({
   instructors,
   onFlightCreated,
   filters,
-  onFilterChange
+  onFilterChange,
+  userRole
 }: ScheduleHeaderProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [isNewFlightOpen, setIsNewFlightOpen] = useState(false)
@@ -161,53 +163,57 @@ export function ScheduleHeader({
             <DropdownMenuSeparator />
             
             <div className="p-2 space-y-4">
-              <div className="space-y-2">
-                <Label>Student</Label>
-                <Select
-                  value={filters.student}
-                  onValueChange={(value) => onFilterChange({ ...filters, student: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Students" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Students</SelectItem>
-                    {students && students.length > 0 ? (
-                      students
-                        .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
-                        .map((student) => (
-                          <SelectItem key={student._id} value={student._id}>
-                            {student.user_id.first_name} {student.user_id.last_name}
-                          </SelectItem>
-                        ))
-                    ) : (
-                      <SelectItem value="no-students" disabled>No students available</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+              {userRole !== 'member' && userRole !== 'club_admin' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Student</Label>
+                    <Select
+                      value={filters.student}
+                      onValueChange={(value) => onFilterChange({ ...filters, student: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Students" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Students</SelectItem>
+                        {students && students.length > 0 ? (
+                          students
+                            .filter((student) => student.user_id?.first_name && student.user_id?.last_name)
+                            .map((student) => (
+                              <SelectItem key={student._id} value={student._id}>
+                                {student.user_id.first_name} {student.user_id.last_name}
+                              </SelectItem>
+                            ))
+                        ) : (
+                          <SelectItem value="no-students" disabled>No students available</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Instructor</Label>
-                <Select
-                  value={filters.instructor}
-                  onValueChange={(value) => onFilterChange({ ...filters, instructor: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Instructors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Instructors</SelectItem>
-                    {instructors
-                      .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
-                      .map((instructor) => (
-                        <SelectItem key={instructor._id} value={instructor._id}>
-                          {instructor.user_id.first_name} {instructor.user_id.last_name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <Label>Instructor</Label>
+                    <Select
+                      value={filters.instructor}
+                      onValueChange={(value) => onFilterChange({ ...filters, instructor: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Instructors" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Instructors</SelectItem>
+                        {instructors
+                          .filter((instructor) => instructor.user_id?.first_name && instructor.user_id?.last_name)
+                          .map((instructor) => (
+                            <SelectItem key={instructor._id} value={instructor._id}>
+                              {instructor.user_id.first_name} {instructor.user_id.last_name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label>Status</Label>
@@ -231,8 +237,8 @@ export function ScheduleHeader({
                 <Button
                   variant="ghost"
                   onClick={() => onFilterChange({
-                    student: "all",
-                    instructor: "all",
+                    student: userRole === 'member' || userRole === 'club_admin' ? filters.student : "all",
+                    instructor: userRole === 'member' || userRole === 'club_admin' ? filters.instructor : "all",
                     status: "all"
                   })}
                 >
@@ -271,6 +277,7 @@ export function ScheduleHeader({
           students={students}
           instructors={instructors}
           initialDate={currentDate}
+          userRole={userRole}
         />
       </div>
     </div>

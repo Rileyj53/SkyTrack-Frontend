@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react"
-import { Plane, User, X, Pencil, Save, AlertTriangle, Trash2 } from "lucide-react"
+import { Plane, User, Pencil, Save, AlertTriangle, Trash2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
@@ -34,6 +34,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { ReusableTable, TableColumn, FilterConfig, PaginationConfig, ServerSideConfig } from "@/components/reusable-table"
 
@@ -143,6 +151,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
   // Details view state
   const [selectedFlight, setSelectedFlight] = useState<FlightLog | null>(null)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedFlight, setEditedFlight] = useState<FlightLog | null>(null)
   const [showWarning, setShowWarning] = useState(false)
@@ -182,6 +191,8 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   const [instructors, setInstructors] = useState<Instructor[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   // Format helpers
   const formatDate = (dateString: string) => {
@@ -274,6 +285,11 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
           } else if (data.data.user && data.data.user.school_id) {
             localStorage.setItem('schoolId', data.data.user.school_id)
           }
+          // Set user role and ID for role-based filtering
+          setUserRole(data.data.user.role)
+          setUserId(data.data.user._id)
+          console.log('Flight Log - User role:', data.data.user.role)
+          console.log('Flight Log - User ID:', data.data.user._id)
           setIsAuthenticated(true)
         } else {
           throw new Error(data.message || 'Failed to fetch user data')
@@ -452,6 +468,12 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         params.append("end_date", actualFilters.end_date)
       }
 
+      // For students, add user_id parameter to filter their flights only
+      if (userRole === 'student' && userId) {
+        params.append("user_id", userId)
+        console.log('🎓 Student view: Adding user_id filter:', userId)
+      }
+
       const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule?${params.toString()}`
       console.log('🌐 API URL:', url)
       
@@ -593,7 +615,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, userRole, userId])
 
   // Load supporting data when authenticated
   useEffect(() => {
@@ -654,58 +676,83 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
   }, [fetchFlightLogs, pageSize, filters])
 
   // Table configuration
-  const columns: TableColumn<FlightLog>[] = useMemo(() => [
-    {
-      key: 'date',
-      header: 'Date',
-      width: '110px',
-      render: (flight) => <span className="font-medium">{formatDate(flight.date)}</span>,
-      sortable: true
-    },
-    {
-      key: 'start_time',
-      header: 'Time',
-      width: '90px',
-      render: (flight) => formatTime(flight.start_time),
-      sortable: true
-    },
-    {
-      key: 'plane_reg',
-      header: 'Aircraft',
-      width: '130px',
-      render: (flight) => (
-        <div className="flex items-center gap-2">
-          <Plane className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={2.5} />
-          <span className="font-mono text-sm truncate">{flight.plane_reg}</span>
-        </div>
-      ),
-      sortable: true
-    },
-    {
-      key: 'student_name',
-      header: 'Student',
-      width: '150px',
-      render: (flight) => (
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="truncate text-sm">{flight.student_name}</span>
-        </div>
-      ),
-      sortable: true
-    },
-    {
-      key: 'instructor',
-      header: 'Instructor',
-      width: '150px',
-      render: (flight) => (
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="truncate text-sm">{flight.instructor}</span>
-        </div>
-      ),
-      sortable: true
-    },
-    {
+  const columns: TableColumn<FlightLog>[] = useMemo(() => {
+    const baseColumns: TableColumn<FlightLog>[] = [
+      {
+        key: 'date',
+        header: 'Date',
+        width: '110px',
+        render: (flight) => <span className="font-medium">{formatDate(flight.date)}</span>,
+        sortable: true
+      },
+      {
+        key: 'start_time',
+        header: 'Time',
+        width: '90px',
+        render: (flight) => formatTime(flight.start_time),
+        sortable: true
+      },
+      {
+        key: 'plane_reg',
+        header: 'Aircraft',
+        width: '130px',
+        render: (flight) => (
+          <div className="flex items-center gap-2">
+            <Plane className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={2.5} />
+            <span className="font-mono text-sm truncate">{flight.plane_reg}</span>
+          </div>
+        ),
+        sortable: true
+      }
+    ]
+
+    // Add role-specific columns
+    if (userRole === 'member' || userRole === 'club_admin') {
+      // For members and club admins: show Member column (renamed from Student), no Instructor, no Type
+      baseColumns.push({
+        key: 'student_name',
+        header: 'Member',
+        width: '150px',
+        render: (flight) => (
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="truncate text-sm">{flight.student_name}</span>
+          </div>
+        ),
+        sortable: true
+      })
+    } else {
+      // For school_admin and student: show both Student and Instructor columns
+      baseColumns.push(
+        {
+          key: 'student_name',
+          header: 'Student',
+          width: '150px',
+          render: (flight) => (
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="truncate text-sm">{flight.student_name}</span>
+            </div>
+          ),
+          sortable: true
+        },
+        {
+          key: 'instructor',
+          header: 'Instructor',
+          width: '150px',
+          render: (flight) => (
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="truncate text-sm">{flight.instructor}</span>
+            </div>
+          ),
+          sortable: true
+        }
+      )
+    }
+
+    // Add Duration column (common to all roles)
+    baseColumns.push({
       key: 'duration',
       header: 'Duration',
       width: '100px',
@@ -717,8 +764,10 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         return <span className="font-medium">{formattedDuration} hrs</span>
       },
       sortable: true
-    },
-    {
+    })
+
+    // Add Status column (common to all roles)
+    baseColumns.push({
       key: 'status',
       header: 'Status',
       width: '130px',
@@ -742,126 +791,160 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
         </div>
       ),
       sortable: true
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      width: '140px',
-      render: (flight) => (
-        <span className="text-sm truncate block" title={flight.type}>
-          {flight.type}
-        </span>
-      ),
-      sortable: true
+    })
+
+    // Add Type column only for school_admin and student roles (not for member or club_admin)
+    if (userRole !== 'member' && userRole !== 'club_admin') {
+      baseColumns.push({
+        key: 'type',
+        header: 'Type',
+        width: '140px',
+        render: (flight) => (
+          <span className="text-sm truncate block" title={flight.type}>
+            {flight.type}
+          </span>
+        ),
+        sortable: true
+      })
     }
-  ], [])
+
+    return baseColumns
+  }, [userRole])
 
   const filterConfigs: FilterConfig[] = useMemo(() => {
     console.log('🔧 Building filter configs...')
-    return [
-    {
-      key: 'start_date',
-      label: 'Start Date',
-      type: 'date',
-      defaultValue: (() => {
-        const now = new Date()
-        const year = now.getFullYear()
-        const month = String(now.getMonth() + 1).padStart(2, '0')
-        const day = String(now.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}`
-      })(), // Default to today in local timezone
-      serverSide: true
-    },
-    {
-      key: 'end_date',
-      label: 'End Date',
-      type: 'date',
-      defaultValue: (() => {
-        const now = new Date()
-        const year = now.getFullYear()
-        const month = String(now.getMonth() + 1).padStart(2, '0')
-        const day = String(now.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}`
-      })(), // Default to today in local timezone
-      serverSide: true
-    },
-    {
-      key: 'start_time',
-      label: 'Start Time',
-      type: 'time',
-      defaultValue: '',
-      serverSide: true
-    },
-    {
-      key: 'end_time',
-      label: 'End Time',
-      type: 'time',
-      defaultValue: '',
-      serverSide: true
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { value: 'all', label: 'All Statuses' },
-        { value: 'scheduled', label: 'Scheduled' },
-        { value: 'preparing', label: 'Preparing' },
-        { value: 'in-progress', label: 'In-Progress' },
-        { value: 'completed', label: 'Completed' },
-        { value: 'cancelled', label: 'Cancelled' }
-      ],
-      defaultValue: 'all',
-      serverSide: true
-    },
-    {
-      key: 'aircraft',
-      label: 'Aircraft',
-      type: 'select',
-      options: [
-        { value: 'all', label: 'All Aircraft' },
-        ...aircraft.map(plane => ({
-          value: plane.id,
-          label: `${plane.registration} - ${plane.type}`
-        }))
-      ],
-      defaultValue: 'all',
-      serverSide: true
-    },
-    {
-      key: 'instructor',
-      label: 'Instructor',
-      type: 'select',
-      options: [
-        { value: 'all', label: 'All Instructors' },
-        ...instructors
-          .filter(instructor => instructor.user_id?.first_name && instructor.user_id?.last_name)
-          .map(instructor => ({
-            value: instructor._id,
-            label: `${instructor.user_id.first_name} ${instructor.user_id.last_name}`
+    const baseFilters: FilterConfig[] = [
+      {
+        key: 'start_date',
+        label: 'Start Date',
+        type: 'date' as const,
+        defaultValue: (() => {
+          const now = new Date()
+          const year = now.getFullYear()
+          const month = String(now.getMonth() + 1).padStart(2, '0')
+          const day = String(now.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        })(), // Default to today in local timezone
+        serverSide: true
+      },
+      {
+        key: 'end_date',
+        label: 'End Date',
+        type: 'date' as const,
+        defaultValue: (() => {
+          const now = new Date()
+          const year = now.getFullYear()
+          const month = String(now.getMonth() + 1).padStart(2, '0')
+          const day = String(now.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        })(), // Default to today in local timezone
+        serverSide: true
+      },
+      {
+        key: 'start_time',
+        label: 'Start Time',
+        type: 'time' as const,
+        defaultValue: '',
+        serverSide: true
+      },
+      {
+        key: 'end_time',
+        label: 'End Time',
+        type: 'time' as const,
+        defaultValue: '',
+        serverSide: true
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select' as const,
+        options: [
+          { value: 'all', label: 'All Statuses' },
+          { value: 'scheduled', label: 'Scheduled' },
+          { value: 'preparing', label: 'Preparing' },
+          { value: 'in-progress', label: 'In-Progress' },
+          { value: 'completed', label: 'Completed' },
+          { value: 'cancelled', label: 'Cancelled' }
+        ],
+        defaultValue: 'all',
+        serverSide: true
+      },
+      {
+        key: 'aircraft',
+        label: 'Aircraft',
+        type: 'select' as const,
+        options: [
+          { value: 'all', label: 'All Aircraft' },
+          ...aircraft.map(plane => ({
+            value: plane.id,
+            label: `${plane.registration} - ${plane.type}`
           }))
-      ],
-      defaultValue: 'all',
-      serverSide: true
-    },
-    {
-      key: 'student',
-      label: 'Student',
-      type: 'select',
-      options: [
-        { value: 'all', label: 'All Students' },
-        ...students
-          .filter(student => student.user_id?.first_name && student.user_id?.last_name)
-          .map(student => ({
-            value: student._id,
-            label: `${student.user_id.first_name} ${student.user_id.last_name}`
-          }))
-      ],
-      defaultValue: 'all',
-      serverSide: true
+        ],
+        defaultValue: 'all',
+        serverSide: true
+      }
+    ]
+
+    // Add role-specific filters
+    if (userRole === 'school_admin') {
+      // School admins get all filters including instructor and student
+      baseFilters.push(
+        {
+          key: 'instructor',
+          label: 'Instructor',
+          type: 'select' as const,
+          options: [
+            { value: 'all', label: 'All Instructors' },
+            ...instructors
+              .filter(instructor => instructor.user_id?.first_name && instructor.user_id?.last_name)
+              .map(instructor => ({
+                value: instructor._id,
+                label: `${instructor.user_id.first_name} ${instructor.user_id.last_name}`
+              }))
+          ],
+          defaultValue: 'all',
+          serverSide: true
+        },
+        {
+          key: 'student',
+          label: 'Student',
+          type: 'select' as const,
+          options: [
+            { value: 'all', label: 'All Students' },
+            ...students
+              .filter(student => student.user_id?.first_name && student.user_id?.last_name)
+              .map(student => ({
+                value: student._id,
+                label: `${student.user_id.first_name} ${student.user_id.last_name}`
+              }))
+          ],
+          defaultValue: 'all',
+          serverSide: true
+        }
+      )
+    } else if (userRole === 'student') {
+      // Students get instructor filter but not student filter
+      baseFilters.push({
+        key: 'instructor',
+        label: 'Instructor',
+        type: 'select' as const,
+        options: [
+          { value: 'all', label: 'All Instructors' },
+          ...instructors
+            .filter(instructor => instructor.user_id?.first_name && instructor.user_id?.last_name)
+            .map(instructor => ({
+              value: instructor._id,
+              label: `${instructor.user_id.first_name} ${instructor.user_id.last_name}`
+            }))
+        ],
+        defaultValue: 'all',
+        serverSide: true
+      })
     }
-  ]
-  }, [aircraft, instructors, students])
+    // For 'member' and 'club_admin' roles, no instructor or student filters are added
+
+    return baseFilters
+  }, [aircraft, instructors, students, userRole])
 
   const paginationConfig: PaginationConfig = {
     enabled: true,
@@ -898,6 +981,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
       }
     }
     setSelectedFlight(flight)
+    setIsDetailsModalOpen(true)
     setShowWarning(false)
   }
 
@@ -968,6 +1052,17 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
     setShowWarning(false)
   }
 
+  const handleModalClose = () => {
+    if (isEditing) {
+      setShowWarning(true)
+      toast.warning("Please save or cancel your current edits before closing")
+      return
+    }
+    setIsDetailsModalOpen(false)
+    setSelectedFlight(null)
+    setShowWarning(false)
+  }
+
   const handleDeleteFlight = async () => {
     if (!selectedFlight) return
 
@@ -1000,6 +1095,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
       setFlights(flights.filter(flight => flight._id !== selectedFlight._id))
       setSelectedFlight(null)
+      setIsDetailsModalOpen(false)
       setIsEditing(false)
       setEditedFlight(null)
       setShowWarning(false)
@@ -1033,7 +1129,7 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
 
   return (
     <div className={`w-full h-full ${className}`}>
-      <div className={`h-full ${selectedFlight ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}`}>
+      <div className="h-full">
         {/* Main Table */}
         <div className="h-full">
           {showWarning && (
@@ -1074,134 +1170,162 @@ export default function FlightLogTable({ className }: FlightLogTableProps) {
           />
         </div>
 
-        {/* Details Panel */}
-        {selectedFlight && (
-          <Card className="h-full">
-            <CardHeader className="border-b pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl">Flight Details</CardTitle>
-                  <CardDescription className="text-sm">
-                    {selectedFlight.plane_reg} • {formatDate(selectedFlight.date)} • {formatTime(selectedFlight.start_time)}
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isEditing ? (
-                    <>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            disabled={isDeleting}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Flight Log</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete this flight log? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={handleDeleteFlight}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Delete Flight
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                      <Button variant="outline" size="sm" onClick={handleCancelEdit}>
-                        Cancel
-                      </Button>
-                      <Button size="sm" onClick={handleSaveEdit}>
-                        <Save className="h-4 w-4 mr-2" />
-                        Save
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="outline" size="sm" onClick={handleEditClick}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedFlight(null)}>
-                        <X className="h-5 w-5" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Date</Label>
-                      <Input
-                        type="date"
-                        value={editedFlight?.date || ''}
-                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, date: e.target.value} : null)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Start Time</Label>
-                      <Input
-                        type="time"
-                        value={editedFlight?.start_time || ''}
-                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, start_time: e.target.value} : null)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Duration (hrs)</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={editedFlight?.duration || 0}
-                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, duration: parseFloat(e.target.value)} : null)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Type</Label>
-                      <Input
-                        value={editedFlight?.type || ''}
-                        onChange={(e) => setEditedFlight(prev => prev ? {...prev, type: e.target.value} : null)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground">Student</h4>
-                      <p className="text-sm font-semibold">{selectedFlight.student_name}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground">Instructor</h4>
-                      <p className="text-sm font-semibold">{selectedFlight.instructor}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground">Duration</h4>
-                      <p className="text-sm font-semibold">{selectedFlight.duration} hrs</p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground">Type</h4>
-                      <p className="text-sm font-semibold">{selectedFlight.type}</p>
-                    </div>
-                  </div>
-                </div>
+        {/* Flight Details Modal */}
+        <Dialog open={isDetailsModalOpen} onOpenChange={handleModalClose}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Flight Details</DialogTitle>
+              {selectedFlight && (
+                <DialogDescription className="text-sm">
+                  {selectedFlight.plane_reg} • {formatDate(selectedFlight.date)} • {formatTime(selectedFlight.start_time)}
+                </DialogDescription>
               )}
-            </CardContent>
-          </Card>
-        )}
+            </DialogHeader>
+
+            {selectedFlight && (
+              <div className="space-y-6">
+                {isEditing ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Date</Label>
+                        <Input
+                          type="date"
+                          value={editedFlight?.date || ''}
+                          onChange={(e) => setEditedFlight(prev => prev ? {...prev, date: e.target.value} : null)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Start Time</Label>
+                        <Input
+                          type="time"
+                          value={editedFlight?.start_time || ''}
+                          onChange={(e) => setEditedFlight(prev => prev ? {...prev, start_time: e.target.value} : null)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Duration (hrs)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={editedFlight?.duration || 0}
+                          onChange={(e) => setEditedFlight(prev => prev ? {...prev, duration: parseFloat(e.target.value)} : null)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Type</Label>
+                        <Input
+                          value={editedFlight?.type || ''}
+                          onChange={(e) => setEditedFlight(prev => prev ? {...prev, type: e.target.value} : null)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Student</h4>
+                        <p className="text-base font-semibold">{selectedFlight.student_name}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Instructor</h4>
+                        <p className="text-base font-semibold">{selectedFlight.instructor}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Duration</h4>
+                        <p className="text-base font-semibold">{selectedFlight.duration} hrs</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Type</h4>
+                        <p className="text-base font-semibold">{selectedFlight.type}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Status</h4>
+                        <div
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                            selectedFlight.status === "Completed" 
+                              ? "bg-[#b3c6ff] text-black hover:bg-[#809fff] border border-[#809fff]" 
+                              : selectedFlight.status === "In-Progress"
+                                ? "bg-[#c2f0c2] text-black hover:bg-[#99e699] border border-[#99e699]"
+                                : selectedFlight.status === "Preparing"
+                                  ? "bg-[#fbfbb6] text-black hover:bg-[#f9f986] border border-[#f9f986]"
+                                : selectedFlight.status === "Scheduled"
+                                  ? "bg-[#f0b3ff] text-black hover:bg-[#e580ff] border border-[#e580ff]"
+                                : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
+                                  ? "bg-[#fc9c9c] text-black hover:bg-[#fb6a6a] border border-[#fb6a6a]"
+                                : "bg-[#d5d5dd] text-[#73738c] hover:bg-[#b9b9c6] border border-[#b9b9c6]"
+                          }`}
+                        >
+                          {selectedFlight.status}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Aircraft</h4>
+                        <p className="text-base font-semibold font-mono">{selectedFlight.plane_reg}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {isEditing && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Flight Log</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this flight log? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteFlight}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete Flight
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {isEditing ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleSaveEdit}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleEditClick}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

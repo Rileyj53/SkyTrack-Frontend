@@ -102,7 +102,9 @@ export default function FlightLogPage() {
       <div style={{ paddingTop: '5rem', paddingLeft: '1rem', paddingRight: '1rem', paddingBottom: '0rem', height: 'calc(100vh - 4rem)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: '1', overflow: 'hidden' }}>
           <div className="mb-6">
-            <h1 className="text-3xl font-bold tracking-tight">Flight Log</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {userData?.user?.role === 'member' || userData?.user?.role === 'club_admin' ? 'Flight Log' : 'Flight Log'}
+            </h1>
           </div>
           <Suspense fallback={<FlightLogTableSkeleton />}>
             <FlightLogTable />
