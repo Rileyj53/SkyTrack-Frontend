@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react"
 import L from "leaflet"
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, useMapEvents } from "react-leaflet"
 import { Plane } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
@@ -244,17 +244,130 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
     fixLeafletIcon()
   }, [])
 
-  // Debounce function
-  const debounce = (func: Function, wait: number) => {
-    let timeout: NodeJS.Timeout
-    return (...args: any[]) => {
-      clearTimeout(timeout)
-      timeout = setTimeout(() => func(...args), wait)
+  // Create airport icon based on airport type
+  const createAirportIcon = (airportType: string) => {
+    const airportColors = {
+      'large_airport': '#ff6b6b',    // Red for major airports
+      'medium_airport': '#4ecdc4',   // Teal for medium airports  
+      'small_airport': '#45b7d1',    // Blue for small airports
+      'heliport': '#96ceb4',         // Light green for heliports
+      'closed': '#95a5a6',           // Gray for closed airports
+      'balloonport': '#f39c12',      // Orange for balloon ports
+      'seaplane_base': '#3498db'     // Different blue for seaplane bases
     }
+    
+    const color = airportColors[airportType as keyof typeof airportColors] || '#6c757d'
+    const size = airportType === 'large_airport' ? 12 : airportType === 'medium_airport' ? 8 : 6
+    
+    return L.divIcon({
+      html: `
+        <div style="
+          width: ${size}px; 
+          height: ${size}px; 
+          background-color: ${color};
+          border: 2px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        "></div>
+      `,
+      className: "airport-icon",
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2],
+      popupAnchor: [0, -size/2],
+    })
+  }
+
+  // Filter airports within map bounds for performance
+  const filterAirportsInBounds = (bounds: L.LatLngBounds, airports: Map<string, any>) => {
+    const visibleAirports: any[] = []
+    const airportArray = Array.from(airports.values())
+    
+    // Remove duplicates by keeping track of seen coordinates
+    const seenCoords = new Set<string>()
+    
+    for (const airport of airportArray) {
+      if (airport.latitude && airport.longitude) {
+        const coordKey = `${airport.latitude.toFixed(4)},${airport.longitude.toFixed(4)}`
+        
+        // Skip if we've already added an airport at this location
+        if (seenCoords.has(coordKey)) continue
+        
+        const latLng = L.latLng(airport.latitude, airport.longitude)
+        if (bounds.contains(latLng)) {
+          visibleAirports.push(airport)
+          seenCoords.add(coordKey)
+        }
+      }
+    }
+    
+    return visibleAirports
   }
 
   // Airport data cache - using Map for O(1) lookups
   const [airportData, setAirportData] = useState<Map<string, any>>(new Map())
+  const [visibleAirports, setVisibleAirports] = useState<any[]>([])
+  const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null)
+  const [showAirports, setShowAirports] = useState(true)
+
+  // Map event handler component for updating visible airports
+  const MapEventHandler = () => {
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+    
+    // Function to update visible airports without dependencies that could cause loops
+    const updateAirports = useCallback((map: L.Map) => {
+      if (showAirports && airportData.size > 0) {
+        const bounds = map.getBounds()
+        const newVisibleAirports = filterAirportsInBounds(bounds, airportData)
+        console.log(`Map updated: showing ${newVisibleAirports.length} airports in viewport`)
+        setVisibleAirports(newVisibleAirports)
+        setMapBounds(bounds)
+      } else if (!showAirports) {
+        setVisibleAirports([])
+      }
+    }, []) // Empty dependency array to prevent infinite loops
+    
+    const map = useMapEvents({
+      moveend: () => {
+        // Clear previous timeout and set new one for debouncing
+        if (timeoutRef.current) clearTimeout(timeoutRef.current)
+        timeoutRef.current = setTimeout(() => {
+          if (showAirports && airportData.size > 0) {
+            const bounds = map.getBounds()
+            const newVisibleAirports = filterAirportsInBounds(bounds, airportData)
+            console.log(`Map moved: showing ${newVisibleAirports.length} airports in viewport`)
+            setVisibleAirports(newVisibleAirports)
+            setMapBounds(bounds)
+          }
+        }, 200)
+      },
+      zoomend: () => {
+        // Clear previous timeout and set new one for debouncing
+        if (timeoutRef.current) clearTimeout(timeoutRef.current)
+        timeoutRef.current = setTimeout(() => {
+          if (showAirports && airportData.size > 0) {
+            const bounds = map.getBounds()
+            const newVisibleAirports = filterAirportsInBounds(bounds, airportData)
+            console.log(`Map zoomed: showing ${newVisibleAirports.length} airports in viewport`)
+            setVisibleAirports(newVisibleAirports)
+            setMapBounds(bounds)
+          }
+        }, 200)
+      }
+    })
+    
+    // Initial load of airports when map is ready - only run once
+    useEffect(() => {
+      if (map && showAirports && airportData.size > 0) {
+        const bounds = map.getBounds()
+        const initialAirports = filterAirportsInBounds(bounds, airportData)
+        console.log(`Initial load: showing ${initialAirports.length} airports in viewport`)
+        setVisibleAirports(initialAirports)
+        setMapBounds(bounds)
+      }
+    }, []) // Empty dependency array - only run once when component mounts
+    
+    return null
+  }
 
   // Parse CSV into fast lookup Map
   const parseAirportCSV = (csvText: string) => {
@@ -306,19 +419,26 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
     return airportMap
   }
 
-  // Load airport data on component mount
+  // Load airport data from airports.json on component mount
   useEffect(() => {
     const loadAirportData = async () => {
       try {
-        console.log('Loading cleaned world airports CSV...')
-        const response = await fetch('/world-airports-clean.csv')
+        console.log('Loading airports from airports.json...')
+        const response = await fetch('/airports.json')
         if (response.ok) {
-          const csvText = await response.text()
-          const airportMap = parseAirportCSV(csvText)
+          const airportsObject = await response.json()
+          // Convert object to Map for consistent lookup
+          const airportMap = new Map()
+          
+          Object.values(airportsObject).forEach((airport: any) => {
+            if (airport.icao) airportMap.set(airport.icao, airport)
+            if (airport.iata) airportMap.set(airport.iata, airport)
+          })
+          
           setAirportData(airportMap)
           console.log('Successfully loaded airport database with', airportMap.size, 'airport entries')
         } else {
-          console.error('Failed to load airport CSV:', response.status)
+          console.error('Failed to load airports.json:', response.status)
         }
       } catch (err) {
         console.error('Error loading airport data:', err)
@@ -1195,6 +1315,61 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
       })
     }
     
+    // Add airport markers if enabled and visible
+    if (showAirports && visibleAirports.length > 0) {
+      visibleAirports.forEach((airport) => {
+        markers.push(
+          <Marker
+            key={`airport-${airport.icao}-${airport.latitude}-${airport.longitude}`}
+            position={[airport.latitude, airport.longitude]}
+            icon={createAirportIcon(airport.type)}
+          >
+            <Popup>
+              <div className="p-3 min-w-[200px] bg-white dark:bg-[#35353f] rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 rounded-lg bg-blue-200 dark:bg-blue-600">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg text-gray-900 dark:text-gray-100">{airport.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                      {airport.icao && <span className="font-medium">{airport.icao}</span>}
+                      {airport.iata && airport.icao && <span className="mx-1">•</span>}
+                      {airport.iata && <span className="font-medium">{airport.iata}</span>}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">TYPE:</span>
+                    <span className="capitalize">{airport.type?.replace('_', ' ')}</span>
+                  </div>
+                  {airport.city && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">LOCATION:</span>
+                      <span>{airport.city}, {airport.state} {airport.country}</span>
+                    </div>
+                  )}
+                  {airport.elevation && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">ELEVATION:</span>
+                      <span>{airport.elevation} ft</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">COORDINATES:</span>
+                    <span className="text-xs font-mono">{airport.latitude.toFixed(4)}, {airport.longitude.toFixed(4)}</span>
+                  </div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        )
+      })
+    }
+    
     return markers
   }
 
@@ -1346,14 +1521,14 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
             >
               Refresh
             </Button>
-            <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
+            {/* <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Map type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="street">Street</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
         </div>
         <div className="flex-1 w-full rounded-md overflow-hidden border relative">
@@ -1407,6 +1582,27 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                   </div>
                 </div>
                 
+                {/* Airport colors */}
+                {showAirports && (
+                  <div className="mb-3">
+                    <div className="text-[9px] font-medium mb-1 text-gray-600 dark:text-gray-300">AIRPORTS</div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-[8px]">
+                        <div className="w-3 h-3 rounded-full border-2 border-white bg-[#ff6b6b]"></div>
+                        <span className="text-gray-600 dark:text-gray-300">Large Airport</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[8px]">
+                        <div className="w-2 h-2 rounded-full border-2 border-white bg-[#4ecdc4]"></div>
+                        <span className="text-gray-600 dark:text-gray-300">Medium Airport</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[8px]">
+                        <div className="w-1.5 h-1.5 rounded-full border border-white bg-[#45b7d1]"></div>
+                        <span className="text-gray-600 dark:text-gray-300">Small Airport</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Other legend items */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-[9px]">
@@ -1414,8 +1610,23 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                     <span className="text-gray-600 dark:text-gray-300">Flight School</span>
                   </div>
                 </div>
+                
+                {/* Airport toggle */}
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                  <button
+                    onClick={() => setShowAirports(!showAirports)}
+                    className={`text-[9px] px-2 py-1 rounded text-white font-medium transition-colors ${
+                      showAirports 
+                        ? 'bg-blue-500 hover:bg-blue-600' 
+                        : 'bg-gray-500 hover:bg-gray-600'
+                    }`}
+                  >
+                    {showAirports ? 'Hide' : 'Show'} Airports
+                  </button>
+                </div>
               </div>
               <AircraftIconStyles />
+              <MapEventHandler />
               {renderMapMarkers()}
             </MapContainer>
           )}
@@ -1442,14 +1653,14 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
           >
             Refresh
           </Button>
-          <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
+          {/* <Select value={activeMapLayer} onValueChange={setActiveMapLayer}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select map type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="street">Street Map</SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
         </div>
       </CardHeader>
       <CardContent>
@@ -1504,6 +1715,27 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                   </div>
                 </div>
                 
+                {/* Airport colors */}
+                {showAirports && (
+                  <div className="mb-3">
+                    <div className="text-[9px] font-medium mb-1 text-gray-600 dark:text-gray-300">AIRPORTS</div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-[8px]">
+                        <div className="w-3 h-3 rounded-full border-2 border-white bg-[#ff6b6b]"></div>
+                        <span className="text-gray-600 dark:text-gray-300">Large Airport</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[8px]">
+                        <div className="w-2 h-2 rounded-full border-2 border-white bg-[#4ecdc4]"></div>
+                        <span className="text-gray-600 dark:text-gray-300">Medium Airport</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[8px]">
+                        <div className="w-1.5 h-1.5 rounded-full border border-white bg-[#45b7d1]"></div>
+                        <span className="text-gray-600 dark:text-gray-300">Small Airport</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Other legend items */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-[9px]">
@@ -1511,8 +1743,23 @@ export function FlightTrackingMap({ className, dashboard = false }: FlightTracki
                     <span className="text-gray-600 dark:text-gray-300">Flight School</span>
                   </div>
                 </div>
+                
+                {/* Airport toggle */}
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                  <button
+                    onClick={() => setShowAirports(!showAirports)}
+                    className={`text-[9px] px-2 py-1 rounded text-white font-medium transition-colors ${
+                      showAirports 
+                        ? 'bg-blue-500 hover:bg-blue-600' 
+                        : 'bg-gray-500 hover:bg-gray-600'
+                    }`}
+                  >
+                    {showAirports ? 'Hide' : 'Show'} Airports
+                  </button>
+                </div>
               </div>
               <AircraftIconStyles />
+              <MapEventHandler />
               {renderMapMarkers()}
             </MapContainer>
           )}

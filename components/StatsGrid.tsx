@@ -12,8 +12,8 @@ import {
   IconCalendar,
   IconClock,
 } from '@tabler/icons-react';
-import { Group, Paper, SimpleGrid, Text, ActionIcon, LoadingOverlay, Button } from '@mantine/core';
-import { useState, useEffect, useMemo } from 'react';
+import { Group, Paper, SimpleGrid, Text, ActionIcon, LoadingOverlay, Button, Select } from '@mantine/core';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useStatsData } from '@/hooks/useStatsData';
 import { useStatsPreferences } from '@/hooks/useStatsPreferences';
@@ -56,6 +56,8 @@ export interface StatsGridProps {
   title?: string;
   showRefreshButton?: boolean;
   showCustomizeButton?: boolean;
+  showRangeSelector?: boolean; // Show the period/range selector
+  defaultRange?: number; // Default range value in days
   className?: string;
   
   // Custom data fetching function (alternative to API endpoint)
@@ -208,24 +210,41 @@ export function StatsGrid({
   title = 'Statistics',
   showRefreshButton = true,
   showCustomizeButton = true,
+  showRangeSelector = true,
+  defaultRange = 30,
   className,
   customFetchFunction,
   processData,
   useEnhancedModal = false,
   rawData
 }: StatsGridProps) {
+  // Range/period state management
+  const [selectedRange, setSelectedRange] = useState<number>(() => {
+    if (typeof window === 'undefined') return defaultRange;
+    const saved = localStorage.getItem(`${storageKey}-range`);
+    return saved ? parseInt(saved, 10) : defaultRange;
+  });
+
   // Create a custom hook for this specific StatsGrid instance
-  const useCustomStatsData = () => {
+  const useCustomStatsData = (currentRange: number) => {
     const [statsData, setStatsData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastFetch, setLastFetch] = useState<Date | null>(null);
+    const rangeRef = useRef(currentRange);
+    const isInitialMount = useRef(true);
+    
+    // Update ref when range changes
+    useEffect(() => {
+      rangeRef.current = currentRange;
+    }, [currentRange]);
 
-    const fetchStats = async (forceRefresh = false) => {
+    const fetchStats = useCallback(async (forceRefresh = false) => {
       // Don't fetch if we recently fetched and it's not a forced refresh
+      // When range changes, we want to fetch new data regardless of cache
       if (lastFetch && !forceRefresh) {
         const timeSinceLastFetch = Date.now() - lastFetch.getTime();
-        if (timeSinceLastFetch < 60000) { // 1 minute cache
+        if (timeSinceLastFetch < 30000) { // Reduced to 30 seconds cache
           return;
         }
       }
@@ -253,8 +272,17 @@ export function StatsGrid({
             throw new Error("API key is not configured");
           }
 
-          const defaultEndpoint = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/stats`;
-          const response = await fetch(apiEndpoint || defaultEndpoint, {
+          // Build endpoint with range parameter
+          let endpoint = apiEndpoint || `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/stats`;
+          
+          // Add or update range parameter
+          const url = new URL(endpoint, process.env.NEXT_PUBLIC_API_URL);
+          url.searchParams.set('range', rangeRef.current.toString());
+          endpoint = url.toString();
+          
+          console.log('StatsGrid: Fetching data from endpoint:', endpoint);
+          
+          const response = await fetch(endpoint, {
             method: apiMethod,
             headers: {
               'Accept': 'application/json',
@@ -304,12 +332,19 @@ export function StatsGrid({
       } finally {
         setLoading(false);
       }
-    };
+    }, [apiEndpoint, apiMethod, apiHeaders, apiBody, customFetchFunction, processData, dataPath]);
 
-    // Auto-fetch on mount
+    // Auto-fetch on mount and when range changes
     useEffect(() => {
-      fetchStats();
-    }, []);
+      if (isInitialMount.current) {
+        console.log('StatsGrid: Initial mount, fetching data for range:', currentRange);
+        isInitialMount.current = false;
+        fetchStats(); // Normal fetch on initial mount
+      } else {
+        console.log('StatsGrid: Range changed to:', currentRange, '- forcing fresh data');
+        fetchStats(true); // Force refresh when range changes
+      }
+    }, [currentRange]);
 
     // Helper function to get a specific stat value by path
     const getStatValue = (path: string, config?: StatConfig): number | string | null => {
@@ -592,12 +627,34 @@ export function StatsGrid({
     };
   };
 
-  const { statsData, loading, error, fetchStats, getStatValue, formatStatValue } = useCustomStatsData();
+  const { statsData, loading, error, fetchStats, getStatValue, formatStatValue } = useCustomStatsData(selectedRange);
   const { preferences, isInitialized, refreshFromStorage, savePreferences } = useCustomStatsPreferences();
   const [showCustomization, setShowCustomization] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [formattedLastUpdated, setFormattedLastUpdated] = useState('Never');
+  
+  // Range options for the selector
+  const rangeOptions = [
+    { value: '7', label: '7 Days' },
+    { value: '14', label: '14 Days' },
+    { value: '30', label: '30 Days' },
+    { value: '60', label: '60 Days' },
+    { value: '90', label: '90 Days' },
+    { value: '180', label: '6 Months' },
+    { value: '365', label: '1 Year' }
+  ];
+  
+  // Handle range change
+  const handleRangeChange = (value: string | null) => {
+    if (value) {
+      const newRange = parseInt(value, 10);
+      console.log('StatsGrid: User selected new range:', newRange);
+      setSelectedRange(newRange);
+      // Save to localStorage
+      localStorage.setItem(`${storageKey}-range`, newRange.toString());
+    }
+  };
   
   // Ensure we're on the client side before rendering time-sensitive content
   useEffect(() => {
@@ -685,6 +742,16 @@ export function StatsGrid({
             </Text>
           </div>
           <Group gap="xs">
+            {showRangeSelector && (
+              <Select
+                data={rangeOptions}
+                value={selectedRange.toString()}
+                onChange={handleRangeChange}
+                size="xs"
+                w={120}
+                disabled={loading}
+              />
+            )}
             {showRefreshButton && (
               <ActionIcon
                 variant="light"

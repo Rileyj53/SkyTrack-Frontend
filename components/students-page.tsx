@@ -474,7 +474,7 @@ export function StudentsPage() {
         throw new Error("Organization ID or authentication token not found")
       }
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/stats?include_financials=true&include_progress=true&range=30`
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/students/stats?include_financials=true&include_progress=true`
 
       const response = await fetch(url, {
         headers: {
@@ -966,7 +966,7 @@ export function StudentsPage() {
               title="Student Statistics"
               storageKey="skytrack-student-stats-preferences"
               defaultConfigs={STUDENT_STATS_CONFIG}
-              apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/students/stats?include_financials=true&include_progress=true&range=30`}
+              apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/students/stats?include_financials=true&include_progress=true`}
               dataPath="data.stats"
               useEnhancedModal={true}
               rawData={statsData}

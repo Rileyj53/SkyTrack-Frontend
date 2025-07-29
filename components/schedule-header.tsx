@@ -32,8 +32,8 @@ import { Label } from "@/components/ui/label"
 interface ScheduleHeaderProps {
   currentDate: Date
   onDateChange: (date: Date) => void
-  view: "day" | "week" | "month"
-  onViewChange: (view: "day" | "week" | "month") => void
+  view: "day" | "week" | "month" | "aircraft"
+  onViewChange: (view: "day" | "week" | "month" | "aircraft") => void
   students: any[]
   instructors: any[]
   onFlightCreated: () => void
@@ -78,6 +78,8 @@ export function ScheduleHeader({
       const weekStart = startOfWeek(currentDate, { weekStartsOn: 6 }) // Start from Saturday
       const weekEnd = addDays(weekStart, 6) // End on Friday
       return `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`
+    } else if (view === "aircraft") {
+      return format(currentDate, "MMMM d, yyyy")
     } else {
       return format(currentDate, "MMMM yyyy")
     }
@@ -85,7 +87,7 @@ export function ScheduleHeader({
 
   // Navigation functions
   const goToPrevious = () => {
-    if (view === "day") {
+    if (view === "day" || view === "aircraft") {
       onDateChange(addDays(currentDate, -1))
     } else if (view === "week") {
       onDateChange(addDays(currentDate, -7))
@@ -95,7 +97,7 @@ export function ScheduleHeader({
   }
 
   const goToNext = () => {
-    if (view === "day") {
+    if (view === "day" || view === "aircraft") {
       onDateChange(addDays(currentDate, 1))
     } else if (view === "week") {
       onDateChange(addDays(currentDate, 7))
@@ -249,7 +251,7 @@ export function ScheduleHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Select value={view} onValueChange={(value: "day" | "week" | "month") => onViewChange(value)}>
+        <Select value={view} onValueChange={(value: "day" | "week" | "month" | "aircraft") => onViewChange(value)}>
           <SelectTrigger className="w-[120px]">
             <SelectValue placeholder="Select view" />
           </SelectTrigger>
@@ -259,6 +261,7 @@ export function ScheduleHeader({
               <SelectItem value="day">Day</SelectItem>
               <SelectItem value="week">Week</SelectItem>
               <SelectItem value="month">Month</SelectItem>
+              <SelectItem value="aircraft">Aircraft</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>

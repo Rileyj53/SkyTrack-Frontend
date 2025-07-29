@@ -11,7 +11,7 @@ import FlightLogOverview from '@/components/flight-log-overview-new';
 import { StatsGrid } from '@/components/StatsGrid';
 
 // Dynamically import the FlightTrackingMap to avoid SSR issues with Leaflet
-const FlightTrackingMap = dynamic(() => import('@/components/flight-tracking-map-new').then((mod) => ({ default: mod.FlightTrackingMap })), {
+const FlightTrackingMap = dynamic(() => import('@/components/flight-tracking-map').then((mod) => ({ default: mod.FlightTrackingMap })), {
   ssr: false,
   loading: () => {
     // const [progress, setProgress] = React.useState(0)
@@ -146,6 +146,7 @@ export default function LeadGrid() {
             dataPath="data.stats"
             useEnhancedModal={true}
             rawData={statsData}
+            defaultRange={90}
           />
         )}
         

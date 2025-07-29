@@ -538,7 +538,7 @@ export function InstructorsPage() {
         throw new Error("API key is not configured")
       }
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/instructors/stats?include_financials=true&include_workload=true&range=30`
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/instructors/stats?include_financials=true&include_workload=true`
 
       const response = await fetch(url, {
         headers: {
@@ -793,7 +793,7 @@ export function InstructorsPage() {
               title="Instructor Statistics"
               storageKey="skytrack-instructor-stats-preferences"
               defaultConfigs={INSTRUCTOR_STATS_CONFIG}
-              apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/instructors/stats?include_financials=true&include_workload=true&range=30`}
+              apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/instructors/stats?include_financials=true&include_workload=true`}
               dataPath="data.stats"
               useEnhancedModal={true}
               rawData={statsData}

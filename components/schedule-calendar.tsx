@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { WeekView } from "@/components/schedule/week-view"
 import { DayView } from "@/components/schedule/day-view"
 import { MonthView } from "@/components/schedule/month-view"
+import { AircraftView } from "@/components/schedule/aircraft-view"
 
 interface Student {
   _id: string
@@ -61,14 +62,14 @@ interface Schedule {
 
 interface ScheduleCalendarProps {
   currentDate: Date
-  view: "day" | "week" | "month"
+  view: "day" | "week" | "month" | "aircraft"
   weekDays: Date[]
   schedules: Schedule[]
   students: Record<string, Student>
   instructors: Record<string, Instructor>
   onScheduleUpdate?: () => void
   onDateChange: (date: Date) => void
-  onViewChange: (view: "day" | "week" | "month") => void
+  onViewChange: (view: "day" | "week" | "month" | "aircraft") => void
 }
 
 export function ScheduleCalendar({
@@ -142,6 +143,20 @@ export function ScheduleCalendar({
     )
   }
 
+  // Render aircraft view using the new AircraftView component
+  const renderAircraftView = () => {
+    return (
+      <AircraftView
+        currentDate={currentDate}
+        schedules={schedules}
+        students={students}
+        instructors={instructors}
+        onSelectDate={onDateChange}
+        onScheduleUpdate={onScheduleUpdate}
+      />
+    )
+  }
+
   switch (view) {
     case "day":
       return renderDayView()
@@ -149,6 +164,8 @@ export function ScheduleCalendar({
       return renderWeekView()
     case "month":
       return renderMonthView()
+    case "aircraft":
+      return renderAircraftView()
     default:
       return renderWeekView()
   }

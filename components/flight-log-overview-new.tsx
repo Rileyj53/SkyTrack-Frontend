@@ -55,6 +55,12 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   const [isEndFlightModalOpen, setIsEndFlightModalOpen] = useState(false)
   const [isUpdatingFlight, setIsUpdatingFlight] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [statusCounts, setStatusCounts] = useState({
+    current: 0,
+    scheduled: 0,
+    completed: 0,
+    canceled: 0
+  })
   const FLIGHTS_PER_PAGE = 5
 
   // Ensure we're on the client side before rendering time-sensitive content
@@ -194,6 +200,16 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
         
         setFlights(transformedFlights);
         setTotalPages(data.pagination?.pages || 1);
+        
+        // Extract and store status counts
+        if (data.pagination?.statusCounts) {
+          setStatusCounts({
+            current: data.pagination.statusCounts.current || 0,
+            scheduled: data.pagination.statusCounts.scheduled || 0,
+            completed: data.pagination.statusCounts.completed || 0,
+            canceled: data.pagination.statusCounts.canceled || 0
+          });
+        }
       } else {
         setError("Invalid data format received from API")
       }
@@ -510,12 +526,28 @@ export default function FlightLogOverview({ className }: FlightLogOverviewProps)
   return (
     <Card className={className}>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Today's Flights</CardTitle>
-            <CardDescription>Overview of upcoming flights</CardDescription>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <div>
+              <CardTitle>Today's Flights</CardTitle>
+              <CardDescription>Overview of upcoming flights</CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#c2f0c2] border border-[#99e699]"></div>
+                <span className="text-sm text-muted-foreground">{statusCounts.current} Current</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#f0b3ff] border border-[#e580ff]"></div>
+                <span className="text-sm text-muted-foreground">{statusCounts.scheduled} Scheduled</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#b3c6ff] border border-[#809fff]"></div>
+                <span className="text-sm text-muted-foreground">{statusCounts.completed} Completed</span>
+              </div>
+            </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleViewAllFlights}>
+          <Button variant="outline" size="sm" onClick={handleViewAllFlights} className="self-start sm:self-center">
             View All Flights
           </Button>
         </div>

@@ -9,6 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import dynamic from 'next/dynamic'
+
+// Dynamically import the FlightTrackingMap to avoid SSR issues with Leaflet
+const FlightTrackingMap = dynamic(() => import('@/components/flight-tracking-map-new').then((mod) => ({ default: mod.FlightTrackingMap })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center min-h-[400px] w-full flex-1 bg-background">
+      <div className="w-full max-w-md flex flex-col items-center gap-6">
+        <div className="text-base font-medium text-muted-foreground text-center">Loading flight tracking map...</div>
+      </div>
+    </div>
+  ),
+});
 
 // Sample data for demonstration
 interface SampleStudent {
@@ -428,6 +441,7 @@ export default function DashboardDev() {
             <TabsList>
               <TabsTrigger value="progress">Student Progress Component</TabsTrigger>
               <TabsTrigger value="table">Reusable Table</TabsTrigger>
+              <TabsTrigger value="map">Flight Tracking Map</TabsTrigger>
             </TabsList>
             
             <TabsContent value="progress" className="space-y-6">
@@ -584,6 +598,46 @@ export default function DashboardDev() {
                   <p>Total Pages: {serverSideResult.totalPages}</p>
                   <p>Active Filters: {JSON.stringify(filters)}</p>
                   <p>Search Query: "{searchQuery}"</p>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="map">
+              {/* Feature highlights */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border">
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100">Live Tracking</h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Real-time aircraft tracking with position updates and flight data
+                  </p>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border">
+                  <h3 className="font-semibold text-green-900 dark:text-green-100">Interactive Map</h3>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Leaflet-based map with zoom controls and multiple layer options
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border">
+                  <h3 className="font-semibold text-purple-900 dark:text-purple-100">Flight Management</h3>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    Start/end flight controls and real-time status updates
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Dashboard version */}
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Dashboard Version (Simplified)</h3>
+                  <div className="h-[500px] border rounded-lg overflow-hidden">
+                    <FlightTrackingMap dashboard={true} className="h-full" />
+                  </div>
+                </div>
+
+                {/* Full version */}
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Full Version (With Card Wrapper)</h3>
+                  <FlightTrackingMap className="h-[600px]" />
                 </div>
               </div>
             </TabsContent>

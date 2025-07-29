@@ -470,7 +470,7 @@ export function AircraftPage() {
         throw new Error("Organization ID or authentication token not found")
       }
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/stats?range=30&include_financials=true&include_maintenance=true`
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/planes/stats?include_financials=true&include_maintenance=true`
 
       const response = await fetch(url, {
         headers: {
@@ -730,7 +730,7 @@ export function AircraftPage() {
               title="Fleet Statistics"
               storageKey="skytrack-aircraft-stats-preferences"
               defaultConfigs={AIRCRAFT_STATS_CONFIG}
-              apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/planes/stats?range=30&include_financials=true&include_maintenance=true`}
+              apiEndpoint={`${process.env.NEXT_PUBLIC_API_URL}/organizations/${typeof window !== 'undefined' ? (localStorage.getItem("organizationId") || localStorage.getItem("schoolId")) : ''}/planes/stats?include_financials=true&include_maintenance=true`}
               dataPath="data.stats"
               useEnhancedModal={true}
               rawData={statsData}

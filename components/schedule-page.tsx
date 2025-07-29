@@ -82,7 +82,7 @@ interface Schedule {
 
 export function SchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [view, setView] = useState<"day" | "week" | "month">("week")
+  const [view, setView] = useState<"day" | "week" | "month" | "aircraft">("week")
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [students, setStudents] = useState<Record<string, Student>>({})
   const [instructors, setInstructors] = useState<Record<string, Instructor>>({})
@@ -263,7 +263,7 @@ export function SchedulePage() {
   }
 
   // Helper function to calculate date ranges for different views
-  const getDateRange = useCallback((date: Date, viewType: "day" | "week" | "month") => {
+  const getDateRange = useCallback((date: Date, viewType: "day" | "week" | "month" | "aircraft") => {
     switch (viewType) {
       case "month":
         return {
@@ -280,6 +280,11 @@ export function SchedulePage() {
           end: days[6]
         }
       case "day":
+        return {
+          start: date,
+          end: date
+        }
+      case "aircraft":
         return {
           start: date,
           end: date
@@ -507,7 +512,7 @@ export function SchedulePage() {
     fetchSchedules(start, end, false, true)
   }
 
-  const handleViewChange = (newView: "day" | "week" | "month") => {
+  const handleViewChange = (newView: "day" | "week" | "month" | "aircraft") => {
     setView(newView)
     
     // Fetch new data with transition loading
