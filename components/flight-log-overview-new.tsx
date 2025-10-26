@@ -1,0 +1,802 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { MoreHorizontal, Plane, User, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Pagination, PaginationContent, PaginationItem, PaginationEllipsis } from '@/components/ui/pagination'
+import { Skeleton } from "@/components/ui/skeleton"
+import { StartFlightModal } from "@/components/start-flight-modal"
+import { EndFlightModal } from "@/components/end-flight-modal"
+
+interface FlightLog {
+  _id: string
+  date: string
+  start_time: string
+  plane_reg: string
+  plane_id: string
+  student_name: string
+  student_id: string
+  instructor: string
+  instructor_id: string
+  duration: number
+  type: string
+  status: string
+  school_id: string
+  created_at: string
+  updated_at: string
+}
+
+interface FlightLogOverviewProps {
+  className?: string
+}
+
+export default function FlightLogOverview({ className }: FlightLogOverviewProps) {
+  const router = useRouter()
+  const [flights, setFlights] = useState<FlightLog[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedFlight, setSelectedFlight] = useState<FlightLog | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [isStartFlightModalOpen, setIsStartFlightModalOpen] = useState(false)
+  const [isEndFlightModalOpen, setIsEndFlightModalOpen] = useState(false)
+  const [isUpdatingFlight, setIsUpdatingFlight] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+  const [statusCounts, setStatusCounts] = useState({
+    current: 0,
+    scheduled: 0,
+    completed: 0,
+    canceled: 0
+  })
+  const FLIGHTS_PER_PAGE = 5
+
+  // Ensure we're on the client side before rendering time-sensitive content
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  const formatTime = (time: string) => {
+    if (!isClient) return time // Return original time during SSR
+    
+    try {
+      const [hours, minutes] = time.split(':').map(Number)
+      if (isNaN(hours) || isNaN(minutes)) return time
+      
+      const date = new Date()
+      date.setHours(hours, minutes, 0, 0)
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+    } catch (err) {
+      return time // Return original time if parsing fails
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    if (!isClient) return dateString // Return original date during SSR
+    
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return dateString
+      
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    } catch (err) {
+      return dateString // Return original date if parsing fails
+    }
+  }
+
+  // Helper function to capitalize status for display
+  const capitalizeStatus = (status: string): string => {
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
+  }
+
+  const fetchFlightLogs = async (page = 1) => {
+    try {
+      setLoading(true)
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+      
+      if (!organizationId || !token) {
+        setError("Organization ID or authentication token not found")
+        setLoading(false)
+        return
+      }
+
+      if (!apiKey) {
+        setError("API key is not configured")
+        setLoading(false)
+        return
+      }
+
+      // Get today's date range in UTC to ensure we capture all flights for today in local timezone
+      const today = new Date()
+      const startOfDay = new Date(today)
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(today)
+      endOfDay.setHours(23, 59, 59, 999)
+      
+      const startDateUTC = startOfDay.toISOString().split('T')[0]
+      const endDateUTC = endOfDay.toISOString().split('T')[0]
+      
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule?page=${page}&limit=${FLIGHTS_PER_PAGE}&start_date=${startDateUTC}&end_date=${endDateUTC}`
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          error: errorData
+        })
+        throw new Error(`Failed to fetch flight logs: ${response.status} ${response.statusText}`)
+      }
+
+      const responseData = await response.json()
+      console.log('Flight logs data:', responseData)
+      
+      // Extract data from the new response structure
+      const data = responseData.data
+      
+      if (data?.schedules && Array.isArray(data.schedules)) {
+        // Transform the schedule data to match our FlightLog interface
+        const transformedFlights: FlightLog[] = data.schedules.map((schedule: any) => {
+          // Parse UTC time and convert to local time for display
+          const utcDateTime = schedule.scheduled_start_time ? new Date(schedule.scheduled_start_time) : null;
+          
+          return {
+            _id: schedule._id,
+            date: utcDateTime ? utcDateTime.toISOString().split('T')[0] : '', // Store as ISO date string
+            start_time: utcDateTime ? 
+              utcDateTime.toISOString().split('T')[1].substring(0, 5) : '', // Store as HH:MM format
+            plane_reg: schedule.plane_id?.registration || 'N/A',
+            plane_id: schedule.plane_id?._id || '',
+            student_name: schedule.student_id ? 
+              `${schedule.student_id.user_id?.first_name || ''} ${schedule.student_id.user_id?.last_name || ''}`.trim() : 'N/A',
+            student_id: schedule.student_id?._id || '',
+            instructor: schedule.instructor_id ? 
+              `${schedule.instructor_id.user_id?.first_name || ''} ${schedule.instructor_id.user_id?.last_name || ''}`.trim() : 'N/A',
+            instructor_id: schedule.instructor_id?._id || '',
+            duration: schedule.scheduled_duration || 0,
+            type: schedule.flight_type || 'Training',
+            status: capitalizeStatus(schedule.status || 'scheduled'),
+            organization_id: schedule.organization_id?._id || organizationId,
+            created_at: schedule.created_at || '',
+            updated_at: schedule.updated_at || ''
+          };
+        });
+        
+        setFlights(transformedFlights);
+        setTotalPages(data.pagination?.pages || 1);
+        
+        // Extract and store status counts
+        if (data.pagination?.statusCounts) {
+          setStatusCounts({
+            current: data.pagination.statusCounts.current || 0,
+            scheduled: data.pagination.statusCounts.scheduled || 0,
+            completed: data.pagination.statusCounts.completed || 0,
+            canceled: data.pagination.statusCounts.canceled || 0
+          });
+        }
+      } else {
+        setError("Invalid data format received from API")
+      }
+    } catch (err) {
+      console.error("Error fetching flight logs:", err)
+      setError(err instanceof Error ? err.message : "An unknown error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchFlightLogs(currentPage)
+  }, [currentPage])
+
+  const handleViewAllFlights = () => {
+    // Navigate to the flight log page
+    router.push('/flight-log')
+  }
+
+  const handleViewDetails = (flight: FlightLog) => {
+    setSelectedFlight(flight)
+  }
+
+  const handleBackToList = () => {
+    setSelectedFlight(null)
+  }
+
+  const handleStartFlight = async (actualStartTime: string) => {
+    if (!selectedFlight || !actualStartTime) return
+
+    try {
+      setIsUpdatingFlight(true)
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+
+      if (!organizationId || !token || !apiKey) {
+        throw new Error("Missing required authentication data")
+      }
+
+      // Create a proper datetime string for the actual start time
+      const flightDate = new Date(selectedFlight.date)
+      const [hours, minutes] = actualStartTime.split(':').map(Number)
+      flightDate.setHours(hours, minutes, 0, 0)
+      const actualStartTimeISO = flightDate.toISOString()
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          status: 'in-progress',
+          actual_start_time: actualStartTimeISO
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to start flight: ${response.status} ${response.statusText}`)
+      }
+
+      // Update the selected flight and flights list
+      const updatedFlight = {
+        ...selectedFlight,
+        status: 'In-progress'
+      }
+      setSelectedFlight(updatedFlight)
+      setFlights(prevFlights => 
+        prevFlights.map(flight => 
+          flight._id === selectedFlight._id 
+            ? updatedFlight 
+            : flight
+        )
+      )
+
+      // Close modal
+      setIsStartFlightModalOpen(false)
+
+    } catch (error) {
+      console.error("Error starting flight:", error)
+      // You could add a toast notification here
+    } finally {
+      setIsUpdatingFlight(false)
+    }
+  }
+
+  const handleEndFlight = async (actualEndTime: string) => {
+    if (!selectedFlight || !actualEndTime) return
+
+    try {
+      setIsUpdatingFlight(true)
+      const organizationId = localStorage.getItem("organizationId") || localStorage.getItem("schoolId")
+      const token = localStorage.getItem("token")
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY
+
+      if (!organizationId || !token || !apiKey) {
+        throw new Error("Missing required authentication data")
+      }
+
+      // Create a proper datetime string for the actual end time
+      const flightDate = new Date(selectedFlight.date)
+      const [hours, minutes] = actualEndTime.split(':').map(Number)
+      flightDate.setHours(hours, minutes, 0, 0)
+      const actualEndTimeISO = flightDate.toISOString()
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/organizations/${organizationId}/flight_schedule/${selectedFlight._id}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'Authorization': `Bearer ${token}`,
+          'X-CSRF-Token': localStorage.getItem("csrfToken") || ""
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          status: 'completed',
+          actual_end_time: actualEndTimeISO
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to end flight: ${response.status} ${response.statusText}`)
+      }
+
+      // Update the selected flight and flights list
+      const updatedFlight = {
+        ...selectedFlight,
+        status: 'Completed'
+      }
+      setSelectedFlight(updatedFlight)
+      setFlights(prevFlights => 
+        prevFlights.map(flight => 
+          flight._id === selectedFlight._id 
+            ? updatedFlight 
+            : flight
+        )
+      )
+
+      // Close modal
+      setIsEndFlightModalOpen(false)
+
+    } catch (error) {
+      console.error("Error ending flight:", error)
+      // You could add a toast notification here
+    } finally {
+      setIsUpdatingFlight(false)
+    }
+  }
+
+  if (error) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle>Today's Flights</CardTitle>
+          <CardDescription>Error loading flight data</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <div className="text-center text-red-500">{error}</div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (selectedFlight) {
+    return (
+      <Card className={className}>
+        <CardHeader className="border-b">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleBackToList}
+              className="hover:bg-muted"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <CardTitle className="text-2xl">Flight Details</CardTitle>
+              <CardDescription className="text-base">
+                {selectedFlight.plane_reg} • {formatDate(selectedFlight.date)} • {formatTime(selectedFlight.start_time)}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                <h3 className="text-sm font-medium text-muted-foreground">Flight Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-medium text-muted-foreground">Start Time</h4>
+                    <p className="text-sm font-medium">{formatTime(selectedFlight.start_time)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-medium text-muted-foreground">Duration</h4>
+                    <p className="text-sm font-medium">{selectedFlight.duration} hours</p>
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-medium text-muted-foreground">Type</h4>
+                    <p className="text-sm font-medium">{selectedFlight.type}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                <h3 className="text-sm font-medium text-muted-foreground">Participants</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground">Student</h4>
+                      <p className="text-sm font-medium">{selectedFlight.student_name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-medium text-muted-foreground">Instructor</h4>
+                      <p className="text-sm font-medium">{selectedFlight.instructor}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                <h3 className="text-sm font-medium text-muted-foreground">Aircraft</h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                    <Plane className="h-4 w-4 text-primary" strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground">Registration</h4>
+                    <p className="text-sm font-medium">{selectedFlight.plane_reg}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+                <div className="flex items-center gap-3">
+                  <Badge
+                    variant={selectedFlight.status === "Completed" ? "default" : "secondary"}
+                    className={`text-sm px-3 py-1 text-black border ${
+                      selectedFlight.status === "Completed" 
+                        ? "bg-[#b3c6ff] border-[#809fff]" 
+                        : selectedFlight.status === "In-progress"
+                          ? "bg-[#c2f0c2] border-[#99e699]"
+                          : selectedFlight.status === "Preparing"
+                            ? "bg-[#fbfbb6] border-[#f9f986]"
+                          : selectedFlight.status === "Scheduled"
+                            ? "bg-[#f0b3ff] border-[#e580ff]"
+                          : selectedFlight.status === "Cancelled" || selectedFlight.status === "Canceled"
+                            ? "bg-[#fc9c9c] border-[#fb6a6a]"
+                            : "bg-[#f0b3ff] border-[#e580ff]"
+                    }`}
+                  >
+                    {selectedFlight.status}
+                  </Badge>
+                  {selectedFlight.status === "Scheduled" && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => setIsStartFlightModalOpen(true)}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                    >
+                      Start Flight
+                    </Button>
+                  )}
+                  {selectedFlight.status === "In-progress" && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => setIsEndFlightModalOpen(true)}
+                      className="bg-green-600 hover:bg-green-500 text-white"
+                    >
+                      End Flight
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+        <StartFlightModal
+          isOpen={isStartFlightModalOpen}
+          onClose={() => setIsStartFlightModalOpen(false)}
+          onStartFlight={handleStartFlight}
+          selectedFlight={selectedFlight}
+          isUpdating={isUpdatingFlight}
+        />
+        <EndFlightModal
+          isOpen={isEndFlightModalOpen}
+          onClose={() => setIsEndFlightModalOpen(false)}
+          onEndFlight={handleEndFlight}
+          selectedFlight={selectedFlight}
+          isUpdating={isUpdatingFlight}
+        />
+      </Card>
+    )
+  }
+
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <div>
+              <CardTitle>Today's Flights</CardTitle>
+              <CardDescription>Overview of upcoming flights</CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#c2f0c2] border border-[#99e699]"></div>
+                <span className="text-sm text-muted-foreground">{statusCounts.current} Current</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#f0b3ff] border border-[#e580ff]"></div>
+                <span className="text-sm text-muted-foreground">{statusCounts.scheduled} Scheduled</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#b3c6ff] border border-[#809fff]"></div>
+                <span className="text-sm text-muted-foreground">{statusCounts.completed} Completed</span>
+              </div>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleViewAllFlights} className="self-start sm:self-center">
+            View All Flights
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Aircraft</TableHead>
+                <TableHead>Student</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: FLIGHTS_PER_PAGE }).map((_, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-16 rounded" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-5 w-5 rounded-full" />
+                        <Skeleton className="h-4 w-16 rounded" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <Skeleton className="h-4 w-20 rounded" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-10 rounded" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-12 rounded" />
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                ))
+              ) : flights.length > 0 ? (
+                <>
+                  {flights.map((flight) => (
+                    <TableRow key={flight._id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleViewDetails(flight)}>
+                      <TableCell>{formatTime(flight.start_time)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Plane className="h-5 w-5 text-primary" strokeWidth={2.5} />
+                          {flight.plane_reg}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          {flight.student_name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{flight.duration} hrs</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={flight.status === "Completed" ? "default" : "secondary"}
+                          className={`text-black border ${
+                            flight.status === "Completed"
+                              ? "bg-[#b3c6ff] border-[#809fff]"
+                              : flight.status === "In-progress"
+                              ? "bg-[#c2f0c2] border-[#99e699]"
+                              : flight.status === "Preparing"
+                              ? "bg-[#fbfbb6] border-[#f9f986]"
+                              : flight.status === "Scheduled"
+                              ? "bg-[#f0b3ff] border-[#e580ff]"
+                              : flight.status === "Cancelled" || flight.status === "Canceled"
+                              ? "bg-[#fc9c9c] border-[#fb6a6a]"
+                              : "bg-[#f0b3ff] border-[#e580ff]"
+                          }`}
+                        >
+                          {flight.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{flight.type}</TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  ))}
+                  {/* Fill empty slots if flights.length < FLIGHTS_PER_PAGE */}
+                  {Array.from({ length: FLIGHTS_PER_PAGE - flights.length }).map((_, idx) => (
+                    <TableRow key={`empty-${idx}`}>
+                      <TableCell>
+                        <Skeleton className="h-4 w-16 rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-5 w-5 rounded-full" />
+                          <Skeleton className="h-4 w-16 rounded" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-4 w-4 rounded-full" />
+                          <Skeleton className="h-4 w-20 rounded" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-10 rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-12 rounded" />
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  ))}
+                </>
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center">
+                    <div className="flex flex-col items-center justify-center gap-4 py-6">
+                      <div className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/20">
+                        <Plane className="h-8 w-8 text-blue-500 dark:text-blue-400" strokeWidth={1.5} />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">No flights scheduled today</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm">
+                          All aircraft are grounded today. Check back tomorrow for upcoming flight schedules.
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleViewAllFlights}
+                        className="mt-2"
+                      >
+                        View All Flights
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center relative">
+            <div className="flex-[2] flex justify-center min-w-0">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <Button
+                      variant="ghost"
+                      size="default"
+                      className="gap-1 pl-2.5"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span>Previous</span>
+                    </Button>
+                  </PaginationItem>
+                  
+                  {/* Always show first page */}
+                  {totalPages > 0 && (
+                    <PaginationItem>
+                      <Button
+                        variant={currentPage === 1 ? "outline" : "ghost"}
+                        size="icon"
+                        onClick={() => setCurrentPage(1)}
+                      >
+                        1
+                      </Button>
+                    </PaginationItem>
+                  )}
+
+                  {/* Show ellipsis if there's a gap */}
+                  {currentPage > 3 && totalPages > 4 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+
+                  {/* Show pages around current page */}
+                  {(() => {
+                    const start = Math.max(2, currentPage - 1);
+                    const end = Math.min(totalPages - 1, currentPage + 1);
+                    const items = [];
+
+                    for (let page = start; page <= end; page++) {
+                      items.push(
+                        <PaginationItem key={page}>
+                          <Button
+                            variant={currentPage === page ? "outline" : "ghost"}
+                            size="icon"
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </Button>
+                        </PaginationItem>
+                      );
+                    }
+
+                    return items;
+                  })()}
+
+                  {/* Show ellipsis if there's a gap at the end */}
+                  {currentPage < totalPages - 2 && totalPages > 4 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+
+                  {/* Always show last page if more than 1 page */}
+                  {totalPages > 1 && (
+                    <PaginationItem>
+                      <Button
+                        variant={currentPage === totalPages ? "outline" : "ghost"}
+                        size="icon"
+                        onClick={() => setCurrentPage(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <Button
+                      variant="ghost"
+                      size="default"
+                      className="gap-1 pr-2.5"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+} 

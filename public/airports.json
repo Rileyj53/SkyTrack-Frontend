@@ -1,0 +1,74 @@
+{
+    "KPAE": {
+        "icao": "KPAE",
+        "iata": "PAE",
+        "name": "Paine Field",
+        "city": "Everett",
+        "state": "WA",
+        "country": "US",
+        "latitude": 47.906298,
+        "longitude": -122.281502,
+        "elevation": 606,
+        "type": "medium_airport"
+    },
+    "KBFI": {
+        "icao": "KBFI",
+        "iata": "BFI",
+        "name": "Boeing Field King County International Airport",
+        "city": "Seattle",
+        "state": "WA",
+        "country": "US",
+        "latitude": 47.529999,
+        "longitude": -122.302002,
+        "elevation": 21,
+        "type": "medium_airport"
+    },
+    "KRNT": {
+        "icao": "KRNT",
+        "iata": "RNT",
+        "name": "Renton Municipal Airport",
+        "city": "Renton",
+        "state": "WA",
+        "country": "US",
+        "latitude": 47.493099,
+        "longitude": -122.214401,
+        "elevation": 32,
+        "type": "small_airport"
+    },
+    "KTCM": {
+        "icao": "KTCM",
+        "iata": "",
+        "name": "McChord Field",
+        "city": "Lakewood",
+        "state": "WA",
+        "country": "US",
+        "latitude": 47.137699,
+        "longitude": -122.476402,
+        "elevation": 322,
+        "type": "medium_airport"
+    },
+    "KTIW": {
+        "icao": "KTIW",
+        "iata": "TIW",
+        "name": "Tacoma Narrows Airport",
+        "city": "Tacoma",
+        "state": "WA",
+        "country": "US",
+        "latitude": 47.267998,
+        "longitude": -122.578003,
+        "elevation": 294,
+        "type": "small_airport"
+    },
+    "KSEA": {
+        "icao": "KSEA",
+        "iata": "SEA",
+        "name": "Seattle Tacoma International Airport",
+        "city": "Seattle",
+        "state": "WA",
+        "country": "US",
+        "latitude": 47.448889,
+        "longitude": -122.309444,
+        "elevation": 433,
+        "type": "large_airport"
+    }
+}
