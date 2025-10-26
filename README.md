@@ -48,6 +48,3 @@ The development scripts also honour `PORT` if you need a custom port.
 - Source code for pages resides in the `app` directory (Next.js App Router).
 - UI components live in the `components` folder and are styled with Tailwind CSS.
 - Linting is provided via `npm run lint` (requires dependencies to be installed).
-
-Feel free to fork or contribute!
-
